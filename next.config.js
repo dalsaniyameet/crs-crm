@@ -10,9 +10,8 @@ const nextConfig = {
     optimizePackageImports: [
       "lucide-react", "framer-motion", "recharts",
     ],
+    serverComponentsExternalPackages: ["@prisma/client", "prisma"],
   },
-  // Disable static prerendering — all pages are dynamic (auth required)
-  staticPageGenerationTimeout: 0,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },
@@ -28,11 +27,6 @@ const nextConfig = {
   },
   poweredByHeader: false,
   compress: true,
-  // Faster page transitions
-  onDemandEntries: {
-    maxInactiveAge: 60 * 60 * 1000,
-    pagesBufferLength: 10,
-  },
 };
 
 module.exports = nextConfig;
