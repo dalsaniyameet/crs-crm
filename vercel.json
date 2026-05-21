@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/leads/follow-up?secret=crs-cron-2024",
-      "schedule": "0 * * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }
