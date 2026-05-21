@@ -1,13 +1,17 @@
 import twilio from "twilio";
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
-
 const FROM = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886";
 
+function getClient() {
+  const sid   = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !token || !sid.startsWith("AC")) return null;
+  return twilio(sid, token);
+}
+
 export async function sendWhatsApp(to: string, message: string, mediaUrl?: string) {
+  const client = getClient();
+  if (!client) { console.warn("Twilio not configured, skipping WhatsApp"); return; }
   const formattedTo = to.startsWith("whatsapp:") ? to : `whatsapp:+91${to.replace(/\D/g, "").slice(-10)}`;
   return client.messages.create({
     from: FROM,
