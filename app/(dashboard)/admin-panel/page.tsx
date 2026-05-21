@@ -8,7 +8,7 @@ import {
   Users, Shield, Building2, DollarSign, BarChart2,
   Settings, UserCheck, Clock, FileText, Megaphone,
   ChevronRight, Loader2, CheckCircle, XCircle,
-  TrendingUp, AlertTriangle, RefreshCw,
+  TrendingUp, AlertTriangle, RefreshCw, GitBranch,
 } from "lucide-react";
 
 const ROLE_COLORS: Record<string, string> = {
@@ -85,7 +85,7 @@ export default function AdminPanelPage() {
   const quickLinks = [
     { label: "Leads",       href: "/leads",       icon: Users,      color: "from-blue-600 to-blue-400",    count: overview.totalLeads ?? "—" },
     { label: "Properties",  href: "/properties",  icon: Building2,  color: "from-yellow-600 to-yellow-400", count: overview.activeProperties ?? "—" },
-    { label: "Deals",       href: "/deals",       icon: GitBranch2, color: "from-emerald-600 to-emerald-400", count: overview.dealsClosedCount ?? "—" },
+    { label: "Deals",       href: "/deals",       icon: GitBranch,  color: "from-emerald-600 to-emerald-400", count: overview.dealsClosedCount ?? "—" },
     { label: "Revenue",     href: "/commissions", icon: DollarSign, color: "from-purple-600 to-purple-400", count: overview.totalRevenue ? fmtMoney(overview.totalRevenue) : "₹0" },
     { label: "Reports",     href: "/reports",     icon: BarChart2,  color: "from-orange-600 to-orange-400", count: "View" },
     { label: "Employees",   href: "/admin-employees", icon: UserCheck, color: "from-pink-600 to-pink-400", count: users.length },
@@ -351,7 +351,4 @@ export default function AdminPanelPage() {
   );
 }
 
-// Needed since GitBranch2 doesn't exist in lucide — use inline
-function GitBranch2({ className }: { className?: string }) {
-  return <GitBranch className={className} />;
-}
+

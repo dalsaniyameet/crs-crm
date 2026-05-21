@@ -56,11 +56,10 @@ function NewNotifToast({ notif, onClose }: { notif: any; onClose: () => void }) 
       {/* Gold top bar */}
       <motion.div
         className="h-0.5 w-full"
-        style={{ background: "linear-gradient(90deg,#eab308,#facc15)" }}
+        style={{ background: "linear-gradient(90deg,#eab308,#facc15)", transformOrigin: "left", height: 3 }}
         initial={{ scaleX: 1 }}
         animate={{ scaleX: 0 }}
         transition={{ duration: 5, ease: "linear" }}
-        style={{ transformOrigin: "left", background: "linear-gradient(90deg,#eab308,#facc15)", height: 3 }}
       />
       <div className="flex items-start gap-3 px-4 py-3">
         <span className="text-xl flex-shrink-0 mt-0.5">{TYPE_ICONS[notif.type] || "🔔"}</span>
