@@ -11,6 +11,8 @@ const nextConfig = {
       "lucide-react", "framer-motion", "recharts",
     ],
   },
+  // Disable static prerendering — all pages are dynamic (auth required)
+  staticPageGenerationTimeout: 0,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },
