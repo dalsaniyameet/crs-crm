@@ -89,19 +89,6 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(property, { status: 201 });
-
-    // After saving, re-match all active leads that fit this property type
-    // Run in background — don't await
-    prisma.lead.findMany({
-      where: {
-        status:          { notIn: ["DEAL_CLOSED", "LOST"] },
-        propertyType:    property.type,
-        transactionType: property.transactionType,
-      },
-      select: { id: true },
-    }).then(leads => {
-      leads.forEach(l => autoMatchProperties(l.id).catch(() => {}));
-    }).catch(() => {});
   } catch (err: any) {
     console.error("Properties POST error:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });

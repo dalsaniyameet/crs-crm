@@ -5,9 +5,6 @@ import "./globals.css";
 import ToasterClient from "./toaster-client";
 import SplashScreen from "./splash-screen";
 
-// Force all pages to be dynamic — no static prerendering
-export const dynamic = "force-dynamic";
-
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {

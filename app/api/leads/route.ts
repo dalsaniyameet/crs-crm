@@ -103,7 +103,6 @@ export async function POST(req: NextRequest) {
         ...body,
         score:           aiScore.score,
         dealProbability: aiScore.probability,
-        // Auto-assign to self if BROKER
         assignedToId: body.assignedToId || (user.role === "BROKER" ? user.id : undefined),
       },
     });
@@ -117,10 +116,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Trigger auto property match in background
     autoMatchProperties(lead.id).catch(() => {});
 
-    // Trigger NEW lead automation — notify broker + create first follow-up task
     runLeadAutomation({
       leadId:      lead.id,
       newStatus:   "NEW",

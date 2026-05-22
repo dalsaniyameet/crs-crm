@@ -50,7 +50,7 @@ export async function GET() {
           broker:   { select: { name: true } },
         },
       }),
-      prisma.leadTask.findMany({
+      prisma.task.findMany({
         where: { dueAt: { gte: today, lt: tomorrow }, isCompleted: false },
         take: 8,
         orderBy: { dueAt: "asc" },
