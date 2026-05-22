@@ -1,0 +1,125 @@
+   ▲ Next.js 15.3.3
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (192kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully in 67s
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/82) ...
+   Generating static pages (20/82) 
+   Generating static pages (40/82) 
+   Generating static pages (61/82) 
+ ✓ Generating static pages (82/82)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS  Revalidate  Expire
+┌ ○ /                                    4.09 kB         151 kB
+├ ○ /_not-found                            353 B         102 kB
+├ ○ /admin-employees                     7.18 kB         150 kB
+├ ƒ /admin-employees/[id]                13.2 kB         156 kB
+├ ○ /admin-panel                          5.6 kB         179 kB
+├ ○ /admin-users                         1.48 kB         139 kB
+├ ○ /agreements                          7.31 kB         150 kB
+├ ○ /ai-assistant                        6.22 kB         144 kB
+├ ƒ /api/admin/employees                   353 B         102 kB
+├ ƒ /api/admin/employees/[id]              353 B         102 kB
+├ ƒ /api/admin/employees/documents         353 B         102 kB
+├ ƒ /api/admin/employees/offer-letter      353 B         102 kB
+├ ƒ /api/admin/employees/reset-password    353 B         102 kB
+├ ƒ /api/admin/employees/salary-slip       353 B         102 kB
+├ ƒ /api/admin/users                       353 B         102 kB
+├ ƒ /api/agreements                        353 B         102 kB
+├ ƒ /api/agreements/[id]                   353 B         102 kB
+├ ƒ /api/ai                                353 B         102 kB
+├ ƒ /api/ai/chat                           353 B         102 kB
+├ ƒ /api/ai/match-leads                    353 B         102 kB
+├ ƒ /api/ai/scan-card                      353 B         102 kB
+├ ƒ /api/attendance                        353 B         102 kB
+├ ƒ /api/attendance/employees              353 B         102 kB
+├ ƒ /api/attendance/guest                  353 B         102 kB
+├ ƒ /api/attendance/locations              353 B         102 kB
+├ ƒ /api/attendance/qr                     353 B         102 kB
+├ ƒ /api/attendance/scan                   353 B         102 kB
+├ ƒ /api/attendance/today                  353 B         102 kB
+├ ƒ /api/auth/check-admin                  353 B         102 kB
+├ ƒ /api/auth/employee-signin              353 B         102 kB
+├ ƒ /api/auth/me                           353 B         102 kB
+├ ƒ /api/auth/verify-employee              353 B         102 kB
+├ ƒ /api/brokers                           353 B         102 kB
+├ ƒ /api/chat/broadcast                    353 B         102 kB
+├ ƒ /api/chat/rooms                        353 B         102 kB
+├ ƒ /api/chat/rooms/[roomId]/messages      353 B         102 kB
+├ ƒ /api/commissions                       353 B         102 kB
+├ ƒ /api/commissions/[id]                  353 B         102 kB
+├ ƒ /api/commissions/export                353 B         102 kB
+├ ○ /api/dashboard                         353 B         102 kB          1m      1y
+├ ƒ /api/deals                             353 B         102 kB
+├ ƒ /api/deals/[id]                        353 B         102 kB
+├ ƒ /api/employee/documents                353 B         102 kB
+├ ƒ /api/employee/profile                  353 B         102 kB
+├ ƒ /api/google/calendar                   353 B         102 kB
+├ ƒ /api/google/callback                   353 B         102 kB
+├ ƒ /api/leads                             353 B         102 kB
+├ ƒ /api/leads/[id]                        353 B         102 kB
+├ ƒ /api/leads/bulk-message                353 B         102 kB
+├ ƒ /api/leads/call-log                    353 B         102 kB
+├ ƒ /api/leads/export                      353 B         102 kB
+├ ƒ /api/leads/follow-up                   353 B         102 kB
+├ ƒ /api/leads/import                      353 B         102 kB
+├ ƒ /api/leads/tasks                       353 B         102 kB
+├ ƒ /api/leaves                            353 B         102 kB
+├ ƒ /api/leaves/[id]                       353 B         102 kB
+├ ƒ /api/marketing                         353 B         102 kB
+├ ƒ /api/marketing/[id]                    353 B         102 kB
+├ ƒ /api/notifications                     353 B         102 kB
+├ ƒ /api/owners                            353 B         102 kB
+├ ƒ /api/owners/[id]                       353 B         102 kB
+├ ƒ /api/owners/[id]/messages              353 B         102 kB
+├ ƒ /api/properties                        353 B         102 kB
+├ ƒ /api/properties/[id]                   353 B         102 kB
+├ ƒ /api/properties/export                 353 B         102 kB
+├ ƒ /api/reports                           353 B         102 kB
+├ ƒ /api/search                            353 B         102 kB
+├ ƒ /api/upload                            353 B         102 kB
+├ ƒ /api/visits                            353 B         102 kB
+├ ƒ /api/visits/[id]                       353 B         102 kB
+├ ƒ /api/webhooks/clerk                    353 B         102 kB
+├ ƒ /api/webhooks/portal                   353 B         102 kB
+├ ƒ /api/webhooks/property                 353 B         102 kB
+├ ƒ /api/webhooks/website                  353 B         102 kB
+├ ƒ /api/whatsapp                          353 B         102 kB
+├ ○ /attendance                          8.08 kB         181 kB
+├ ○ /attendance/me                        3.9 kB         177 kB
+├ ○ /attendance/scan                      110 kB         252 kB
+├ ○ /calendar                            6.47 kB         144 kB
+├ ○ /commissions                         4.51 kB         148 kB
+├ ○ /dashboard                           9.22 kB         188 kB
+├ ○ /deals                                  6 kB         149 kB
+├ ○ /employee                            11.5 kB         190 kB
+├ ○ /leads                               14.5 kB         158 kB
+├ ○ /marketing                           5.36 kB         179 kB
+├ ○ /owners                              25.2 kB         174 kB
+├ ○ /owners/import                       5.44 kB         148 kB
+├ ○ /properties                          9.64 kB         153 kB
+├ ○ /punch                               4.41 kB         148 kB
+├ ○ /reports                              101 kB         239 kB
+├ ○ /settings                            4.84 kB         148 kB
+├ ƒ /sign-in/[[...sign-in]]              4.99 kB         143 kB
+├ ƒ /sign-up/[[...sign-up]]                188 B         111 kB
+├ ○ /sso-callback                          257 B         132 kB
+├ ○ /team-chat                           6.03 kB         149 kB
+└ ○ /visits                              6.87 kB         150 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/1684-c132c428eff3c236.js      46.4 kB
+  ├ chunks/4bd1b696-0e14ecfaa04ab53d.js  53.2 kB
+  └ other shared chunks (total)          2.16 kB
+
+
+ƒ Middleware                             87.4 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
