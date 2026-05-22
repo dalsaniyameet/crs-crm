@@ -397,8 +397,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             <NotificationBell />
-            <button onClick={() => router.push(role === "ADMIN" ? "/attendance" : "/employee")}
-              className="cursor-pointer flex items-center gap-2" title={role === "ADMIN" ? "Admin Dashboard" : "My Panel"}>
+            <button onClick={() => router.push("/dashboard")}
+              className="cursor-pointer flex items-center gap-2" title="Dashboard">
               <UserAvatar name={userName} imageUrl={userImage} />
               <span className={`hidden lg:block text-xs font-semibold px-2 py-0.5 rounded-full ${
                 role === "ADMIN"

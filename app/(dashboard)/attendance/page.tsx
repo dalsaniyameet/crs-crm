@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   QrCode, MapPin, Clock, Users, Printer, RefreshCw,
-  Coffee, LogIn, LogOut, Calendar, ChevronDown, ChevronUp, Gift,
+  Coffee, LogIn, LogOut, Calendar, ChevronDown, ChevronUp, Gift, ScanFace,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import FacePunch from "@/components/attendance/FacePunch";
 
 // ── Birthday confetti ──────────────────────────────────────────────────────
 function BirthdayBanner({ employees }: { employees: any[] }) {
@@ -92,7 +93,8 @@ export default function AttendancePage() {
 
   // Admin manual punch state
   const [punchingEmp, setPunchingEmp]   = useState<string | null>(null);
-  const [breakTimers, setBreakTimers]   = useState<Record<string, { start: number; total: number }>>({});
+  const [breakTimers, setBreakTimers]   = useState<Record<string, { start: number; total: number }>>({}); 
+  const [facePunch, setFacePunch]       = useState<{ emp: any; action: "IN" | "OUT" } | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -306,10 +308,16 @@ export default function AttendancePage() {
                     {/* Actions */}
                     <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
                       {!isPunchedIn ? (
-                        <button onClick={() => handleAdminPunch(emp, "IN")} disabled={punchingEmp === emp.id}
-                          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
-                          <LogIn className="w-3 h-3" /> Punch In
-                        </button>
+                        <>
+                          <button onClick={() => setFacePunch({ emp, action: "IN" })}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30 transition-colors">
+                            <ScanFace className="w-3 h-3" /> Face
+                          </button>
+                          <button onClick={() => handleAdminPunch(emp, "IN")} disabled={punchingEmp === emp.id}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
+                            <LogIn className="w-3 h-3" /> Punch In
+                          </button>
+                        </>
                       ) : (
                         <>
                           <button onClick={() => toggleBreak(emp.id)}
@@ -320,6 +328,10 @@ export default function AttendancePage() {
                             }`}>
                             <Coffee className="w-3 h-3" />
                             {onBreak ? "End Break" : "Break"}
+                          </button>
+                          <button onClick={() => setFacePunch({ emp, action: "OUT" })}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30 transition-colors">
+                            <ScanFace className="w-3 h-3" /> Face
                           </button>
                           <button onClick={() => handleAdminPunch(emp, "OUT")} disabled={punchingEmp === emp.id}
                             className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50">
@@ -485,6 +497,21 @@ export default function AttendancePage() {
           </div>
         )}
       </motion.div>
+
+      {/* Face Punch Modal */}
+      <AnimatePresence>
+        {facePunch && (
+          <FacePunch
+            employeeName={facePunch.emp.name}
+            action={facePunch.action}
+            onSuccess={() => {
+              handleAdminPunch(facePunch.emp, facePunch.action);
+              setFacePunch(null);
+            }}
+            onClose={() => setFacePunch(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

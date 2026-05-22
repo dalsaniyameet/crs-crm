@@ -12,14 +12,14 @@ import {
   FileText, Upload, Trash2, ExternalLink, ScanLine, MessageCircle, Send,
 } from "lucide-react";
 
-function LiveTimer({ since, breakSecs = 0 }: { since: string; breakSecs: number }) {
+function LiveTimer({ since, breakSecs = 0, small = false }: { since: string; breakSecs: number; small?: boolean }) {
   const [secs, setSecs] = useState(0);
   useEffect(() => {
     const tick = () => setSecs(Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000) - breakSecs));
     tick(); const id = setInterval(tick, 1000); return () => clearInterval(id);
   }, [since, breakSecs]);
   const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
-  return <span className="font-mono text-2xl font-bold text-emerald-400">{String(h).padStart(2,"0")}:{String(m).padStart(2,"0")}:{String(s).padStart(2,"0")}</span>;
+  return <span className={`font-mono font-bold text-emerald-400 ${small ? "text-xs" : "text-2xl"}`}>{String(h).padStart(2,"0")}:{String(m).padStart(2,"0")}:{String(s).padStart(2,"0")}</span>;
 }
 
 function BreakTimer({ since }: { since: number }) {
@@ -326,6 +326,83 @@ export default function EmployeePanelPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-3xl mx-auto">
+
+      {/* ── Sticky Punch Status Banner ── */}
+      <AnimatePresence>
+        {todayRecord && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="sticky top-0 z-30 rounded-2xl overflow-hidden"
+            style={{ background: onBreak ? "rgba(234,179,8,0.12)" : "rgba(16,185,129,0.1)", border: `1px solid ${onBreak ? "rgba(234,179,8,0.3)" : "rgba(16,185,129,0.3)"}`, backdropFilter: "blur(12px)" }}
+          >
+            <div className="flex items-center gap-3 px-4 py-3">
+              {/* Status dot */}
+              <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${onBreak ? "bg-yellow-400" : "bg-emerald-400"} animate-pulse`} />
+
+              {/* Punch in time */}
+              <div className="flex-shrink-0">
+                <div className="text-xs text-muted-foreground">Punched In</div>
+                <div className="text-xs font-semibold text-white">
+                  {new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                </div>
+              </div>
+
+              <div className="text-muted-foreground text-xs">·</div>
+
+              {/* Live work timer */}
+              <div className="flex-shrink-0">
+                <div className="text-xs text-muted-foreground">Work Time</div>
+                <LiveTimer since={todayRecord.punchIn} breakSecs={breakSecs} small />
+              </div>
+
+              {/* Break time */}
+              {(onBreak || breakState.total > 0) && (
+                <>
+                  <div className="text-muted-foreground text-xs">·</div>
+                  <div className="flex-shrink-0">
+                    <div className="text-xs text-muted-foreground">Break</div>
+                    <div className="font-mono text-xs font-bold text-yellow-400">
+                      {onBreak
+                        ? <BreakTimer since={breakState.start} />
+                        : <span>{String(Math.floor(breakState.total/60)).padStart(2,"0")}:{String(breakState.total%60).padStart(2,"0")}</span>
+                      }
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Break button */}
+              <button onClick={toggleBreak}
+                className={`ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all flex-shrink-0 ${
+                  onBreak
+                    ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/30"
+                    : "bg-white/5 text-muted-foreground border-white/10 hover:text-yellow-400 hover:border-yellow-500/30"
+                }`}>
+                <Coffee className="w-3 h-3" />
+                {onBreak ? "End Break" : "Break"}
+              </button>
+
+              {/* Punch out */}
+              <button onClick={() => handlePunch("OUT")} disabled={punching}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50 flex-shrink-0">
+                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
+                Out
+              </button>
+            </div>
+
+            {/* Break progress bar */}
+            {(onBreak || breakState.total > 0) && (
+              <div className="h-0.5 bg-white/5">
+                <motion.div
+                  className="h-full bg-yellow-400"
+                  animate={{ width: `${Math.min(100, ((breakState.total + (onBreak ? Math.floor((Date.now() - breakState.start)/1000) : 0)) / 3600) * 100)}%` }}
+                  transition={{ duration: 1 }}
+                />
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Profile Header — always visible */}
       <div className="glass-card p-5">

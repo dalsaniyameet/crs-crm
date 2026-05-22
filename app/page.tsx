@@ -1,173 +1,378 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { TrendingUp, Users, Zap, ArrowRight, Star, MapPin, Phone, Building2, Mail, Globe } from "lucide-react";
+import { TrendingUp, Users, Zap, ArrowRight, Star, MapPin, Phone, Building2, Mail, Globe, Shield, Bot, BarChart3 } from "lucide-react";
 
-const stats = [
-  { label: "Properties Listed", value: "2,400+", icon: Building2 },
-  { label: "Deals Closed",      value: "850+",   icon: TrendingUp },
-  { label: "Happy Clients",     value: "1,200+", icon: Users },
-  { label: "AI Matches/Day",    value: "500+",   icon: Zap },
-];
+// ── Animated counter ──
+function Counter({ to, suffix = "+" }: { to: number; suffix?: string }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
 
-const features = [
-  { title: "AI Lead Scoring",     desc: "Auto-score leads by budget, urgency & intent",  icon: "🤖" },
-  { title: "Auto Property Match", desc: "Instantly match buyers to perfect properties",  icon: "🏠" },
-  { title: "WhatsApp Automation", desc: "Auto follow-ups, reminders & campaigns",        icon: "💬" },
-  { title: "Deal Pipeline",       desc: "Visual kanban pipeline from enquiry to close",  icon: "📊" },
-  { title: "Commission Tracker",  desc: "Auto-calculate and track all commissions",      icon: "💰" },
-  { title: "Smart Reports",       desc: "Real-time broker & revenue analytics",          icon: "📈" },
-];
+  useEffect(() => {
+    // Small delay so element is visible on page load
+    const startTimer = setTimeout(() => {
+      const duration = 2000;
+      const steps = 80;
+      const interval = duration / steps;
+      let current = 0;
+      const timer = setInterval(() => {
+        current += 1;
+        const progress = current / steps;
+        // easeOutQuart
+        const eased = 1 - Math.pow(1 - progress, 4);
+        setCount(Math.floor(eased * to));
+        if (current >= steps) { setCount(to); clearInterval(timer); }
+      }, interval);
+      return () => clearInterval(timer);
+    }, 600);
+    return () => clearTimeout(startTimer);
+  }, [to]);
 
-function Logo({ size = 40 }: { size?: number }) {
+  return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
+}
+
+// ── Floating logo background ──
+function FloatingLogo({ size, delay, initialX, initialY }: { size: number; delay: number; initialX: string; initialY: string }) {
   return (
-    <div className="relative rounded-xl overflow-hidden flex-shrink-0 bg-white" style={{ width: size, height: size }}>
-      <Image src="/logo.jpeg" alt="City Real Space" fill className="object-contain p-0.5" />
-    </div>
+    <motion.div
+      className="absolute rounded-2xl overflow-hidden"
+      style={{ width: size, height: size, left: initialX, top: initialY, background: "rgba(234,179,8,0.04)", border: "1px solid rgba(234,179,8,0.08)" }}
+      animate={{
+        x: [0, 20, -15, 10, 0],
+        y: [0, -20, 15, -10, 0],
+        rotate: [0, 3, -2, 2, 0],
+        opacity: [0.4, 0.6, 0.5, 0.6, 0.4],
+      }}
+      transition={{ duration: 14, delay, repeat: Infinity, ease: "easeInOut" }}
+    >
+      <Image src="/logo.jpeg" alt="" fill sizes={`${size}px`} className="object-contain p-2" style={{ opacity: 0.12 }} />
+    </motion.div>
   );
 }
 
+const stats = [
+  { label: "Properties Listed", value: 100,  suffix: "+", icon: Building2,  color: "text-gold-400" },
+  { label: "Deals Closed",      value: 250,  suffix: "+", icon: TrendingUp, color: "text-emerald-400" },
+  { label: "Happy Clients",     value: 500,  suffix: "+", icon: Users,      color: "text-blue-400" },
+  { label: "Years Experience",  value: 25,   suffix: "+", icon: Star,       color: "text-purple-400" },
+];
+
+const features = [
+  { title: "AI Lead Scoring",     desc: "Auto-score leads by budget, urgency & intent — never miss a hot lead",  icon: "🤖" },
+  { title: "Auto Property Match", desc: "Instantly match buyers to perfect properties using AI",                  icon: "🏠" },
+  { title: "WhatsApp Automation", desc: "Auto follow-ups, reminders & bulk campaigns on WhatsApp",               icon: "💬" },
+  { title: "Deal Pipeline",       desc: "Visual kanban pipeline from first enquiry to deal close",               icon: "📊" },
+  { title: "Commission Tracker",  desc: "Auto-calculate, track and generate commission invoices",                 icon: "💰" },
+  { title: "Smart Reports",       desc: "Real-time broker performance & revenue analytics",                      icon: "📈" },
+];
+
+const trusts = [
+  { icon: Shield,   label: "Secure & Private",    desc: "Bank-grade security" },
+  { icon: Bot,      label: "AI Powered",           desc: "GPT-4o intelligence" },
+  { icon: BarChart3,label: "Real-time Analytics",  desc: "Live dashboards" },
+];
+
 export default function HomePage() {
+  const [mouseX, setMouseX] = useState(0);
+  const [mouseY, setMouseY] = useState(0);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      setMouseX((e.clientX / window.innerWidth - 0.5) * 20);
+      setMouseY((e.clientY / window.innerHeight - 0.5) * 20);
+    };
+    window.addEventListener("mousemove", handler);
+    return () => window.removeEventListener("mousemove", handler);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background overflow-hidden">
-      {/* Floating orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="floating-orb w-96 h-96 bg-estate-600 top-[-10%] left-[-5%]"  style={{ animationDelay: "0s" }} />
-        <div className="floating-orb w-64 h-64 bg-gold-500 top-[30%] right-[-5%]"   style={{ animationDelay: "1.5s" }} />
-        <div className="floating-orb w-80 h-80 bg-estate-800 bottom-[-10%] left-[30%]" style={{ animationDelay: "3s" }} />
+    <div className="min-h-screen overflow-hidden" style={{ background: "#050508" }}>
+
+      {/* ── Background ── */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute inset-0" style={{
+          background: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(234,179,8,0.12) 0%, transparent 60%)",
+        }} />
+        <div className="absolute inset-0" style={{
+          background: "radial-gradient(ellipse 60% 40% at 80% 80%, rgba(234,179,8,0.05) 0%, transparent 50%)",
+        }} />
+        {/* Grid */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: "linear-gradient(rgba(234,179,8,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(234,179,8,0.5) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }} />
       </div>
 
-      {/* Navbar */}
-      <nav className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-white/5 backdrop-blur-sm">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2 min-w-0">
-          <Logo size={38} />
-          <div className="min-w-0">
-            <div className="font-bold text-white text-base leading-none truncate">City Real Space</div>
-            <div className="text-xs text-muted-foreground hidden sm:block">AI-Powered CRM</div>
+      {/* ── Floating logos ── */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <FloatingLogo size={80}  delay={0}   initialX="5%"  initialY="15%" />
+        <FloatingLogo size={50}  delay={2}   initialX="88%" initialY="20%" />
+        <FloatingLogo size={65}  delay={4}   initialX="75%" initialY="65%" />
+        <FloatingLogo size={45}  delay={1.5} initialX="10%" initialY="70%" />
+        <FloatingLogo size={35}  delay={3}   initialX="50%" initialY="85%" />
+      </div>
+
+      {/* ── Navbar ── */}
+      <nav className="relative z-20 flex items-center justify-between px-6 py-4 border-b"
+        style={{ borderColor: "rgba(234,179,8,0.08)", background: "rgba(5,5,8,0.8)", backdropFilter: "blur(20px)" }}>
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
+          <motion.div
+            whileHover={{ scale: 1.05, rotate: 3 }}
+            className="relative w-9 h-9 rounded-xl overflow-hidden bg-white"
+            style={{ border: "1px solid rgba(234,179,8,0.4)", boxShadow: "0 0 16px rgba(234,179,8,0.2)" }}>
+            <Image src="/logo.jpeg" alt="City Real Space" fill className="object-contain p-0.5" />
+          </motion.div>
+          <div>
+            <div className="font-bold text-white text-sm leading-none">City Real Space</div>
+            <div className="text-xs" style={{ color: "#eab308" }}>AI-Powered CRM</div>
           </div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
           <a href="https://cityrealspace.com" target="_blank" rel="noreferrer"
-            className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-white transition-colors">
-            <Globe className="w-3 h-3" /> cityrealspace.com
+            className="hidden md:flex items-center gap-1.5 text-xs transition-colors relative"
+            style={{ color: "#eab308" }}>
+            <Globe className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="relative overflow-hidden">
+              cityrealspace.com
+              <motion.span
+                className="absolute bottom-0 left-0 h-px w-full"
+                style={{ background: "linear-gradient(90deg, transparent, #eab308, transparent)" }}
+                animate={{ x: ["-100%", "100%"] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              />
+            </span>
           </a>
-          <Link href="/sign-in" className="btn-primary text-sm">
-            Sign In
+          <Link href="/sign-in"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+            style={{ background: "linear-gradient(135deg,#ca8a04,#eab308)", color: "#050508", boxShadow: "0 0 20px rgba(234,179,8,0.3)" }}>
+            Sign In <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </motion.div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative z-10 text-center px-6 pt-20 pb-16">
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+      {/* ── Hero ── */}
+      <section className="relative z-10 text-center px-6 pt-24 pb-20">
 
-          {/* Logo big */}
+        {/* Center Logo */}
+        <motion.div className="flex justify-center mb-10">
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.1 }}
-            className="flex justify-center mb-6"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.7, type: "spring", bounce: 0.35 }}
+            className="relative"
+            style={{ x: mouseX * 0.2, y: mouseY * 0.2 }}
           >
-            <div className="relative w-24 h-24 rounded-3xl overflow-hidden bg-white shadow-neon border-2 border-estate-500/30">
-              <Image src="/logo.jpeg" alt="City Real Space Logo" fill className="object-contain p-1" />
-            </div>
+            {/* Pulse ring 1 */}
+            <motion.div
+              animate={{ scale: [1, 1.6, 1], opacity: [0.25, 0, 0.25] }}
+              transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut" }}
+              className="absolute rounded-3xl"
+              style={{ inset: -8, background: "transparent", border: "1px solid rgba(234,179,8,0.4)" }}
+            />
+            {/* Pulse ring 2 */}
+            <motion.div
+              animate={{ scale: [1, 1.9, 1], opacity: [0.15, 0, 0.15] }}
+              transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut", delay: 0.6 }}
+              className="absolute rounded-3xl"
+              style={{ inset: -8, background: "transparent", border: "1px solid rgba(234,179,8,0.25)" }}
+            />
+            {/* Gold glow behind */}
+            <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(234,179,8,0.15)", filter: "blur(24px)", transform: "scale(1.3)" }} />
+
+            {/* Logo box */}
+            <motion.div
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+              whileHover={{ scale: 1.06 }}
+              className="relative rounded-3xl overflow-hidden"
+              style={{
+                width: 120, height: 120,
+                background: "#ffffff",
+                border: "2px solid rgba(234,179,8,0.6)",
+                boxShadow: "0 0 0 1px rgba(234,179,8,0.15), 0 8px 40px rgba(234,179,8,0.25), 0 2px 8px rgba(0,0,0,0.4)"
+              }}>
+              <Image
+                src="/logo.jpeg"
+                alt="City Real Space"
+                fill
+                sizes="120px"
+                className="object-contain"
+                style={{ padding: "10px" }}
+                priority
+              />
+            </motion.div>
+
+            {/* 4 corner dots */}
+            {[[-14,-14],["auto",-14],[-14,"auto"],["auto","auto"]].map(([t,l], i) => (
+              <motion.div key={i}
+                animate={{ scale: [1, 1.5, 1], opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 2, repeat: Infinity, delay: i * 0.4 }}
+                className="absolute w-2 h-2 rounded-full"
+                style={{
+                  background: "#eab308",
+                  top: i < 2 ? -6 : "auto", bottom: i >= 2 ? -6 : "auto",
+                  left: i % 2 === 0 ? -6 : "auto", right: i % 2 === 1 ? -6 : "auto",
+                  boxShadow: "0 0 6px rgba(234,179,8,0.8)"
+                }}
+              />
+            ))}
           </motion.div>
+        </motion.div>
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-estate-600/20 border border-estate-500/30 text-estate-400 text-sm mb-6">
-            <Zap className="w-4 h-4" />
-            AI-Powered Real Estate CRM for Ahmedabad
-          </div>
+        {/* Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-6"
+          style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", color: "#eab308" }}>
+          <Zap className="w-4 h-4" />
+          AI-Powered Real Estate CRM for Ahmedabad
+        </motion.div>
 
-          <h1 className="text-5xl md:text-7xl font-bold mb-4 leading-tight">
-            <span className="text-white">City Real Space</span>
-            <br />
-            <span className="gradient-text">CRM Platform</span>
-          </h1>
+        {/* Headline */}
+        <motion.h1
+          initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+          className="text-5xl md:text-7xl font-bold mb-6 leading-tight tracking-tight">
+          <span className="text-white">City Real Space</span>
+          <br />
+          <span style={{
+            background: "linear-gradient(135deg, #ca8a04 0%, #eab308 40%, #fde047 70%, #eab308 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+          }}>
+            CRM Platform
+          </span>
+        </motion.h1>
 
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-            The most automation-driven CRM built specifically for{" "}
-            <span className="text-gold-400 font-semibold">Ahmedabad real estate brokers</span>.
-            AI matching, WhatsApp automation, and smart deal tracking.
-          </p>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+          className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+          The most automation-driven CRM built specifically for{" "}
+          <span style={{ color: "#eab308" }} className="font-semibold">Ahmedabad real estate brokers</span>.
+          AI matching, WhatsApp automation, and smart deal tracking.
+        </motion.p>
 
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Link href="/sign-in" className="btn-primary flex items-center gap-2 text-base px-6 py-3">
-              Open CRM Dashboard <ArrowRight className="w-4 h-4" />
-            </Link>
-            <a href="https://cityrealspace.com" target="_blank" rel="noreferrer"
-              className="glass-card px-6 py-3 text-sm font-medium hover:bg-white/10 transition-all flex items-center gap-2">
-              <Globe className="w-4 h-4" /> Visit Website
-            </a>
-          </div>
+        {/* CTAs */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          className="flex items-center justify-center gap-4 flex-wrap mb-20">
+          <Link href="/sign-in"
+            className="flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105"
+            style={{
+              background: "linear-gradient(135deg,#ca8a04,#eab308,#fde047)",
+              color: "#050508",
+              boxShadow: "0 0 30px rgba(234,179,8,0.4), 0 4px 20px rgba(0,0,0,0.3)"
+            }}>
+            Open CRM Dashboard <ArrowRight className="w-5 h-5" />
+          </Link>
+          <a href="https://cityrealspace.com" target="_blank" rel="noreferrer"
+            className="flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-medium transition-all hover:scale-105"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8" }}>
+            <Globe className="w-5 h-5" /> Visit Website
+          </a>
         </motion.div>
 
         {/* Stats */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.6 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto mt-16"
-        >
+          initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
           {stats.map((s, i) => (
-            <motion.div
-              key={s.label}
-              initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 + i * 0.1 }}
-              className="stat-card text-center"
-            >
-              <s.icon className="w-6 h-6 text-estate-400 mx-auto mb-2" />
-              <div className="text-2xl font-bold gradient-text">{s.value}</div>
-              <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
+            <motion.div key={s.label}
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.1 }}
+              whileHover={{ y: -4, scale: 1.02 }}
+              className="text-center p-5 rounded-2xl"
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(234,179,8,0.1)",
+                backdropFilter: "blur(10px)",
+              }}>
+              <s.icon className={`w-5 h-5 ${s.color} mx-auto mb-3`} />
+              <div className={`text-3xl font-bold mb-1 ${s.color}`}>
+                <Counter to={s.value} suffix={s.suffix} />
+              </div>
+              <div className="text-xs text-muted-foreground">{s.label}</div>
             </motion.div>
           ))}
         </motion.div>
       </section>
 
-      {/* Features */}
-      <section className="relative z-10 px-6 py-16 max-w-6xl mx-auto">
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-white mb-3">Everything You Need to Dominate</h2>
-          <p className="text-muted-foreground">Built for commercial & residential brokers in Ahmedabad</p>
-        </motion.div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {features.map((f, i) => (
-            <motion.div
-              key={f.title}
-              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-              className="glass-card-hover p-6"
-            >
-              <div className="text-3xl mb-3">{f.icon}</div>
-              <h3 className="font-semibold text-white mb-2">{f.title}</h3>
-              <p className="text-sm text-muted-foreground">{f.desc}</p>
+      {/* ── Trust badges ── */}
+      <section className="relative z-10 px-6 py-8">
+        <div className="max-w-3xl mx-auto flex items-center justify-center gap-6 flex-wrap">
+          {trusts.map((t, i) => (
+            <motion.div key={t.label}
+              initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+              className="flex items-center gap-2 px-4 py-2 rounded-full"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <t.icon className="w-4 h-4 text-gold-400" />
+              <span className="text-xs text-white font-medium">{t.label}</span>
+              <span className="text-xs text-muted-foreground">· {t.desc}</span>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="relative z-10 px-6 py-16 text-center">
+      {/* ── Features ── */}
+      <section className="relative z-10 px-6 py-20 max-w-6xl mx-auto">
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-14">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs mb-4"
+            style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.15)", color: "#eab308" }}>
+            FEATURES
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">Everything to Dominate</h2>
+          <p className="text-muted-foreground">Built for commercial & residential brokers in Ahmedabad</p>
+        </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {features.map((f, i) => (
+            <motion.div key={f.title}
+              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
+              whileHover={{ y: -4, borderColor: "rgba(234,179,8,0.25)" }}
+              className="p-6 rounded-2xl transition-all cursor-default"
+              style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="text-3xl mb-4">{f.icon}</div>
+              <h3 className="font-semibold text-white mb-2">{f.title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <section className="relative z-10 px-6 py-20 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
-          className="glass-card max-w-2xl mx-auto p-12 neon-border"
-        >
-          <div className="flex justify-center mb-6">
-            <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-white shadow-neon">
-              <Image src="/logo.jpeg" alt="City Real Space" fill className="object-contain p-1" />
-            </div>
-          </div>
-          <h2 className="text-3xl font-bold text-white mb-3">City Real Space</h2>
-          <p className="text-muted-foreground mb-6">Ahmedabad&apos;s most trusted real estate brokerage</p>
+          className="max-w-2xl mx-auto p-12 rounded-3xl relative overflow-hidden"
+          style={{
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(234,179,8,0.15)",
+            boxShadow: "0 0 60px rgba(234,179,8,0.06)"
+          }}>
+          {/* Glow */}
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(234,179,8,0.08) 0%, transparent 60%)" }} />
+
+          <motion.div
+            whileHover={{ scale: 1.05, rotate: 3 }}
+            className="relative w-16 h-16 rounded-2xl overflow-hidden bg-white mx-auto mb-6"
+            style={{ border: "1px solid rgba(234,179,8,0.4)", boxShadow: "0 0 24px rgba(234,179,8,0.25)" }}>
+            <Image src="/logo.jpeg" alt="City Real Space" fill className="object-contain p-1" />
+          </motion.div>
+
+          <h2 className="text-3xl font-bold text-white mb-2">City Real Space</h2>
+          <p className="text-muted-foreground mb-8">Ahmedabad&apos;s most trusted real estate brokerage</p>
 
           <div className="flex items-center justify-center gap-6 flex-wrap mb-8">
             <a href="https://cityrealspace.com" target="_blank" rel="noreferrer"
-              className="flex items-center gap-1.5 text-sm text-estate-400 hover:text-estate-300 transition-colors">
+              className="flex items-center gap-1.5 text-sm hover:text-white transition-colors" style={{ color: "#eab308" }}>
               <Globe className="w-4 h-4" /> cityrealspace.com
             </a>
             <a href="mailto:info@cityrealspace.com"
-              className="flex items-center gap-1.5 text-sm text-gold-400 hover:text-gold-300 transition-colors">
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-white transition-colors">
               <Mail className="w-4 h-4" /> info@cityrealspace.com
             </a>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <MapPin className="w-4 h-4 text-estate-400" /> Ahmedabad, Gujarat
+              <MapPin className="w-4 h-4" /> Ahmedabad, Gujarat
             </div>
           </div>
 
@@ -180,19 +385,26 @@ export default function HomePage() {
             </div>
           </div>
 
-          <Link href="/sign-in" className="btn-gold inline-flex items-center gap-2 text-base px-8 py-3">
-            Open CRM Dashboard <ArrowRight className="w-4 h-4" />
+          <Link href="/sign-in"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105"
+            style={{
+              background: "linear-gradient(135deg,#ca8a04,#eab308,#fde047)",
+              color: "#050508",
+              boxShadow: "0 0 30px rgba(234,179,8,0.35)"
+            }}>
+            Open CRM Dashboard <ArrowRight className="w-5 h-5" />
           </Link>
         </motion.div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 px-6 py-8 text-center">
+      {/* ── Footer ── */}
+      <footer className="relative z-10 px-6 py-8 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
         <div className="flex items-center justify-center gap-3 mb-3">
-          <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-white">
+          <div className="relative w-7 h-7 rounded-lg overflow-hidden bg-white"
+            style={{ border: "1px solid rgba(234,179,8,0.3)" }}>
             <Image src="/logo.jpeg" alt="City Real Space" fill className="object-contain p-0.5" />
           </div>
-          <span className="text-white font-semibold">City Real Space</span>
+          <span className="text-white font-semibold text-sm">City Real Space</span>
         </div>
         <div className="flex items-center justify-center gap-4 flex-wrap text-xs text-muted-foreground">
           <a href="https://cityrealspace.com" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">cityrealspace.com</a>
@@ -201,7 +413,7 @@ export default function HomePage() {
           <span>·</span>
           <span>Ahmedabad, Gujarat, India</span>
         </div>
-        <p className="text-xs text-muted-foreground mt-3">© 2024 City Real Space. All rights reserved.</p>
+        <p className="text-xs text-muted-foreground mt-3">© 2026 City Real Space. All rights reserved.</p>
       </footer>
     </div>
   );

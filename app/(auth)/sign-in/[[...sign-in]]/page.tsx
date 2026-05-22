@@ -17,18 +17,21 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
 
   // Admin fields
-  const [adminEmail, setAdminEmail] = useState("");
+  const [adminEmail, setAdminEmail]       = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminMode, setAdminMode]         = useState<"oauth" | "password">("oauth");
 
   // Employee fields
   const [empEmail, setEmpEmail]       = useState("");
   const [empPassword, setEmpPassword] = useState("");
 
-  // Already logged in → redirect
+  // Already logged in → check if admin then redirect
   useEffect(() => {
-    if (isSignedIn) router.replace("/employee");
+    if (!isSignedIn) return;
+    router.replace("/dashboard");
   }, [isSignedIn, router]);
 
-  // ── Admin Login (Google OAuth) ──
+  // ── Admin Login ──
   async function handleAdminLogin(e: React.FormEvent) {
     e.preventDefault();
     if (!isLoaded) return;
@@ -40,14 +43,43 @@ export default function SignInPage() {
         body: JSON.stringify({ email: adminEmail }),
       });
       if (!res.ok) { setError("You are not authorized as admin."); setLoading(false); return; }
+
+      if (adminMode === "password") {
+        const result = await signIn!.create({ identifier: adminEmail, password: adminPassword });
+        if (result.status === "complete") {
+          await setActive!({ session: result.createdSessionId });
+          router.push("/dashboard");
+          return;
+        }
+        // Handle any pending factors (e.g. email verification)
+        if (result.status === "needs_first_factor" || result.status === "needs_second_factor") {
+          const attempt = await signIn!.attemptFirstFactor({ strategy: "password", password: adminPassword });
+          if (attempt.status === "complete") {
+            await setActive!({ session: attempt.createdSessionId });
+            router.push("/dashboard");
+            return;
+          }
+        }
+        setError("Login failed. Try again.");
+        setLoading(false);
+        return;
+      }
+
+      // OAuth login
+      const isMicrosoft = adminEmail.toLowerCase() === "info@cityrealspace.com";
       await signIn!.authenticateWithRedirect({
-        strategy: "oauth_google",
+        strategy: isMicrosoft ? "oauth_microsoft" : "oauth_google",
         redirectUrl: "/sso-callback",
         redirectUrlComplete: "/dashboard",
       });
     } catch (err: unknown) {
-      const msg = (err as { errors?: Array<{ message: string }> })?.errors?.[0]?.message;
-      setError(msg || "Google login failed");
+      const clerkErr = err as { errors?: Array<{ message: string; code: string }> };
+      const code = clerkErr?.errors?.[0]?.code || "";
+      const msg =
+        code === "form_password_incorrect"   ? "Incorrect password." :
+        code === "form_identifier_not_found" ? "Admin account not found." :
+        clerkErr?.errors?.[0]?.message || "Login failed";
+      setError(msg);
       setLoading(false);
     }
   }
@@ -151,8 +183,21 @@ export default function SignInPage() {
             <>
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-white mb-1">Admin Login</h2>
-                <p className="text-muted-foreground text-sm">Enter your admin email then sign in with Google</p>
+                <p className="text-muted-foreground text-sm">Sign in with Google, Microsoft, or password</p>
               </div>
+
+              {/* Mode toggle */}
+              <div className="flex rounded-lg bg-white/5 border border-white/10 p-1 mb-4">
+                <button type="button" onClick={() => { setAdminMode("oauth"); setError(""); }}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${adminMode === "oauth" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"}`}>
+                  OAuth
+                </button>
+                <button type="button" onClick={() => { setAdminMode("password"); setError(""); }}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${adminMode === "password" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"}`}>
+                  Password
+                </button>
+              </div>
+
               <form onSubmit={handleAdminLogin} className="space-y-4">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Admin Email</label>
@@ -164,19 +209,76 @@ export default function SignInPage() {
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50" />
                   </div>
                 </div>
+
+                {adminMode === "password" && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input type="password" required value={adminPassword}
+                        onChange={e => setAdminPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50" />
+                    </div>
+                  </div>
+                )}
+
                 {error && <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
-                <button type="submit" disabled={loading || !adminEmail}
-                  className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-white text-gray-800 font-semibold text-sm hover:bg-gray-100 transition-colors disabled:opacity-60">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin text-gray-800" /> : (
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                  )}
-                  {loading ? "Redirecting..." : "Continue with Google"}
-                </button>
+
+                {adminMode === "password" ? (
+                  <button type="submit" disabled={loading || !adminEmail || !adminPassword}
+                    className="btn-primary w-full py-3 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+                    {loading ? "Signing in..." : "Sign In"}
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Google button — always shown */}
+                    <button type="submit" disabled={loading || !adminEmail}
+                      onClick={() => setAdminMode("oauth")}
+                      className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-white text-gray-800 font-semibold text-sm hover:bg-gray-100 transition-colors disabled:opacity-60">
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin text-gray-800" /> : (
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                      )}
+                      {loading ? "Redirecting..." : "Continue with Google"}
+                    </button>
+                    {/* Microsoft button — always shown */}
+                    <button type="button" disabled={loading || !adminEmail}
+                      onClick={async () => {
+                        if (!isLoaded || !adminEmail) return;
+                        setError(""); setLoading(true);
+                        try {
+                          const res = await fetch("/api/auth/check-admin", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ email: adminEmail }),
+                          });
+                          if (!res.ok) { setError("You are not authorized as admin."); setLoading(false); return; }
+                          await signIn!.authenticateWithRedirect({
+                            strategy: "oauth_microsoft",
+                            redirectUrl: "/sso-callback",
+                            redirectUrlComplete: "/dashboard",
+                          });
+                        } catch { setError("Microsoft login failed"); setLoading(false); }
+                      }}
+                      className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-[#2f2f2f] text-white font-semibold text-sm hover:bg-[#404040] transition-colors disabled:opacity-60">
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                          <path fill="#F25022" d="M1 1h10v10H1z"/>
+                          <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+                          <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+                          <path fill="#FFB900" d="M13 13h10v10H13z"/>
+                        </svg>
+                      )}
+                      Continue with Microsoft
+                    </button>
+                  </div>
+                )}
                 <p className="text-center text-xs text-muted-foreground">Only authorized admin accounts can access</p>
               </form>
             </>

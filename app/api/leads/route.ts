@@ -11,7 +11,7 @@ async function getUser(clerkId: string) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const user = await getUser(userId);
@@ -29,7 +29,6 @@ export async function GET(req: NextRequest) {
     if (source)                      where.source = source;
     if (assignedTo)                  where.assignedToId = assignedTo;
 
-    // BROKER can only see their own assigned leads
     if (user.role === "BROKER") {
       where.assignedToId = user.id;
     }
@@ -69,7 +68,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const user = await getUser(userId);
@@ -117,13 +116,7 @@ export async function POST(req: NextRequest) {
     });
 
     autoMatchProperties(lead.id).catch(() => {});
-
-    runLeadAutomation({
-      leadId:      lead.id,
-      newStatus:   "NEW",
-      oldStatus:   "",
-      triggeredBy: user.id,
-    }).catch(() => {});
+    runLeadAutomation({ leadId: lead.id, newStatus: "NEW", oldStatus: "", triggeredBy: user.id }).catch(() => {});
 
     return NextResponse.json({ lead, aiScore }, { status: 201 });
   } catch (err: any) {
