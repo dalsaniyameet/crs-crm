@@ -3,6 +3,9 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
   serverExternalPackages: ["@prisma/client", "prisma"],
+  generateBuildId: async () => {
+    return Date.now().toString()
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },
@@ -14,5 +17,4 @@ const nextConfig = {
   },
   poweredByHeader: false,
 };
-
 module.exports = nextConfig;
