@@ -13,7 +13,7 @@
     "db:seed": "ts-node --project tsconfig.json -e 'require(\"dotenv\").config({path:\"../.env.local\"})' prisma/seed.ts"
   },
   "dependencies": {
-    "@clerk/nextjs": "^4.31.5",
+    "@clerk/nextjs": "^6.39.3",
     "@hookform/resolvers": "^3.3.4",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-accordion": "^1.1.2",
@@ -49,7 +49,7 @@
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^2.5.1",
     "lucide-react": "^0.468.0",
-    "next": "^14.2.29",
+    "next": "^15.3.3",
     "next-themes": "^0.2.1",
     "nodemailer": "^6.9.11",
     "openai": "^4.28.4",
