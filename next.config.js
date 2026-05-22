@@ -6,11 +6,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  output: "standalone",
   experimental: {
-    optimizePackageImports: [
-      "lucide-react", "framer-motion", "recharts",
-    ],
     serverComponentsExternalPackages: ["@prisma/client", "prisma"],
   },
   images: {
@@ -21,13 +17,8 @@ const nextConfig = {
       { protocol: "https", hostname: "img.clerk.com" },
       { protocol: "https", hostname: "api.qrserver.com" },
     ],
-    minimumCacheTTL: 3600,
-  },
-  compiler: {
-    removeConsole: process.env.NODE_ENV === "production",
   },
   poweredByHeader: false,
-  compress: true,
 };
 
 module.exports = nextConfig;
