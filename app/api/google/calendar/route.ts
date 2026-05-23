@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -26,7 +26,7 @@ async function refreshAccessToken(refreshToken: string) {
   return res.json();
 }
 
-// GET — check connection + list upcoming events
+// GET â€” check connection + list upcoming events
 export async function GET(req: NextRequest) {
   const { userId } = auth();
   if (!userId) return NextResponse.json({ connected: false });
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST — create calendar event
+// POST â€” create calendar event
 export async function POST(req: NextRequest) {
   const { userId } = auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ success: true, eventId: data.id, link: data.htmlLink });
 }
 
-// DELETE — disconnect
+// DELETE â€” disconnect
 export async function DELETE(req: NextRequest) {
   const { userId } = auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   await prisma.activity.create({
     data: {
       type:        "CALL_LOGGED",
-      description: `Call logged — ${outcome || type || "OUTGOING"}${duration ? ` (${Math.floor(duration / 60)}m ${duration % 60}s)` : ""}${notes ? `: ${notes}` : ""}`,
+      description: `Call logged â€” ${outcome || type || "OUTGOING"}${duration ? ` (${Math.floor(duration / 60)}m ${duration % 60}s)` : ""}${notes ? `: ${notes}` : ""}`,
       leadId,
       userId: user.id,
     },

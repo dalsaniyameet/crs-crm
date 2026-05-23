@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-// Office hours (IST): Mon–Sat 10:00–19:00, Sun 16:00–18:00
+// Office hours (IST): Monâ€“Sat 10:00â€“19:00, Sun 16:00â€“18:00
 const SCHEDULE = {
-  weekday: { inHour: 10, inMin: 0, outHour: 19, outMin: 0 },  // Mon–Sat
+  weekday: { inHour: 10, inMin: 0, outHour: 19, outMin: 0 },  // Monâ€“Sat
   sunday:  { inHour: 16, inMin: 0, outHour: 18, outMin: 0 },  // Sun
 };
 
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ── Time window check ──
+    // â”€â”€ Time window check â”€â”€
     const timeCheck = checkTimeWindow(type);
     if (!timeCheck.allowed) {
       return NextResponse.json({ error: timeCheck.error }, { status: 400 });
@@ -162,10 +162,10 @@ export async function POST(req: Request) {
 
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R  = 6371e3;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-  const a  = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  const Ï†1 = (lat1 * Math.PI) / 180;
+  const Ï†2 = (lat2 * Math.PI) / 180;
+  const Î”Ï† = ((lat2 - lat1) * Math.PI) / 180;
+  const Î”Î» = ((lon2 - lon1) * Math.PI) / 180;
+  const a  = Math.sin(Î”Ï† / 2) ** 2 + Math.cos(Ï†1) * Math.cos(Ï†2) * Math.sin(Î”Î» / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

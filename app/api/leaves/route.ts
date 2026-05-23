@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -11,7 +11,7 @@ async function isAdmin(userId: string) {
   return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
 }
 
-// GET — admin: all leaves | employee: own leaves
+// GET â€” admin: all leaves | employee: own leaves
 export async function GET(req: NextRequest) {
   const { userId } = auth();
   if (!userId) return NextResponse.json([]);
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(leaves);
 }
 
-// POST — employee applies for leave
+// POST â€” employee applies for leave
 export async function POST(req: NextRequest) {
   const { userId } = auth();
   const body = await req.json();
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         data: {
           userId:  admin.id,
           type:    "LEAVE_REQUEST",
-          title:   `Leave Request — ${emp.name}`,
+          title:   `Leave Request â€” ${emp.name}`,
           message: `${emp.name} applied for ${(type || "CASUAL").replace("_"," ")} leave from ${from.toLocaleDateString("en-IN")} to ${to.toLocaleDateString("en-IN")} (${days} day${days !== 1 ? "s" : ""}). Reason: ${reason}`,
         },
       })

@@ -502,52 +502,99 @@ export default function EmployeePanelPage() {
 
       {/* ── ATTENDANCE TAB ── */}
       {tab === "attendance" && (
-        <div className="glass-card p-5 space-y-4">
-          {/* Live timer if punched in */}
-          {todayRecord ? (
-            <div className="space-y-4">
-              <div className="text-center py-5 rounded-xl bg-white/5 border border-white/8">
-                <div className="text-xs text-muted-foreground mb-1">Work Time</div>
-                <LiveTimer since={todayRecord.punchIn} breakSecs={breakSecs} />
-                {onBreak && <div className="mt-2 text-sm text-yellow-400 flex items-center justify-center gap-2"><Coffee className="w-4 h-4" /> On Break — <BreakTimer since={breakState.start} /></div>}
-                <div className="text-xs text-muted-foreground mt-2">Since {new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</div>
+        <div className="space-y-4">
+          {/* Today card */}
+          <div className="glass-card p-5">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Today</div>
+            {todayRecord ? (
+              <div className="space-y-4">
+                <div className="text-center py-5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                  <div className="text-xs text-muted-foreground mb-1">Work Time</div>
+                  <LiveTimer since={todayRecord.punchIn} breakSecs={breakSecs} />
+                  {onBreak && <div className="mt-2 text-sm text-yellow-400 flex items-center justify-center gap-2"><Coffee className="w-4 h-4" /> On Break — <BreakTimer since={breakState.start} /></div>}
+                  <div className="text-xs text-muted-foreground mt-2">
+                    Punched in at {new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                    {todayRecord.lateMinutes > 0 && <span className="ml-2 text-red-400">· {todayRecord.lateMinutes}m late</span>}
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={toggleBreak} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border transition-all ${onBreak ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-white/5 text-muted-foreground border-white/10 hover:text-yellow-400"}`}>
+                    <Coffee className="w-4 h-4" /> {onBreak ? "End Break" : "Start Break"}
+                  </button>
+                  <button onClick={() => handlePunch("OUT")} disabled={punching} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50">
+                    {punching ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />} Punch Out
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-3">
-                <button onClick={toggleBreak} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border transition-all ${onBreak ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-white/5 text-muted-foreground border-white/10 hover:text-yellow-400"}`}>
-                  <Coffee className="w-4 h-4" /> {onBreak ? "End Break" : "Start Break"}
+            ) : (
+              <div className="text-center py-6 space-y-3">
+                <div className="text-muted-foreground text-sm">Not punched in today</div>
+                <button onClick={() => handlePunch("IN")} disabled={punching} className="flex items-center justify-center gap-2 mx-auto px-8 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-sm font-medium transition-all disabled:opacity-50">
+                  {punching ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />} Punch In
                 </button>
-                <button onClick={() => handlePunch("OUT")} disabled={punching} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50">
-                  {punching ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />} Punch Out
-                </button>
+                <div className="text-xs text-muted-foreground">Mon–Sat 10:00 AM – 7:00 PM · Sunday 4:00–6:00 PM</div>
               </div>
+            )}
+          </div>
+
+          {/* Monthly summary */}
+          <div className="glass-card p-5">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">This Month Summary</div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {[
+                { label: "Present", value: totalDays, color: "text-emerald-400" },
+                { label: "Hours",   value: `${totalHours.toFixed(1)}h`, color: "text-blue-400" },
+                { label: "Late Days", value: attendance.filter((a:any) => a.lateMinutes > 0).length, color: "text-red-400" },
+              ].map(s => (
+                <div key={s.label} className="text-center p-3 rounded-xl bg-white/5">
+                  <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
+                </div>
+              ))}
             </div>
-          ) : (
-            <div className="text-center py-6 space-y-3">
-              <div className="text-muted-foreground text-sm">Not punched in today</div>
-              <button onClick={() => handlePunch("IN")} disabled={punching} className="flex items-center justify-center gap-2 mx-auto px-8 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-sm font-medium transition-all disabled:opacity-50">
-                {punching ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />} Punch In
-              </button>
-              <div className="text-xs text-muted-foreground">Mon–Sat 10:00 AM – 7:00 PM · Sunday 4:00–6:00 PM</div>
-            </div>
-          )}
-          {/* History */}
-          <div className="border-t border-white/10 pt-4">
-            <div className="text-xs font-medium text-muted-foreground mb-3">History ({totalDays} days)</div>
+
+            {/* History list */}
+            <div className="text-xs font-medium text-muted-foreground mb-2">Attendance History</div>
             {attendance.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground text-sm">No records yet</div>
             ) : (
-              <div className="space-y-1.5">
-                {attendance.slice(0, 20).map((a: any) => (
-                  <div key={a.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-white/5">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.punchOut ? "bg-blue-400" : "bg-emerald-400"}`} />
-                    <div className="flex-1 text-sm text-white">{new Date(a.punchIn).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(a.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                      {a.punchOut && <> → {new Date(a.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</>}
+              <div className="space-y-2">
+                {attendance.slice(0, 30).map((a: any) => {
+                  const isSun = new Date(a.punchIn).getDay() === 0;
+                  const expectedH = isSun ? 2 : 9;
+                  const diff = a.workHours ? a.workHours - expectedH : null;
+                  return (
+                    <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.punchOut ? (a.lateMinutes > 0 ? "bg-red-400" : "bg-emerald-400") : "bg-yellow-400 animate-pulse"}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-white">
+                            {new Date(a.punchIn).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                          </span>
+                          {a.lateMinutes > 0 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">Late {a.lateMinutes}m</span>
+                          )}
+                          {a.overtimeHours > 0 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400">OT {a.overtimeHours.toFixed(1)}h</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {new Date(a.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                          {a.punchOut && <> → {new Date(a.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</>}
+                          {!a.punchOut && <span className="ml-1 text-yellow-400">● In Office</span>}
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-sm font-bold text-white">{a.workHours ? `${a.workHours.toFixed(1)}h` : "—"}</div>
+                        {diff !== null && (
+                          <div className={`text-xs font-medium ${diff >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {diff >= 0 ? `+${diff.toFixed(1)}h` : `${diff.toFixed(1)}h`}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs font-medium text-estate-400 flex-shrink-0">{a.workHours ? `${a.workHours.toFixed(1)}h` : "In Office"}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

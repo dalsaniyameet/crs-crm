@@ -10,7 +10,8 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "ts-node --project tsconfig.json -e 'require(\"dotenv\").config({path:\"../.env.local\"})' prisma/seed.ts"
+    "db:seed": "ts-node --project tsconfig.json -e 'require(\"dotenv\").config({path:\"../.env.local\"})' prisma/seed.ts",
+    "db:clear-dummy": "ts-node --project tsconfig.json scripts/clear-dummy-data.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.3",

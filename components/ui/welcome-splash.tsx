@@ -29,8 +29,8 @@ function Particle({ delay, x, size }: { delay: number; x: number; size: number }
 interface Props { name: string; role: string; avatar?: string; onDone: () => void; }
 
 const ROLE_LABEL: Record<string, string> = {
-  ADMIN: "🔑 Admin", BROKER: "🏠 Broker",
-  SALES_MANAGER: "📊 Sales Manager", MARKETING: "📣 Marketing",
+  ADMIN: "Admin", BROKER: "Broker",
+  SALES_MANAGER: "Sales Manager", MARKETING: "Marketing",
 };
 
 export default function WelcomeSplash({ name, role, avatar, onDone }: Props) {

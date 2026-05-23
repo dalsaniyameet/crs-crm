@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const { userId } = auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const users = await prisma.user.findMany({
@@ -22,7 +22,7 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const { userId } = auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { clerkId, role } = await req.json();

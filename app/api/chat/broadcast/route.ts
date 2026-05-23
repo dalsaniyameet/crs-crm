@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -81,13 +81,13 @@ export async function POST(req: NextRequest) {
 
         // Notify employee
         const preview = text?.trim()
-          ? (text.length > 60 ? text.slice(0, 60) + "…" : text)
-          : `📎 ${files.length} file${files.length > 1 ? "s" : ""} shared`;
+          ? (text.length > 60 ? text.slice(0, 60) + "â€¦" : text)
+          : `ðŸ“Ž ${files.length} file${files.length > 1 ? "s" : ""} shared`;
 
         await prisma.notification.create({
           data: {
             type:    "SYSTEM",
-            title:   `📢 Broadcast from ${me.name}`,
+            title:   `ðŸ“¢ Broadcast from ${me.name}`,
             message: preview,
             userId:  emp.id,
           },

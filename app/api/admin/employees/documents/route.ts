@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -7,7 +7,7 @@ async function isAdmin(userId: string) {
   return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
 }
 
-// GET — list docs for an employee
+// GET â€” list docs for an employee
 export async function GET(req: NextRequest) {
   const { userId } = auth();
   if (!userId || !(await isAdmin(userId)))
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(docs);
 }
 
-// POST — add a document record
+// POST â€” add a document record
 export async function POST(req: NextRequest) {
   const { userId } = auth();
   if (!userId || !(await isAdmin(userId)))
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(doc, { status: 201 });
 }
 
-// DELETE — remove a document
+// DELETE â€” remove a document
 export async function DELETE(req: NextRequest) {
   const { userId } = auth();
   if (!userId || !(await isAdmin(userId)))

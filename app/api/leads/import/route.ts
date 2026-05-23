@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
@@ -11,7 +11,7 @@ function normalizeName(n: string) {
   return String(n || "").toLowerCase().trim();
 }
 
-// Fuzzy name match — returns true if names share 2+ words or one fully contains the other
+// Fuzzy name match â€” returns true if names share 2+ words or one fully contains the other
 function nameMatch(a: string, b: string) {
   const wa = normalizeName(a).split(/\s+/);
   const wb = normalizeName(b).split(/\s+/);
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     const existingPhones = new Set(existingLeads.map(l => normalizePhone(l.phone)));
 
-    // Column name aliases — handles any Excel header variation
+    // Column name aliases â€” handles any Excel header variation
     function getVal(row: Record<string, any>, ...keys: string[]) {
       for (const k of keys) {
         const found = Object.keys(row).find(rk => rk.toLowerCase().replace(/[\s_-]/g, "").includes(k.toLowerCase().replace(/[\s_-]/g, "")));
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         results.imported++;
         results.leads.push({ id: lead.id, name: lead.name, phone: lead.phone });
 
-        // ── Owner match by phone or name ──
+        // â”€â”€ Owner match by phone or name â”€â”€
         const matchedOwner = allOwners.find(o => {
           const op1 = normalizePhone(o.phone);
           const op2 = normalizePhone(o.phone2 || "");
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
           await prisma.activity.create({
             data: {
               type:        "OWNER_MATCH",
-              description: `⚠️ Lead "${lead.name}" matches Property Owner "${matchedOwner.name}" — possible same person`,
+              description: `âš ï¸ Lead "${lead.name}" matches Property Owner "${matchedOwner.name}" â€” possible same person`,
               leadId:      lead.id,
               userId:      user.id,
             },
@@ -164,8 +164,8 @@ export async function POST(req: NextRequest) {
             prisma.notification.create({
               data: {
                 type:    "SYSTEM",
-                title:   "🔗 Lead–Owner Match Detected",
-                message: `"${lead.name}" (${lead.phone}) matches owner "${matchedOwner.name}" — review needed`,
+                title:   "ðŸ”— Leadâ€“Owner Match Detected",
+                message: `"${lead.name}" (${lead.phone}) matches owner "${matchedOwner.name}" â€” review needed`,
                 userId:  a.id,
                 leadId:  lead.id,
               },
@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
         await prisma.task.create({
           data: {
             title:       `Follow up with ${lead.name}`,
-            description: `Imported from Excel. Call ${lead.phone}${notes ? ` — ${notes.slice(0, 80)}` : ""}`,
+            description: `Imported from Excel. Call ${lead.phone}${notes ? ` â€” ${notes.slice(0, 80)}` : ""}`,
             dueAt:       new Date(Date.now() + 24 * 60 * 60 * 1000),
             priority:    "HIGH",
             leadId:      lead.id,

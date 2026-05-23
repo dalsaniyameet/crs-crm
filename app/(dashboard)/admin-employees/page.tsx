@@ -36,7 +36,9 @@ const EMPTY = { name: "", email: "", dob: "", position: "", role: "BROKER", avat
 function generatePassword(name: string) {
   const clean = name.trim().split(" ")[0].toLowerCase().replace(/[^a-z]/g, "") || "emp";
   const upper = clean[0].toUpperCase() + clean.slice(1);
-  return `${upper}${Math.floor(1000 + Math.random() * 9000)}`;
+  const specials = ["@", "#", "$", "!"];
+  const sp = specials[Math.floor(Math.random() * specials.length)];
+  return `${upper}${Math.floor(100 + Math.random() * 900)}${sp}${Math.floor(10 + Math.random() * 90)}`;
 }
 
 function EmployeeCard({
@@ -252,6 +254,7 @@ export default function AdminEmployeesPage() {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim() || !form.position.trim()) { toast.error("Name, email and position required"); return; }
     if (!form.password.trim() || form.password.trim().length < 8) { toast.error("Password min 8 characters"); return; }
+    if (form.dob && isNaN(new Date(form.dob).getTime())) { toast.error("Invalid date of birth"); return; }
     setSaving(true);
     const res  = await fetch("/api/admin/employees", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -408,7 +411,6 @@ export default function AdminEmployeesPage() {
                 { label: "Full Name *",  key: "name",     ph: "Rahul Sharma",            type: "text"  },
                 { label: "Work Email *", key: "email",    ph: "rahul@cityrealspace.com", type: "email" },
                 { label: "Position *",   key: "position", ph: "Senior Broker",           type: "text"  },
-                { label: "DOB",          key: "dob",      ph: "YYYY-MM-DD",              type: "text"  },
               ].map(f => (
                 <div key={f.key}>
                   <label className="text-xs text-muted-foreground mb-1.5 block">{f.label}</label>
@@ -418,10 +420,17 @@ export default function AdminEmployeesPage() {
                 </div>
               ))}
               <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">DOB</label>
+                <input type="date" value={form.dob} max={new Date().toISOString().split("T")[0]}
+                  onChange={e => setForm(p => ({ ...p, dob: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/50 [color-scheme:dark]" />
+              </div>
+              <div>
                 <label className="text-xs text-muted-foreground mb-1.5 block">Password *</label>
                 <div className="flex gap-2">
-                  <input value={form.password} readOnly placeholder="Click Generate →" autoComplete="off"
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none" />
+                  <input value={form.password} placeholder="Type or Generate →" autoComplete="new-password"
+                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-estate-500/50" />
                   <button type="button" onClick={() => {
                     const pwd = generatePassword(form.name);
                     setForm(f => ({ ...f, password: pwd }));

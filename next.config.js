@@ -3,6 +3,12 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
   serverExternalPackages: ["@prisma/client", "prisma"],
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = { ...config.resolve.fallback, fs: false, path: false, crypto: false };
+    }
+    return config;
+  },
   generateBuildId: async () => {
     return Date.now().toString()
   },

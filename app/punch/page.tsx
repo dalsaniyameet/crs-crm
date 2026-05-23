@@ -2,8 +2,11 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { CheckCircle, XCircle, Loader2, User, Phone, MapPin, Clock, Coffee } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, User, Phone, MapPin, Clock, Coffee, ScanFace } from "lucide-react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
+
+const FacePunch = dynamic(() => import("@/components/attendance/FacePunch"), { ssr: false });
 
 const BREAK_MIN = 45;
 
@@ -43,6 +46,7 @@ function PunchForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
   const [step, setStep]       = useState<"form" | "punched_in" | "done">("form");
+  const [showFace, setShowFace] = useState(false);
   const [punchInTime, setPunchInTime] = useState<Date | null>(null);
   const [elapsed, setElapsed]         = useState("00:00:00");
   const [breakUsed, setBreakUsed]     = useState(false);
@@ -286,6 +290,24 @@ function PunchForm() {
         {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
         {loading ? "Marking Attendance..." : "Punch In"}
       </button>
+
+      <button type="button" onClick={() => {
+        if (!name.trim() || phone.trim().length < 10) { setError("Enter name and phone first"); return; }
+        setError("");
+        setShowFace(true);
+      }}
+        className="w-full py-3 rounded-xl bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-medium text-sm transition-all flex items-center justify-center gap-2 hover:bg-yellow-500/30">
+        <ScanFace className="w-4 h-4" /> Face Scan Punch In
+      </button>
+
+      {showFace && (
+        <FacePunch
+          employeeName={name.trim()}
+          action="IN"
+          onSuccess={() => { setShowFace(false); handlePunchIn({ preventDefault: () => {} } as any); }}
+          onClose={() => setShowFace(false)}
+        />
+      )}
 
       <p className="text-xs text-center text-muted-foreground">
         45 min break will be auto-deducted from work hours

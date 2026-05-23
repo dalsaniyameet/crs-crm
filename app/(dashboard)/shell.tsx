@@ -248,7 +248,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                   <div className="text-xs font-semibold text-white truncate">{userName}</div>
                   <div className={`text-xs font-medium truncate ${
                     role === "ADMIN" ? "text-red-400" : "text-estate-400"
-                  }`}>{role === "ADMIN" ? "🔑 Admin" : role.replace("_"," ")}</div>
+                  }`}>{role === "ADMIN" ? "Admin" : role.replace("_"," ")}</div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -307,7 +307,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                     <div className="text-xs font-semibold text-white">{userName}</div>
                     <div className={`text-xs font-medium ${
                       role === "ADMIN" ? "text-red-400" : "text-estate-400"
-                    }`}>{role === "ADMIN" ? "🔑 Admin" : role.replace("_"," ")}</div>
+                    }`}>{role === "ADMIN" ? "Admin" : role.replace("_"," ")}</div>
                   </div>
                   <button onClick={handleSignOut}
                     className="text-muted-foreground hover:text-red-400 transition-colors" title="Sign Out">
@@ -390,7 +390,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                 role === "ADMIN"
                   ? "bg-red-500/15 text-red-400 border border-red-500/25"
                   : "bg-estate-500/15 text-estate-300 border border-estate-500/25"
-              }`}>{role === "ADMIN" ? "🔑 Admin" : role.replace("_"," ")}</span>
+              }`}>{role === "ADMIN" ? "Admin" : role.replace("_"," ")}</span>
             </button>
           </div>
         </header>

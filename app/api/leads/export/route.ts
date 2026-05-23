@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
@@ -20,7 +20,7 @@ export async function GET() {
     "Source":        l.source.replace(/_/g, " "),
     "Status":        l.status.replace(/_/g, " "),
     "AI Score":      l.score,
-    "Budget (₹)":    l.budget ?? "",
+    "Budget (â‚¹)":    l.budget ?? "",
     "Property Type": l.propertyType ?? "",
     "Transaction":   l.transactionType ?? "",
     "Requirements":  l.requirements ?? "",

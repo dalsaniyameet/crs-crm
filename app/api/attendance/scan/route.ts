@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-// Employee scans location QR → attendance marked for that employee
+// Employee scans location QR â†’ attendance marked for that employee
 export async function POST(req: Request) {
   try {
     const { userId } = auth();
@@ -102,10 +102,10 @@ function fmt(h: number, m: number) {
 
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R  = 6371e3;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-  const a  = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  const Ï†1 = (lat1 * Math.PI) / 180;
+  const Ï†2 = (lat2 * Math.PI) / 180;
+  const Î”Ï† = ((lat2 - lat1) * Math.PI) / 180;
+  const Î”Î» = ((lon2 - lon1) * Math.PI) / 180;
+  const a  = Math.sin(Î”Ï† / 2) ** 2 + Math.cos(Ï†1) * Math.cos(Ï†2) * Math.sin(Î”Î» / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

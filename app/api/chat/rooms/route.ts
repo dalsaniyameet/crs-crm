@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -6,7 +6,7 @@ async function getMe(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
 }
 
-// GET /api/chat/rooms — list all rooms with last message + unread count
+// GET /api/chat/rooms â€” list all rooms with last message + unread count
 export async function GET() {
   const { userId } = auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -36,7 +36,7 @@ export async function GET() {
       avatar:    other?.avatar,
       role:      other?.role,
       otherId:   other?.id,
-      lastMsg:   lastMsg?.text || (lastMsg?.fileName ? `📎 ${lastMsg.fileName}` : null),
+      lastMsg:   lastMsg?.text || (lastMsg?.fileName ? `ðŸ“Ž ${lastMsg.fileName}` : null),
       lastTime:  lastMsg?.createdAt,
       unread,
     };
@@ -45,7 +45,7 @@ export async function GET() {
   return NextResponse.json(rooms);
 }
 
-// POST /api/chat/rooms — get or create DM room with another user
+// POST /api/chat/rooms â€” get or create DM room with another user
 export async function POST(req: NextRequest) {
   const { userId } = auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

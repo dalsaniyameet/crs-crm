@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import {
   chatWithAssistant,
@@ -11,7 +11,7 @@ import {
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
+  const { userId } = auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { action, message, context, leadId, property, lead } = await req.json();
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
         const matches = await matchPropertiesAI(
           leadData.requirements ??
-            `${leadData.propertyType} in ${leadData.preferredAreas.join(", ")} under ₹${leadData.budgetMax}`,
+            `${leadData.propertyType} in ${leadData.preferredAreas.join(", ")} under â‚¹${leadData.budgetMax}`,
           properties
         );
 

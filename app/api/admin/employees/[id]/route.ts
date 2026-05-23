@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -7,93 +7,52 @@ async function isAdmin(userId: string) {
   return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest) {
   const { userId } = auth();
   if (!userId || !(await isAdmin(userId)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const emp = await prisma.employeeProfile.findUnique({ where: { id: params.id } });
-  if (!emp) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { employeeId, month, year, basicSalary, hra, conveyance, medical, bonus, deductions, notes } = await req.json();
+  if (!employeeId || !month || !year)
+    return NextResponse.json({ error: "employeeId, month, year required" }, { status: 400 });
 
-  const dbUser = await prisma.user.findUnique({
-    where: { email: emp.email },
-    select: { id: true },
+  const emp = await prisma.employeeProfile.findUnique({ where: { id: employeeId } });
+  if (!emp) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+
+  // Fetch attendance for the month
+  const from = new Date(year, month - 1, 1);
+  const to   = new Date(year, month, 0, 23, 59, 59);
+  const attendance = await prisma.guestAttendance.findMany({
+    where: { phone: emp.email, punchIn: { gte: from, lte: to }, punchOut: { not: null } },
   });
 
-  const [leaves, attendance, leads, deals, visits, activities] = await Promise.all([
-    prisma.leaveRequest.findMany({
-      where: { employeeId: emp.id },
-      orderBy: { createdAt: "desc" },
-    }),
+  const workingDays   = attendance.length;
+  const totalHours    = attendance.reduce((s, a) => s + (a.workHours || 0), 0);
+  const basic         = Number(basicSalary)   || 0;
+  const hraAmt        = Number(hra)           || 0;
+  const convAmt       = Number(conveyance)    || 0;
+  const medAmt        = Number(medical)       || 0;
+  const bonusAmt      = Number(bonus)         || 0;
+  const deductAmt     = Number(deductions)    || 0;
+  const grossSalary   = basic + hraAmt + convAmt + medAmt + bonusAmt;
+  const pf            = Math.round(basic * 0.12);
+  const esi           = grossSalary <= 21000 ? Math.round(grossSalary * 0.0075) : 0;
+  const totalDeduct   = deductAmt + pf + esi;
+  const netSalary     = grossSalary - totalDeduct;
 
-    prisma.guestAttendance.findMany({
-      where: { phone: emp.email },
-      include: { location: { select: { name: true } } },
-      orderBy: { punchIn: "desc" },
-      take: 60,
-    }),
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-    dbUser ? prisma.lead.findMany({
-      where: { assignedToId: dbUser.id },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: {
-        id: true, name: true, phone: true, status: true,
-        score: true, source: true, budget: true, createdAt: true,
-      },
-    }) : [],
+  const slip = {
+    employee: { name: emp.name, email: emp.email, position: emp.position, role: emp.role, avatarUrl: emp.avatarUrl },
+    period:   { month: monthNames[month - 1], year, from: from.toLocaleDateString("en-IN"), to: to.toLocaleDateString("en-IN") },
+    attendance: { workingDays, totalHours: Math.round(totalHours * 10) / 10 },
+    earnings: { basic, hra: hraAmt, conveyance: convAmt, medical: medAmt, bonus: bonusAmt, gross: grossSalary },
+    deductions: { pf, esi, other: deductAmt, total: totalDeduct },
+    netSalary,
+    notes: notes || "",
+    generatedAt: new Date().toISOString(),
+    company: { name: "City Real Space", address: "A-708, Prahlad Nagar Trade Centre, Satellite, Ahmedabad - 380015", gstin: "24XXXXX0000X1ZX" },
+  };
 
-    dbUser ? prisma.deal.findMany({
-      where: { brokerId: dbUser.id },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: {
-        id: true, title: true, stage: true, value: true,
-        createdAt: true, closedAt: true,
-        lead: { select: { name: true } },
-      },
-    }) : [],
-
-    dbUser ? prisma.siteVisit.findMany({
-      where: { brokerId: dbUser.id },
-      orderBy: { scheduledAt: "desc" },
-      take: 20,
-      select: {
-        id: true, scheduledAt: true, status: true,
-        lead: { select: { name: true } },
-        property: { select: { title: true, locality: true } },
-      },
-    }) : [],
-
-    dbUser ? prisma.activity.findMany({
-      where: { userId: dbUser.id },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-      select: { id: true, type: true, description: true, createdAt: true },
-    }) : [],
-  ]);
-
-  const totalHours = (attendance as any[]).reduce((s, a) => s + (a.workHours || 0), 0);
-  const thisMonth  = new Date(); thisMonth.setDate(1); thisMonth.setHours(0, 0, 0, 0);
-
-  return NextResponse.json({
-    employee: emp,
-    stats: {
-      totalAttendance:     attendance.length,
-      attendanceThisMonth: (attendance as any[]).filter(a => new Date(a.punchIn) >= thisMonth).length,
-      totalHours:          Math.round(totalHours * 10) / 10,
-      totalLeads:          leads.length,
-      totalDeals:          deals.length,
-      closedDeals:         (deals as any[]).filter(d => d.stage === "CLOSED").length,
-      totalVisits:         visits.length,
-      pendingLeaves:       (leaves as any[]).filter(l => l.status === "PENDING").length,
-      approvedLeaves:      (leaves as any[]).filter(l => l.status === "APPROVED").length,
-    },
-    leaves,
-    attendance,
-    leads,
-    deals,
-    visits,
-    activities,
-  });
+  return NextResponse.json(slip);
 }
