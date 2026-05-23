@@ -3,6 +3,10 @@
     {
       "path": "/api/leads/follow-up?secret=crs-cron-2024",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/attendance/auto-punchout?secret=crs-cron-2024",
+      "schedule": "25 18 * * *"
     }
   ]
 }

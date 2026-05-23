@@ -481,7 +481,7 @@ export default function AttendancePage() {
                     </div>
                     <div className="text-xs text-muted-foreground">{r.location?.name}</div>
                   </div>
-                  <div className="text-right text-xs flex-shrink-0">
+                  <div className="text-right text-xs flex-shrink-0 space-y-1">
                     <div className="text-white">
                       {new Date(r.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                       {r.punchOut && <> → {new Date(r.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</>}
@@ -489,6 +489,24 @@ export default function AttendancePage() {
                     <div className={r.workHours ? "text-estate-400" : "text-emerald-400"}>
                       {r.workHours ? `${r.workHours.toFixed(1)}h` : "In Office"}
                     </div>
+                    {r.punchOut && !r.approved && (
+                      <button
+                        onClick={async () => {
+                          await fetch("/api/attendance/guest", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: r.id, approved: true }),
+                          });
+                          toast.success(`${r.name} approved ✓`);
+                          fetchAll();
+                        }}
+                        className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors">
+                        ✓ Approve
+                      </button>
+                    )}
+                    {r.approved && (
+                      <span className="text-xs text-emerald-400">✓ Approved</span>
+                    )}
                   </div>
                 </div>
               );

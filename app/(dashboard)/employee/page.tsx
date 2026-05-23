@@ -313,8 +313,8 @@ export default function EmployeePanelPage() {
     router.push("/sign-in");
   };
 
-  const totalDays      = attendance.length;
-  const totalHours     = attendance.reduce((s: number, a: any) => s + (a.workHours || 0), 0);
+  const totalDays      = attendance.filter((a: any) => a.approved).length; // only admin-approved
+  const totalHours     = attendance.filter((a: any) => a.approved).reduce((s: number, a: any) => s + (a.workHours || 0), 0);
   const pendingLeaves  = leaves.filter(l => l.status === "PENDING").length;
   const approvedLeaves = leaves.filter(l => l.status === "APPROVED").length;
   const onBreak        = breakState.start > 0;
@@ -565,17 +565,17 @@ export default function EmployeePanelPage() {
                   const diff = a.workHours ? a.workHours - expectedH : null;
                   return (
                     <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.punchOut ? (a.lateMinutes > 0 ? "bg-red-400" : "bg-emerald-400") : "bg-yellow-400 animate-pulse"}`} />
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.punchOut ? (a.approved ? (a.lateMinutes > 0 ? "bg-red-400" : "bg-emerald-400") : "bg-yellow-400") : "bg-yellow-400 animate-pulse"}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium text-white">
                             {new Date(a.punchIn).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
                           </span>
-                          {a.lateMinutes > 0 && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">Late {a.lateMinutes}m</span>
+                          {!a.approved && a.punchOut && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400">Pending Approval</span>
                           )}
-                          {a.overtimeHours > 0 && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400">OT {a.overtimeHours.toFixed(1)}h</span>
+                          {a.approved && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">✓ Approved</span>
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">
