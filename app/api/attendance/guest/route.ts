@@ -24,8 +24,16 @@ export async function POST(req: Request) {
       where: { phone: phone.trim(), punchOut: null, createdAt: { gte: today } },
     });
 
+    // Check if already punched in+out today (completed attendance)
+    const completedToday = await prisma.guestAttendance.findFirst({
+      where: { phone: phone.trim(), punchOut: { not: null }, createdAt: { gte: today } },
+    });
+
     // ── PUNCH IN ──
     if (!existing) {
+      if (completedToday) {
+        return NextResponse.json({ error: "Already attended today. Cannot punch in again." }, { status: 400 });
+      }
       if (!bypass) {
         const timeCheck = checkTimeWindow();
         if (!timeCheck.allowed) return NextResponse.json({ error: timeCheck.error }, { status: 400 });
@@ -114,10 +122,10 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
 
-    // "all" = return all unique persons ever punched
+    // "all" = return all attendance records
     if (date === "all") {
       const records = await prisma.guestAttendance.findMany({
-        select: { name: true, phone: true },
+        include: { location: true },
         orderBy: { punchIn: "desc" },
       });
       return NextResponse.json(records);

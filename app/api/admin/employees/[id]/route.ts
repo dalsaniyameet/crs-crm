@@ -1,14 +1,60 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 async function isAdmin(userId: string) {
-  const u = await clerkClient.users.getUser(userId);
-  return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
+  try {
+    const clerk = await clerkClient();
+    const u = await clerk.users.getUser(userId);
+    return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
+  } catch { return false; }
 }
 
-export async function POST(req: NextRequest) {
-  const { userId } = auth();
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const { userId } = await auth();
+    if (!userId || !(await isAdmin(userId)))
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const emp = await prisma.employeeProfile.findUnique({
+      where: { id: params.id },
+      include: { leaves: { orderBy: { createdAt: "desc" } } },
+    });
+    if (!emp) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+
+    // Attendance via GuestAttendance (phone = emp.email)
+    const attendance = await prisma.guestAttendance.findMany({
+      where: { phone: emp.email },
+      include: { location: true },
+      orderBy: { punchIn: "desc" },
+      take: 60,
+    });
+
+    // CRM data linked via User record
+    const dbUser = await prisma.user.findUnique({ where: { email: emp.email } });
+    const [leads, deals, visits, activities] = dbUser ? await Promise.all([
+      prisma.lead.findMany({ where: { assignedToId: dbUser.id }, orderBy: { createdAt: "desc" }, take: 20 }),
+      prisma.deal.findMany({ where: { brokerId: dbUser.id }, include: { lead: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 20 }),
+      prisma.siteVisit.findMany({ where: { brokerId: dbUser.id }, include: { lead: { select: { name: true } }, property: { select: { title: true, locality: true } } }, orderBy: { scheduledAt: "desc" }, take: 20 }),
+      prisma.activity.findMany({ where: { userId: dbUser.id }, orderBy: { createdAt: "desc" }, take: 15 }),
+    ]) : [[], [], [], []];
+
+    const stats = {
+      totalLeads:  leads.length,
+      totalDeals:  deals.length,
+      closedDeals: deals.filter((d: any) => d.stage === "CLOSED").length,
+      totalVisits: visits.length,
+    };
+
+    return NextResponse.json({ employee: emp, leaves: emp.leaves, attendance, leads, deals, visits, activities, stats });
+  } catch (err: any) {
+    console.error("Employee detail GET error:", err?.message);
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest, { params: _p }: { params: { id: string } }) {
+  const { userId } = await auth();
   if (!userId || !(await isAdmin(userId)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

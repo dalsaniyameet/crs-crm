@@ -9,13 +9,42 @@ function getClient() {
   return twilio(sid, token);
 }
 
+// ── Primary: Meta WABA via n8n (FREE) ──
+// n8n webhook pe message bhejo → n8n → Meta WhatsApp Business API
+async function sendViaMetaWABA(to: string, message: string): Promise<boolean> {
+  const n8nUrl   = process.env.N8N_WHATSAPP_WEBHOOK_URL;
+  const n8nToken = process.env.N8N_WEBHOOK_SECRET;
+  if (!n8nUrl) return false;
+  try {
+    const res = await fetch(n8nUrl, {
+      method:  "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(n8nToken ? { "x-n8n-token": n8nToken } : {}),
+      },
+      body: JSON.stringify({ to, message }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 export async function sendWhatsApp(to: string, message: string, mediaUrl?: string) {
+  const phone = to.replace(/\D/g, "").slice(-10);
+
+  // Try Meta WABA via n8n first (FREE)
+  const metaSent = await sendViaMetaWABA(phone, message);
+  if (metaSent) return;
+
+  // Fallback: Twilio (if configured)
   const client = getClient();
-  if (!client) { console.warn("Twilio not configured, skipping WhatsApp"); return; }
-  const formattedTo = to.startsWith("whatsapp:") ? to : `whatsapp:+91${to.replace(/\D/g, "").slice(-10)}`;
+  if (!client) {
+    console.warn("WhatsApp: Neither Meta WABA nor Twilio configured");
+    return;
+  }
+  const formattedTo = `whatsapp:+91${phone}`;
   return client.messages.create({
     from: FROM,
-    to: formattedTo,
+    to:   formattedTo,
     body: message,
     ...(mediaUrl ? { mediaUrl: [mediaUrl] } : {}),
   });

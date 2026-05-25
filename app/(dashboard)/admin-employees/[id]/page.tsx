@@ -414,7 +414,8 @@ export default function EmployeeDetailPage() {
     <div className="p-6 text-center text-muted-foreground">Employee not found</div>
   );
 
-  const totalDays  = attendance.length;
+  const uniqueAttDays = new Set(attendance.map((a: any) => new Date(a.punchIn).toDateString())).size;
+  const totalDays  = uniqueAttDays;
   const totalHours = attendance.reduce((s: number, a: any) => s + (a.workHours || 0), 0);
   const pendingLeaves  = leaves.filter(l => l.status === "PENDING").length;
   const approvedLeaves = leaves.filter(l => l.status === "APPROVED").length;
@@ -760,11 +761,19 @@ export default function EmployeeDetailPage() {
             const d = new Date(a.punchIn);
             return d.getMonth() + 1 === slipMonth && d.getFullYear() === slipYear && a.punchOut;
           });
-          const presentDays   = monthAtt.length;
+          const presentDays = new Set(monthAtt.map((a: any) => new Date(a.punchIn).toDateString())).size;
+          // Deduplicate: one record per day (latest punch)
+          const monthAttUniq = Object.values(
+            monthAtt.reduce((acc: Record<string, any>, a: any) => {
+              const day = new Date(a.punchIn).toDateString();
+              if (!acc[day] || new Date(a.punchIn) > new Date(acc[day].punchIn)) acc[day] = a;
+              return acc;
+            }, {})
+          ) as any[];
           const calcAbsent    = Math.max(0, WORKING_DAYS - presentDays);
-          const totalHrsMonth = monthAtt.reduce((s: number, a: any) => s + (a.workHours || 0), 0);
-          const lateMinTotal  = monthAtt.reduce((s: number, a: any) => s + (a.lateMinutes || 0), 0);
-          const otHrsTotal    = monthAtt.reduce((s: number, a: any) => s + (a.overtimeHours || 0), 0);
+          const totalHrsMonth = monthAttUniq.reduce((s: number, a: any) => s + (a.workHours || 0), 0);
+          const lateMinTotal  = monthAttUniq.reduce((s: number, a: any) => s + (a.lateMinutes || 0), 0);
+          const otHrsTotal    = monthAttUniq.reduce((s: number, a: any) => s + (a.overtimeHours || 0), 0);
 
           // Salary calc
           const hraAmt       = Math.round(basicSalary * 0.4);   // 40% HRA

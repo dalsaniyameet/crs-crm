@@ -2,8 +2,9 @@
 import useSWR from "swr";
 import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import WelcomeSplash from "@/components/ui/welcome-splash";
 import {
@@ -166,12 +167,12 @@ export default function DashboardPage() {
   }));
 
   const stats = [
-    { label: "Total Leads",       value: overview.totalLeads       ?? 0,  icon: Users,       grad: "from-blue-600 to-blue-400" },
-    { label: "Active Properties", value: overview.activeProperties ?? "—",          icon: Building2,   grad: "from-yellow-600 to-yellow-400" },
-    { label: "Deals Closed",      value: overview.dealsClosedCount ?? 0,  icon: GitBranch,   grad: "from-emerald-600 to-emerald-400" },
-    { label: "Revenue",           value: overview.totalRevenue ? fmtMoney(overview.totalRevenue) : "₹0", icon: DollarSign, grad: "from-purple-600 to-purple-400" },
-    { label: "Visits Today",      value: todayVisits.length,              icon: Calendar,    grad: "from-orange-600 to-orange-400" },
-    { label: "Hot Leads",         value: overview.hotLeads         ?? 0,  icon: AlertCircle, grad: "from-red-600 to-red-400" },
+    { label: "Total Leads",       value: overview.totalLeads       ?? 0,  icon: Users,       grad: "from-blue-600 to-blue-400",    href: "/leads" },
+    { label: "Active Properties", value: overview.activeProperties ?? "—", icon: Building2,   grad: "from-yellow-600 to-yellow-400", href: "/properties" },
+    { label: "Deals Closed",      value: overview.dealsClosedCount ?? 0,  icon: GitBranch,   grad: "from-emerald-600 to-emerald-400", href: "/deals" },
+    { label: "Revenue",           value: overview.totalRevenue ? fmtMoney(overview.totalRevenue) : "₹0", icon: DollarSign, grad: "from-purple-600 to-purple-400", href: "/reports" },
+    { label: "Visits Today",      value: todayVisits.length,              icon: Calendar,    grad: "from-orange-600 to-orange-400", href: "/visits" },
+    { label: "Hot Leads",         value: overview.hotLeads         ?? 0,  icon: AlertCircle, grad: "from-red-600 to-red-400",       href: "/leads" },
   ];
 
   return (
@@ -210,14 +211,16 @@ export default function DashboardPage() {
       {isLoading ? <StatsSkeleton /> : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {stats.map((s, i) => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }} className="stat-card group">
-              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${s.grad} flex items-center justify-center mb-3`}>
-                <s.icon className="w-4 h-4 text-white" />
-              </div>
-              <div className="text-xl font-bold text-white">{s.value}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
-            </motion.div>
+            <Link key={s.label} href={s.href}>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }} className="stat-card group cursor-pointer hover:border-yellow-500/30 hover:bg-white/5 transition-all">
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${s.grad} flex items-center justify-center mb-3`}>
+                  <s.icon className="w-4 h-4 text-white" />
+                </div>
+                <div className="text-xl font-bold text-white">{s.value}</div>
+                <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">{s.label} <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></div>
+              </motion.div>
+            </Link>
           ))}
         </div>
       )}
@@ -225,10 +228,10 @@ export default function DashboardPage() {
       {/* Attendance Widget */}
       {attLoaded && (
         <div className="glass-card p-4 flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
+          <Link href="/attendance" className="flex items-center gap-2 hover:text-estate-300 transition-colors">
             <Clock className="w-5 h-5 text-estate-400" />
             <span className="font-semibold text-white text-sm">Today's Attendance</span>
-          </div>
+          </Link>
           {todayRecord ? (
             <>
               <span className="text-xs px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse">
@@ -347,7 +350,8 @@ export default function DashboardPage() {
           ) : todayVisits.length > 0 ? (
             <div className="space-y-2">
               {todayVisits.map((v: { id: string; scheduledAt: string; lead?: { name: string }; property?: { title: string }; broker?: { name: string } }) => (
-                <div key={v.id} className="flex items-center gap-3 p-2.5 rounded-xl"
+                <Link key={v.id} href={`/visits?id=${v.id}`}
+                  className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                   style={{ background: "rgba(30,58,95,0.3)", border: "1px solid rgba(234,179,8,0.08)" }}>
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                     style={{ background: "linear-gradient(135deg,#1e3a5f,#0f1f35)" }}>
@@ -360,7 +364,7 @@ export default function DashboardPage() {
                   <div className="text-xs font-bold text-yellow-400 flex-shrink-0">
                     {new Date(v.scheduledAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (
@@ -385,7 +389,8 @@ export default function DashboardPage() {
           ) : hotLeads.length > 0 ? (
             <div className="space-y-3">
               {hotLeads.map((lead: { id: string; name: string; score: number; budget?: number; source?: string; requirements?: string }) => (
-                <div key={lead.id} className="flex items-center gap-3 p-3 rounded-xl"
+                <Link key={lead.id} href={`/leads?id=${lead.id}`}
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                   style={{ background: "rgba(30,58,95,0.25)", border: "1px solid rgba(234,179,8,0.06)" }}>
                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                     style={{ background: "linear-gradient(135deg,#1e3a5f,#0f1f35)" }}>
@@ -399,7 +404,7 @@ export default function DashboardPage() {
                   <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ${lead.score >= 85 ? "text-red-400 bg-red-500/15 border-red-500/25" : "text-orange-400 bg-orange-500/15 border-orange-500/25"}`}>
                     {lead.score >= 85 ? "🔥 HOT" : "🌡️ WARM"}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (

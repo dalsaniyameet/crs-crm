@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { scoreLeadAI } from "@/lib/openai";
 import { autoMatchProperties } from "@/lib/autoMatch";
 import { runLeadAutomation } from "@/lib/leadAutomation";
+import { sendAdminEmail, newLeadEmailHtml } from "@/lib/email";
 
 async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
@@ -117,6 +118,17 @@ export async function POST(req: NextRequest) {
 
     autoMatchProperties(lead.id).catch(() => {});
     runLeadAutomation({ leadId: lead.id, newStatus: "NEW", oldStatus: "", triggeredBy: user.id }).catch(() => {});
+
+    sendAdminEmail(
+      `🏠 New Lead: ${lead.name} (Score: ${aiScore.score})`,
+      newLeadEmailHtml({
+        name: lead.name, phone: lead.phone, email: lead.email,
+        source: lead.source, propertyType: lead.propertyType,
+        budget: lead.budget, requirements: lead.requirements,
+        score: aiScore.score,
+        assignedTo: user.name,
+      })
+    ).catch(() => {});
 
     return NextResponse.json({ lead, aiScore }, { status: 201 });
   } catch (err: any) {

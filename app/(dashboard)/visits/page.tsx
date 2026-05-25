@@ -37,10 +37,16 @@ export default function VisitsPage() {
   const [properties, setProperties] = useState<any[]>([]);
   const [brokers, setBrokers]   = useState<any[]>([]);
   const [gcalConnected, setGcalConnected] = useState<boolean | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     leadId: "", propertyId: "", brokerId: "", scheduledAt: "", notes: "", addToCalendar: true,
   });
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id) setHighlightId(id);
+  }, []);
 
   const fetchVisits = useCallback(async () => {
     try {
@@ -241,7 +247,11 @@ export default function VisitsPage() {
               <motion.div key={visit.id}
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className={`glass-card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors ${todayV ? "border-l-2 border-l-red-500" : ""}`}>
+                className={`glass-card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors ${
+                  todayV ? "border-l-2 border-l-red-500" : ""
+                } ${
+                  highlightId === visit.id ? "ring-2 ring-estate-500/60 bg-estate-900/20" : ""
+                }`}>
                 {/* Time */}
                 <div className="text-center w-24 flex-shrink-0">
                   <div className={`text-sm font-bold ${todayV ? "text-red-400" : "text-white"}`}>

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Search, MapPin, Eye, Edit, Share2, Star,
-  Zap, Camera, CheckCircle, Loader2, RefreshCw, ScanLine, Phone, X, Download,
+  Zap, Camera, CheckCircle, Loader2, RefreshCw, ScanLine, Phone, X, Download, MessageSquare,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -74,6 +74,17 @@ export default function PropertiesPage() {
     ownerName: "", ownerPhone: "", commissionRate: "2",
     amenities: "", description: "",
   });
+
+  const [viewProp, setViewProp]   = useState<Property | null>(null);
+  const [editProp, setEditProp]   = useState<Property | null>(null);
+
+  // Auto-highlight from URL param
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id) {
+      fetch(`/api/properties/${id}`).then(r => r.json()).then(d => { if (d?.id) setViewProp(d); }).catch(() => {});
+    }
+  }, []);
 
   const fetchProperties = useCallback(async () => {
     setLoading(true);
@@ -412,8 +423,8 @@ export default function PropertiesPage() {
                           <Phone className="w-3.5 h-3.5" />
                         </a>
                       )}
-                      <button className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                      <button className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Edit className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setViewProp(prop)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setEditProp(prop)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Edit className="w-3.5 h-3.5" /></button>
                       <button className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-estate-400 transition-colors"><Share2 className="w-3.5 h-3.5" /></button>
                       <button className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-gold-400 transition-colors" title="AI Match"><Zap className="w-3.5 h-3.5" /></button>
                     </div>
@@ -584,6 +595,127 @@ export default function PropertiesPage() {
                   </div>
                 </div>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Property View Modal */}
+      <AnimatePresence>
+        {viewProp && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setViewProp(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="glass-card w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="p-5 border-b border-white/10 flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white">{viewProp.title}</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">📍 {viewProp.locality}, {viewProp.city} · {viewProp.type}</p>
+                </div>
+                <button onClick={() => setViewProp(null)} className="text-muted-foreground hover:text-white flex-shrink-0"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                {viewProp.photos[0] && (
+                  <img src={viewProp.photos[0]} alt={viewProp.title} className="w-full h-48 object-cover rounded-xl" />
+                )}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-center">
+                    <div className="text-lg font-bold text-yellow-400">{fmtPrice(viewProp.price, viewProp.transactionType)}</div>
+                    <div className="text-xs text-muted-foreground">Price</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+                    <div className="text-lg font-bold text-white">{viewProp.area.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">Sq.ft</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+                    <div className="text-lg font-bold text-estate-400">{viewProp.commissionRate ?? "—"}%</div>
+                    <div className="text-xs text-muted-foreground">Commission</div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className={`text-xs px-2.5 py-1 rounded-full border ${statusConfig[viewProp.status].color}`}>{statusConfig[viewProp.status].label}</span>
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{viewProp.transactionType}</span>
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{viewProp.category}</span>
+                </div>
+                {viewProp.amenities?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {viewProp.amenities.map(a => (
+                      <span key={a} className="text-xs px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{a}</span>
+                    ))}
+                  </div>
+                )}
+                {viewProp.ownerName && (
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-white">{viewProp.ownerName}</div>
+                      {viewProp.ownerPhone && <div className="text-xs text-muted-foreground">{viewProp.ownerPhone}</div>}
+                    </div>
+                    {viewProp.ownerPhone && (
+                      <div className="flex gap-2">
+                        <a href={`tel:${viewProp.ownerPhone}`} className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Phone className="w-4 h-4" /></a>
+                        <a href={`https://wa.me/91${viewProp.ownerPhone.replace(/\D/g,"").slice(-10)}`} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"><MessageSquare className="w-4 h-4" /></a>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <button onClick={() => { setViewProp(null); setEditProp(viewProp); }}
+                    className="flex-1 py-2.5 rounded-xl bg-estate-500/20 border border-estate-500/30 text-estate-300 text-sm font-medium hover:bg-estate-500/30 transition-all">
+                    ✏️ Edit Property
+                  </button>
+                  <button onClick={() => setViewProp(null)}
+                    className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-muted-foreground text-sm hover:text-white transition-all">
+                    Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Quick Edit Status Modal */}
+      <AnimatePresence>
+        {editProp && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setEditProp(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="glass-card w-full max-w-sm p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-bold text-white">Edit Status</h2>
+                <button onClick={() => setEditProp(null)} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-white mb-1 truncate">{editProp.title}</p>
+                  <p className="text-xs text-muted-foreground">{editProp.locality}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Status</label>
+                  <select
+                    defaultValue={editProp.status}
+                    onChange={async e => {
+                      const newStatus = e.target.value;
+                      const res = await fetch(`/api/properties/${editProp.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status: newStatus }),
+                      });
+                      if (res.ok) {
+                        setProperties(prev => prev.map(p => p.id === editProp.id ? { ...p, status: newStatus as PropStatus } : p));
+                        toast.success("Status updated!");
+                        setEditProp(null);
+                      } else toast.error("Failed to update");
+                    }}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/50">
+                    {Object.entries(statusConfig).map(([k, v]) => (
+                      <option key={k} value={k} className="bg-[#0f1f35]">{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}

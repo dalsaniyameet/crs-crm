@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendAdminEmail, newDealEmailHtml } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,6 +37,19 @@ export async function POST(req: NextRequest) {
     await prisma.activity.create({
       data: { type: "DEAL_CREATED", description: `New deal: ${deal.title}`, dealId: deal.id },
     });
+
+    // Email notification to admin
+    sendAdminEmail(
+      `🤝 New Deal: ${deal.title} — ₹${body.value?.toLocaleString("en-IN")}`,
+      newDealEmailHtml({
+        title: deal.title,
+        value: deal.value,
+        stage: deal.stage,
+        clientName: deal.lead.name,
+        brokerName: deal.broker?.name,
+      })
+    ).catch(() => {});
+
     return NextResponse.json(deal, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

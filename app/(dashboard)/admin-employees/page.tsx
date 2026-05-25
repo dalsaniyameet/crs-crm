@@ -57,11 +57,21 @@ function EmployeeCard({
 
   const empLeaves = leaves.filter(l => l.employeeId === emp.id);
   const empDocs   = documents.filter(d => d.employeeId === emp.id);
-  const empAtt    = attendance.filter(a => a.phone === emp.email || a.name === emp.name);
+  const empAtt    = attendance.filter(a => a.phone === emp.email);
+  const uniqueDays = new Set(empAtt.map(a => new Date(a.punchIn).toDateString())).size;
 
   const pendingLeaves = empLeaves.filter(l => l.status === "PENDING").length;
   const pendingDocs   = empDocs.filter(d => d.status === "PENDING" && d.uploadedBy === "EMPLOYEE").length;
   const totalAlerts   = pendingLeaves + pendingDocs;
+
+  // For activity: show only the latest punch per day
+  const latestPerDay = Object.values(
+    empAtt.reduce((acc: Record<string, any>, a) => {
+      const day = new Date(a.punchIn).toDateString();
+      if (!acc[day] || new Date(a.punchIn) > new Date(acc[day].punchIn)) acc[day] = a;
+      return acc;
+    }, {})
+  );
 
   const activities: Activity[] = [
     ...empLeaves.slice(0, 3).map(l => ({
@@ -74,7 +84,7 @@ function EmployeeCard({
       label: `Uploaded ${d.name}`,
       time: d.createdAt, status: d.status,
     })),
-    ...empAtt.slice(0, 2).map(a => ({
+    ...latestPerDay.slice(0, 2).map(a => ({
       type: "attendance" as const,
       label: `Punched in${a.punchOut ? ` · ${(a.workHours || 0).toFixed(1)}h worked` : " (in office)"}`,
       time: a.punchIn, status: a.approved ? "APPROVED" : "PENDING",
@@ -134,7 +144,7 @@ function EmployeeCard({
 
       <div className="px-4 pb-3 grid grid-cols-4 gap-2">
         {[
-          { icon: <Clock className="w-3.5 h-3.5" />,       label: "Days",    value: empAtt.length,    color: "text-blue-400" },
+          { icon: <Clock className="w-3.5 h-3.5" />,       label: "Days",    value: uniqueDays,       color: "text-blue-400" },
           { icon: <CalendarDays className="w-3.5 h-3.5" />, label: "Leaves",  value: empLeaves.length, color: "text-purple-400" },
           { icon: <FileText className="w-3.5 h-3.5" />,     label: "Docs",    value: empDocs.length,   color: "text-estate-400" },
           { icon: <Bell className="w-3.5 h-3.5" />,         label: "Pending", value: totalAlerts,      color: totalAlerts > 0 ? "text-yellow-400" : "text-muted-foreground" },
@@ -227,7 +237,7 @@ export default function AdminEmployeesPage() {
       fetch("/api/admin/employees").then(r => r.json()),
       fetch("/api/leaves").then(r => r.json()),
       fetch("/api/employee/documents?all=true").then(r => r.json()),
-      fetch(`/api/attendance/guest?date=${new Date().toISOString().split("T")[0]}`).then(r => r.json()),
+      fetch(`/api/attendance/guest?date=all`).then(r => r.json()),
     ]).then(([emps, leavs, docs, att]) => {
       setEmployees(Array.isArray(emps) ? emps : []);
       setLeaves(Array.isArray(leavs) ? leavs : []);

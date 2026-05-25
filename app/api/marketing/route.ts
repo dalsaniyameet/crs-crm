@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendAdminEmail, newCampaignEmailHtml } from "@/lib/email";
 
 export async function GET() {
   try {
@@ -27,6 +28,17 @@ export async function POST(req: NextRequest) {
         status:      body.scheduledAt ? "SCHEDULED" : "DRAFT",
       },
     });
+    sendAdminEmail(
+      `📣 New Campaign: ${campaign.name} (${campaign.type})`,
+      newCampaignEmailHtml({
+        name:        campaign.name,
+        type:        campaign.type,
+        subject:     campaign.subject,
+        scheduledAt: campaign.scheduledAt ? new Date(campaign.scheduledAt).toLocaleString("en-IN") : null,
+        createdBy:   null,
+      })
+    ).catch(() => {});
+
     return NextResponse.json(campaign, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

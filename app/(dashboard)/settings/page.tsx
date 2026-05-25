@@ -1,9 +1,45 @@
 "use client";
 import { motion } from "framer-motion";
-import { Settings, User, Bell, Shield, Zap, ChevronRight, Loader2, CheckCircle2, XCircle, ExternalLink, Calendar, Save } from "lucide-react";
+import { Settings, User, Bell, Shield, Zap, ChevronRight, Loader2, CheckCircle2, XCircle, ExternalLink, Calendar, Save, Copy, Check, Workflow } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
+
+const CRM_URL = "https://crs-crm.vercel.app";
+const N8N_TOKEN = "crs_n8n_secret_2024";
+
+function CopyBox({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    toast.success("Copied!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="space-y-1">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-black/40 border border-white/10">
+        <code className="flex-1 text-xs text-emerald-400 break-all">{value}</code>
+        <button onClick={copy} className="flex-shrink-0 p-1 rounded hover:bg-white/10 transition-colors">
+          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3">
+      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-estate-600 flex items-center justify-center text-xs font-bold text-white mt-0.5">{n}</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-white mb-2">{title}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 const sections = [
   {
@@ -34,6 +70,7 @@ const sections = [
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"general"|"n8n">("general");
 
   // Profile state
   const [profile, setProfile]         = useState({ name: "", email: "", phone: "", role: "" });
@@ -148,6 +185,20 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-white">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage your CRM configuration</p>
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
+        {(["general", "n8n"] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === tab ? "bg-estate-600 text-white" : "text-muted-foreground hover:text-white"
+            }`}>
+            {tab === "general" ? "⚙️ General" : "🔗 n8n Automation"}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "general" && (<>
 
       {/* Profile */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }} className="glass-card p-5">
@@ -364,6 +415,223 @@ export default function SettingsPage() {
           </table>
         </div>
       </motion.div>
+
+      </>)} {/* end general tab */}
+
+      {/* ── n8n Automation Tab ── */}
+      {activeTab === "n8n" && (
+        <div className="space-y-5">
+
+          {/* Header */}
+          <div className="glass-card p-5 border border-estate-500/20">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl bg-estate-600/30 flex items-center justify-center text-xl">🔗</div>
+              <div>
+                <h2 className="font-bold text-white">n8n Automation Setup</h2>
+                <p className="text-xs text-muted-foreground">Auto-capture leads from MagicBricks, 99acres, Housing.com & your website</p>
+              </div>
+            </div>
+            <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+              ✅ Jab bhi koi lead aayega — CRM mein auto-add, WhatsApp welcome message, AI score, aur follow-up tasks — sab automatic!
+            </div>
+          </div>
+
+          {/* Step 0 — n8n account */}
+          <div className="glass-card p-5 space-y-4">
+            <div className="text-sm font-bold text-white flex items-center gap-2">📋 Pehle ye karo (one time)</div>
+            <Step n={1} title="n8n Cloud Account Banao (Free)">
+              <a href="https://app.n8n.cloud" target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-400 text-sm hover:bg-orange-500/30 transition-colors">
+                <ExternalLink className="w-3.5 h-3.5" /> app.n8n.cloud pe Sign Up karo
+              </a>
+              <p className="text-xs text-muted-foreground mt-2">Free plan mein 5 workflows milte hain — enough hai tumhare liye.</p>
+            </Step>
+            <Step n={2} title="Tumhara CRM Webhook URL">
+              <CopyBox label="Webhook URL (ye n8n mein paste karo)" value={`${CRM_URL}/api/webhooks/n8n`} />
+              <CopyBox label="Secret Token (Header: x-n8n-token)" value={N8N_TOKEN} />
+            </Step>
+          </div>
+
+          {/* Workflow 1 — MagicBricks */}
+          <div className="glass-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏠</span>
+              <div>
+                <div className="text-sm font-bold text-white">Workflow 1 — MagicBricks Leads</div>
+                <div className="text-xs text-muted-foreground">MagicBricks email se auto lead capture</div>
+              </div>
+            </div>
+            <Step n={1} title="n8n mein New Workflow banao">
+              <p className="text-xs text-muted-foreground">n8n → New Workflow → naam do: <code className="text-estate-400">MagicBricks → CRS CRM</code></p>
+            </Step>
+            <Step n={2} title="Gmail Trigger node add karo">
+              <div className="space-y-2 text-xs">
+                <div className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-1">
+                  <div className="text-white font-medium">Node: Gmail Trigger</div>
+                  <div className="text-muted-foreground">Event: <span className="text-yellow-400">Message Received</span></div>
+                  <div className="text-muted-foreground">Gmail Account: <span className="text-yellow-400">info@cityrealspace.com connect karo</span></div>
+                  <div className="text-muted-foreground">Filter From: <span className="text-emerald-400">noreply@magicbricks.com</span></div>
+                  <div className="text-muted-foreground">Poll Every: <span className="text-yellow-400">1 minute</span></div>
+                </div>
+              </div>
+            </Step>
+            <Step n={3} title="Code node add karo (email se data extract)">
+              <div className="p-3 rounded-lg bg-black/40 border border-white/10">
+                <pre className="text-xs text-emerald-400 overflow-x-auto whitespace-pre-wrap">{`const body = $input.item.json.text || $input.item.json.snippet || "";
+const phoneMatch = body.match(/([6-9]\\d{9})/);
+const nameMatch  = body.match(/Name[:\\s]+([A-Za-z\\s]{2,30})/i);
+const reqMatch   = body.match(/(?:Requirement|Looking)[:\\s]+(.{10,150})/i);
+return [{ json: {
+  name:         nameMatch?.[1]?.trim() || "MagicBricks Lead",
+  phone:        phoneMatch?.[1] || "",
+  requirements: reqMatch?.[1]?.trim() || "Property inquiry",
+  source:       "magicbricks"
+}}];`}</pre>
+              </div>
+            </Step>
+            <Step n={4} title="HTTP Request node add karo">
+              <div className="space-y-2">
+                <CopyBox label="Method" value="POST" />
+                <CopyBox label="URL" value={`${CRM_URL}/api/webhooks/n8n`} />
+                <div className="p-3 rounded-lg bg-black/40 border border-white/10">
+                  <div className="text-xs text-muted-foreground mb-1">Headers:</div>
+                  <pre className="text-xs text-emerald-400">{`Content-Type: application/json
+x-n8n-token: ${N8N_TOKEN}`}</pre>
+                </div>
+                <div className="p-3 rounded-lg bg-black/40 border border-white/10">
+                  <div className="text-xs text-muted-foreground mb-1">Body (JSON):</div>
+                  <pre className="text-xs text-emerald-400 whitespace-pre-wrap">{`{
+  "name":         "{{ $json.name }}",
+  "phone":        "{{ $json.phone }}",
+  "requirements": "{{ $json.requirements }}",
+  "source":       "magicbricks"
+}`}</pre>
+                </div>
+              </div>
+            </Step>
+            <Step n={5} title="Activate karo">
+              <p className="text-xs text-muted-foreground">Top-right mein <span className="text-emerald-400 font-semibold">Active toggle ON</span> karo. Done! ✅</p>
+            </Step>
+          </div>
+
+          {/* Workflow 2 — 99acres */}
+          <div className="glass-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏢</span>
+              <div>
+                <div className="text-sm font-bold text-white">Workflow 2 — 99acres Leads</div>
+                <div className="text-xs text-muted-foreground">Workflow 1 copy karo, sirf 2 cheezein badlo</div>
+              </div>
+            </div>
+            <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-3 text-xs">
+              <p className="text-blue-300 font-medium">Workflow 1 ko duplicate karo, phir:</p>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-400 font-bold">1.</span>
+                  <span className="text-muted-foreground">Gmail Trigger → Filter From change karo: <code className="text-emerald-400">leads@99acres.com</code></span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-400 font-bold">2.</span>
+                  <span className="text-muted-foreground">HTTP Body mein source change karo: <code className="text-emerald-400">"source": "99acres"</code></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Workflow 3 — Housing.com */}
+          <div className="glass-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏡</span>
+              <div>
+                <div className="text-sm font-bold text-white">Workflow 3 — Housing.com Leads</div>
+                <div className="text-xs text-muted-foreground">Same as above, different email filter</div>
+              </div>
+            </div>
+            <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 space-y-2 text-xs">
+              <p className="text-purple-300 font-medium">Workflow 1 ko duplicate karo, phir:</p>
+              <div className="flex items-start gap-2">
+                <span className="text-purple-400 font-bold">1.</span>
+                <span className="text-muted-foreground">Gmail Filter: <code className="text-emerald-400">leads@housing.com</code> ya <code className="text-emerald-400">noreply@housing.com</code></span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-purple-400 font-bold">2.</span>
+                <span className="text-muted-foreground">Source: <code className="text-emerald-400">"source": "housing"</code></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Workflow 4 — Website */}
+          <div className="glass-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🌐</span>
+              <div>
+                <div className="text-sm font-bold text-white">Workflow 4 — cityrealspace.com Website</div>
+                <div className="text-xs text-muted-foreground">Website form seedha CRM ko call karega — n8n ki zaroorat nahi</div>
+              </div>
+            </div>
+            <Step n={1} title="Website ke contact form mein ye script daalo">
+              <div className="p-3 rounded-lg bg-black/40 border border-white/10">
+                <pre className="text-xs text-emerald-400 overflow-x-auto whitespace-pre-wrap">{`<script>
+document.querySelector('#contactForm')
+  .addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(this));
+    data.source = 'website';
+    const res = await fetch('${CRM_URL}/api/webhooks/n8n', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-n8n-token': '${N8N_TOKEN}'
+      },
+      body: JSON.stringify(data)
+    });
+    const d = await res.json();
+    if (d.status === 'created') {
+      alert('Thank you! Our broker will call you in 30 minutes.');
+      this.reset();
+    }
+  });
+</script>`}</pre>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">Form fields ke <code className="text-yellow-400">name</code> attribute: <code className="text-emerald-400">name, phone, email, requirements, budget</code></p>
+            </Step>
+          </div>
+
+          {/* Test Section */}
+          <div className="glass-card p-5 space-y-4 border border-yellow-500/20">
+            <div className="text-sm font-bold text-white flex items-center gap-2">🧪 Test Karo</div>
+            <p className="text-xs text-muted-foreground">n8n workflow activate karne ke baad, ye curl command run karo ya browser mein test karo:</p>
+            <CopyBox
+              label="Test Command (Terminal mein run karo)"
+              value={`curl -X POST ${CRM_URL}/api/webhooks/n8n -H "Content-Type: application/json" -H "x-n8n-token: ${N8N_TOKEN}" -d "{\"name\":\"Test Lead\",\"phone\":\"9876543210\",\"requirements\":\"2BHK in Prahlad Nagar\",\"source\":\"magicbricks\"}"`}
+            />
+            <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-xs space-y-1">
+              <p className="text-white font-medium">Agar sab sahi hai toh:</p>
+              <p className="text-emerald-400">✅ CRM mein lead dikhega</p>
+              <p className="text-emerald-400">✅ WhatsApp message jayega 9876543210 pe</p>
+              <p className="text-emerald-400">✅ Admin ko notification milegi</p>
+              <p className="text-emerald-400">✅ 3 follow-up tasks create honge</p>
+            </div>
+          </div>
+
+          {/* Live Webhook URLs */}
+          <div className="glass-card p-5 space-y-3">
+            <div className="text-sm font-bold text-white">📌 Saare Webhook URLs (Reference)</div>
+            <div className="space-y-2">
+              {[
+                { label: "n8n Universal Webhook",  url: `${CRM_URL}/api/webhooks/n8n` },
+                { label: "Portal Direct Webhook",  url: `${CRM_URL}/api/webhooks/portal` },
+                { label: "Website Form Webhook",   url: `${CRM_URL}/api/webhooks/website` },
+                { label: "WhatsApp Twilio Webhook",url: `${CRM_URL}/api/whatsapp` },
+              ].map(w => (
+                <CopyBox key={w.label} label={w.label} value={w.url} />
+              ))}
+            </div>
+          </div>
+
+        </div>
+      )}
+
     </div>
   );
 }

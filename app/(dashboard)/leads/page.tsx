@@ -100,6 +100,14 @@ export default function LeadsPage() {
     budget: "", requirements: "", propertyType: "", transactionType: "BUY",
   });
 
+  // Auto-open lead from URL param (e.g. from search results)
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id) openDetail(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {

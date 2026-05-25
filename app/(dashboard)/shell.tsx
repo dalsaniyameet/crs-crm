@@ -1,10 +1,10 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X, ChevronRight, Zap, Search, LogOut, LogIn, LogOut as PunchOut, Coffee } from "lucide-react";
+import { Menu, X, ChevronRight, Zap, Search, LogOut, LogIn, LogOut as PunchOut, Coffee, Users, Building2, TrendingUp, CalendarDays, UserCircle, FileText, Home } from "lucide-react";
 import NotificationBell from "@/components/ui/notification-bell";
 import { getNavForRole, UserRole } from "@/lib/roles";
 import { useUser, useClerk } from "@clerk/nextjs";
@@ -56,12 +56,47 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen]   = useState(false);
   const [search, setSearch]           = useState("");
+  const [searchResults, setSearchResults] = useState<Record<string, any[]>>({});
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen]   = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
   const pathname = usePathname();
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  // Search debounce
+  useEffect(() => {
+    clearTimeout(searchTimer.current);
+    if (search.length < 2) { setSearchResults({}); setSearchOpen(false); return; }
+    setSearchLoading(true);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(search)}`);
+        const data = await res.json();
+        setSearchResults(data.results || {});
+        setSearchOpen(true);
+      } catch {}
+      setSearchLoading(false);
+    }, 300);
+    return () => clearTimeout(searchTimer.current);
+  }, [search]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSearchSelect = useCallback(() => {
+    setSearch(""); setSearchOpen(false); setSearchResults({});
+  }, []);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -336,15 +371,153 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             <span className="text-sm font-bold text-white">City Real Space</span>
           </div>
 
-          <div className="hidden md:flex flex-1 max-w-sm">
+          <div className="hidden md:flex flex-1 max-w-sm" ref={searchRef}>
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground z-10" />
+              {searchLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-estate-400 border-t-transparent rounded-full animate-spin" />}
               <input value={search} onChange={e => setSearch(e.target.value)}
+                onFocus={() => search.length >= 2 && setSearchOpen(true)}
                 placeholder="Search leads, properties, deals..."
                 className="w-full pl-9 pr-4 py-2 text-sm rounded-lg focus:outline-none transition-all text-white placeholder:text-muted-foreground"
                 style={{ background: "rgba(30,58,95,0.3)", border: "1px solid rgba(234,179,8,0.1)" }}
-                onFocus={e => (e.target.style.borderColor = "rgba(234,179,8,0.4)")}
+                onFocus={e => { e.target.style.borderColor = "rgba(234,179,8,0.4)"; if (search.length >= 2) setSearchOpen(true); }}
                 onBlur={e  => (e.target.style.borderColor = "rgba(234,179,8,0.1)")} />
+
+              {/* Dropdown */}
+              {searchOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl border border-white/10 shadow-2xl z-[200] overflow-hidden"
+                  style={{ background: "#0a1628", maxHeight: "70vh", overflowY: "auto" }}>
+                  {Object.keys(searchResults).length === 0 ? (
+                    <div className="px-4 py-6 text-sm text-muted-foreground text-center">No results for "{search}"</div>
+                  ) : (
+                    <div className="py-1">
+                      {(searchResults.leads as any[])?.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-white/5">
+                            <Users className="w-3 h-3" /> Leads
+                          </div>
+                          {(searchResults.leads as any[]).map((l: any) => (
+                            <Link key={l.id} href={`/leads?id=${l.id}`} onClick={handleSearchSelect}
+                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors cursor-pointer">
+                              <div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center text-xs font-bold text-blue-400 flex-shrink-0">{l.name[0]}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-white truncate">{l.name}</div>
+                                <div className="text-xs text-muted-foreground">{l.phone} · {l.source}</div>
+                              </div>
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 flex-shrink-0">{l.status}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {(searchResults.properties as any[])?.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-white/5">
+                            <Building2 className="w-3 h-3" /> Properties
+                          </div>
+                          {(searchResults.properties as any[]).map((p: any) => (
+                            <Link key={p.id} href={`/properties?id=${p.id}`} onClick={handleSearchSelect}
+                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors cursor-pointer">
+                              <div className="w-7 h-7 rounded-full bg-estate-500/20 flex items-center justify-center flex-shrink-0"><Home className="w-3.5 h-3.5 text-estate-400" /></div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-white truncate">{p.title}</div>
+                                <div className="text-xs text-muted-foreground">{p.locality} · {p.type}</div>
+                              </div>
+                              <span className="text-xs text-estate-400 flex-shrink-0">₹{Number(p.price).toLocaleString("en-IN")}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {(searchResults.deals as any[])?.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-white/5">
+                            <TrendingUp className="w-3 h-3" /> Deals
+                          </div>
+                          {(searchResults.deals as any[]).map((d: any) => (
+                            <Link key={d.id} href={`/deals?id=${d.id}`} onClick={handleSearchSelect}
+                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors cursor-pointer">
+                              <div className="w-7 h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-3.5 h-3.5 text-orange-400" /></div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-white truncate">{d.title}</div>
+                                <div className="text-xs text-muted-foreground">{d.lead?.name} · {d.stage}</div>
+                              </div>
+                              <span className="text-xs text-orange-400 flex-shrink-0">₹{Number(d.value).toLocaleString("en-IN")}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {(searchResults.owners as any[])?.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-white/5">
+                            <UserCircle className="w-3 h-3" /> Property Owners
+                          </div>
+                          {(searchResults.owners as any[]).map((o: any) => (
+                            <Link key={o.id} href={`/owners?id=${o.id}`} onClick={handleSearchSelect}
+                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors cursor-pointer">
+                              <div className="w-7 h-7 rounded-full bg-purple-500/20 flex items-center justify-center text-xs font-bold text-purple-400 flex-shrink-0">{o.name[0]}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-white truncate">{o.name}</div>
+                                <div className="text-xs text-muted-foreground">{o.phone}{o.company ? ` · ${o.company}` : ""}</div>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {(searchResults.visits as any[])?.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-white/5">
+                            <CalendarDays className="w-3 h-3" /> Site Visits
+                          </div>
+                          {(searchResults.visits as any[]).map((v: any) => (
+                            <Link key={v.id} href={`/visits?id=${v.id}`} onClick={handleSearchSelect}
+                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors cursor-pointer">
+                              <div className="w-7 h-7 rounded-full bg-pink-500/20 flex items-center justify-center flex-shrink-0"><CalendarDays className="w-3.5 h-3.5 text-pink-400" /></div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-white truncate">{v.lead?.name} → {v.property?.title || "—"}</div>
+                                <div className="text-xs text-muted-foreground">{new Date(v.scheduledAt).toLocaleDateString("en-IN")} · {v.status}</div>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {(searchResults.employees as any[])?.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-white/5">
+                            <Users className="w-3 h-3" /> Employees
+                          </div>
+                          {(searchResults.employees as any[]).map((e: any) => (
+                            <Link key={e.id} href={`/admin-employees/${e.id}`} onClick={handleSearchSelect}
+                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors cursor-pointer">
+                              <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center text-xs font-bold text-green-400 flex-shrink-0">{e.name[0]}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-white truncate">{e.name}</div>
+                                <div className="text-xs text-muted-foreground">{e.position} · {e.role}</div>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {(searchResults.agreements as any[])?.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-white/5">
+                            <FileText className="w-3 h-3" /> Agreements
+                          </div>
+                          {(searchResults.agreements as any[]).map((a: any) => (
+                            <Link key={a.id} href={`/agreements?id=${a.id}`} onClick={handleSearchSelect}
+                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors cursor-pointer">
+                              <div className="w-7 h-7 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0"><FileText className="w-3.5 h-3.5 text-yellow-400" /></div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-white truncate">{a.title}</div>
+                                <div className="text-xs text-muted-foreground">{a.client} · {a.type}</div>
+                              </div>
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400 flex-shrink-0">{a.status}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

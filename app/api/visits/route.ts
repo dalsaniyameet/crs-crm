@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendSiteVisitReminder } from "@/lib/whatsapp";
+import { sendAdminEmail, newVisitEmailHtml } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,6 +45,18 @@ export async function POST(req: NextRequest) {
         // best effort only
       }
     }
+
+    // Email notification to admin
+    sendAdminEmail(
+      `📅 Site Visit Scheduled: ${visit.lead.name}`,
+      newVisitEmailHtml({
+        clientName: visit.lead.name,
+        clientPhone: visit.lead.phone,
+        propertyTitle: visit.property?.title || "Property",
+        scheduledAt: new Date(body.scheduledAt).toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" }),
+        brokerName: visit.broker?.name || "City Real Space",
+      })
+    ).catch(() => {});
 
     return NextResponse.json(visit, { status: 201 });
   } catch (err: any) {

@@ -2,6 +2,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { autoMatchProperties } from "@/lib/autoMatch";
+import { sendAdminEmail, newPropertyEmailHtml } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   try {
@@ -87,6 +88,16 @@ export async function POST(req: NextRequest) {
       },
       include: { commercial: true, residential: true },
     });
+
+    sendAdminEmail(
+      `🏢 New Property: ${property.title} — ${property.locality}`,
+      newPropertyEmailHtml({
+        title: property.title, type: property.type,
+        locality: property.locality, price: property.price,
+        transactionType: property.transactionType,
+        listedBy: (property as any).listedBy?.name,
+      })
+    ).catch(() => {});
 
     return NextResponse.json(property, { status: 201 });
   } catch (err: any) {

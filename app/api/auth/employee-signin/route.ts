@@ -1,7 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
+import nodemailer from "nodemailer";
+import { employeeWelcomeEmailHtml } from "@/lib/email";
 
 const SECRET = process.env.CLERK_SECRET_KEY!;
+
+async function sendWelcomeEmail(name: string, position: string, email: string) {
+  if (!process.env.EMAIL_PASS || process.env.EMAIL_PASS === "YOUR_EMAIL_PASSWORD") return;
+  const t = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || "smtpout.secureserver.net",
+    port: parseInt(process.env.EMAIL_PORT || "465"),
+    secure: process.env.EMAIL_SECURE !== "false",
+    auth: { user: process.env.EMAIL_USER || "info@cityrealspace.com", pass: process.env.EMAIL_PASS },
+  });
+  await t.sendMail({
+    from: `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`,
+    to: email,
+    subject: "✅ Welcome to City Real Space CRM — Secure Login",
+    html: employeeWelcomeEmailHtml({ name, position, email }),
+  }).catch(() => {}); // non-blocking
+}
 
 function clerkREST(method: string, path: string, body?: object): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -47,6 +65,12 @@ export async function POST(req: NextRequest) {
 
     if (tokenRes.errors || !tokenRes.token)
       return NextResponse.json({ error: "Failed to create login token." }, { status: 500 });
+
+    // Send welcome/security email to employee (non-blocking)
+    const empEmail = clerkUser.email_addresses?.[0]?.email_address || email;
+    const empName  = [clerkUser.first_name, clerkUser.last_name].filter(Boolean).join(" ") || empEmail;
+    const empPos   = clerkUser.public_metadata?.position as string || "Employee";
+    sendWelcomeEmail(empName, empPos, empEmail);
 
     return NextResponse.json({ token: tokenRes.token });
   } catch (err: any) {

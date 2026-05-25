@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { sendAdminEmail, newCommissionEmailHtml } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   const { userId } = auth();
@@ -26,6 +27,16 @@ export async function POST(req: NextRequest) {
     data:    body,
     include: { deal: true, broker: true },
   });
+
+  sendAdminEmail(
+    `💰 Commission Recorded: ${commission.broker.name} — ₹${commission.amount.toLocaleString("en-IN")}`,
+    newCommissionEmailHtml({
+      brokerName: commission.broker.name,
+      dealTitle:  commission.deal.title,
+      amount:     commission.amount,
+      rate:       commission.rate,
+    })
+  ).catch(() => {});
 
   return NextResponse.json(commission, { status: 201 });
 }
