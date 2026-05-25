@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import ToasterClient from "./toaster-client";
 import SplashScreen from "./splash-screen";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "City Real Space CRM | Ahmedabad Real Estate",
@@ -29,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <link rel="icon" href="/logo.jpeg" type="image/jpeg" />
           <link rel="apple-touch-icon" href="/logo.jpeg" />
         </head>
-        <body className={`${inter.className} antialiased`} suppressHydrationWarning>
+        <body className="antialiased" suppressHydrationWarning>
           <SplashScreen />
           {children}
           <ToasterClient />
