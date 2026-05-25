@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 async function isAdmin(userId: string) {
   try {
-    const clerk = await clerkClient();
-    const u = await clerk.users.getUser(userId);
-    return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
+    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
+    return (dbUser?.role as string)?.toUpperCase() === "ADMIN";
   } catch { return false; }
 }
 
@@ -22,13 +21,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
     if (!emp) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
-    // Attendance via GuestAttendance (phone = emp.email)
-    const attendance = await prisma.guestAttendance.findMany({
-      where: { phone: emp.email },
+    // Attendance via Attendance model (userId)
+    const attUser = await prisma.user.findUnique({ where: { email: emp.email }, select: { id: true } });
+    const attendance = attUser ? await prisma.attendance.findMany({
+      where: { userId: attUser.id },
       include: { location: true },
       orderBy: { punchIn: "desc" },
       take: 60,
-    });
+    }) : [];
 
     // CRM data linked via User record
     const dbUser = await prisma.user.findUnique({ where: { email: emp.email } });
@@ -68,9 +68,10 @@ export async function POST(req: NextRequest, { params: _p }: { params: { id: str
   // Fetch attendance for the month
   const from = new Date(year, month - 1, 1);
   const to   = new Date(year, month, 0, 23, 59, 59);
-  const attendance = await prisma.guestAttendance.findMany({
-    where: { phone: emp.email, punchIn: { gte: from, lte: to }, punchOut: { not: null } },
-  });
+  const attUser2 = await prisma.user.findUnique({ where: { email: emp.email }, select: { id: true } });
+  const attendance = attUser2 ? await prisma.attendance.findMany({
+    where: { userId: attUser2.id, punchIn: { gte: from, lte: to }, punchOut: { not: null } },
+  }) : [];
 
   const workingDays   = attendance.length;
   const totalHours    = attendance.reduce((s, a) => s + (a.workHours || 0), 0);

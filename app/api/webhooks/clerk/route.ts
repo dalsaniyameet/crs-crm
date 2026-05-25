@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "svix";
 import { prisma } from "@/lib/prisma";
+import { sendAdminEmail, employeeWelcomeEmailHtml } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   const secret = process.env.CLERK_WEBHOOK_SECRET;
@@ -44,6 +45,14 @@ export async function POST(req: NextRequest) {
         role: "BROKER",
       },
     });
+
+    if (type === "user.created") {
+      const emp = await prisma.employeeProfile.findUnique({ where: { email } });
+      sendAdminEmail(
+        `👋 Welcome: ${name} joined CRS CRM`,
+        employeeWelcomeEmailHtml({ name, position: emp?.position || "Team Member", email })
+      ).catch(() => {});
+    }
   }
 
   if (type === "user.deleted") {

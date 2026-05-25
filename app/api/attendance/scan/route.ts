@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { sendAdminEmail, punchInEmailHtml, punchOutEmailHtml } from "@/lib/email";
 
 // Employee scans location QR â†’ attendance marked for that employee
 export async function POST(req: Request) {
@@ -61,6 +62,17 @@ export async function POST(req: Request) {
         data:    { punchOut, workHours },
         include: { location: true },
       });
+      const fmt = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+      sendAdminEmail(
+        `🔴 Punch Out: ${user.name} — ${updated.location.name}`,
+        punchOutEmailHtml({
+          employeeName: user.name,
+          location:     updated.location.name,
+          punchIn:      fmt(existing.punchIn),
+          punchOut:     fmt(punchOut),
+          workHours:    workHours.toFixed(2),
+        })
+      ).catch(() => {});
       return NextResponse.json({ type: "OUT", attendance: updated, employeeName: user.name });
     } else {
       // Punch IN
@@ -68,6 +80,15 @@ export async function POST(req: Request) {
         data:    { userId: user.id, locationId: location.id, punchIn: new Date() },
         include: { location: true },
       });
+      const fmt = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+      sendAdminEmail(
+        `🟢 Punch In: ${user.name} — ${location.name}`,
+        punchInEmailHtml({
+          employeeName: user.name,
+          location:     location.name,
+          time:         fmt(new Date()),
+        })
+      ).catch(() => {});
       return NextResponse.json({ type: "IN", attendance, employeeName: user.name });
     }
   } catch (error: any) {
