@@ -23,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning style={{ colorScheme: "dark" }}>
         <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
           <link rel="icon" href="/logo.jpeg" type="image/jpeg" />
           <link rel="apple-touch-icon" href="/logo.jpeg" />
         </head>
