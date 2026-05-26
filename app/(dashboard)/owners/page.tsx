@@ -183,22 +183,29 @@ export default function OwnersPage() {
   const [importing, setImporting]           = useState(false);
   const [importResult, setImportResult]     = useState<any>(null);
   const importFileRef                       = useRef<HTMLInputElement>(null);
-  const [blastMsg, setBlastMsg] = useState(`Hello Sir/Ma'am 👋
+  const [blastMsg, setBlastMsg] = useState(`*👋🏻 Hello Sir/Mam*
 
-Good Day!
+*👐🏻 Welcome to City Real Space*
 
-This is Meet here from *City Real Space*
-( Property Broker — Ahmedabad )
+*🙋🏻 This is Nikhil Here From City Real Space*
+*( We are Real Estate Agent )*
+*( Property Broker )*
 
-Your Property Available For Rent/Sell? 🏢
+*🏘️ Your Property Available For Rent?*
 
-We have genuine buyers & tenants looking for properties in your area.
+*( If Yes please Them 👇🏻)*
 
-Please share photos & details, we will help you close the deal fast! 🤝
+*📸 Please share me photos and details*
 
-Thank you for connecting with *City Real Space* 🙏
-📞 +91 9825031247
-🌐 cityrealspace.com`);
+*🤝 We will Help you Close the deal Fast!*
+
+*🌐 www.cityrealspace.com*
+
+*📧 info@cityrealspace.com*
+
+*📲 +91 9825031247*
+
+*🙏🏻Thank you for Contacting City Real Space*`);
   const [blasting, setBlasting]     = useState(false);
   const [blastIndex, setBlastIndex] = useState(0);
   const [blastDone, setBlastDone]   = useState<Set<string>>(new Set());
