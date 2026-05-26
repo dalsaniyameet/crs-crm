@@ -119,13 +119,13 @@ export async function POST(req: NextRequest) {
     autoMatchProperties(lead.id).catch(() => {});
     runLeadAutomation({ leadId: lead.id, newStatus: "NEW", oldStatus: "", triggeredBy: user.id }).catch(() => {});
 
-    notifyNewLead({
+    await notifyNewLead({
       id: lead.id, name: lead.name, phone: lead.phone, email: lead.email,
       source: lead.source, propertyType: lead.propertyType,
       budget: lead.budget, requirements: lead.requirements,
       score: aiScore.score, assignedTo: user.name,
       assignedToId: lead.assignedToId,
-    }).catch(() => {});
+    }).catch((e) => console.error("[NOTIFY] lead failed:", e?.message));
 
     return NextResponse.json({ lead, aiScore }, { status: 201 });
   } catch (err: any) {

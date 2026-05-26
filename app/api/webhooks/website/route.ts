@@ -55,13 +55,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Notify admins — DB notification + email
-    notifyNewLead({
+    // Notify admins — DB notification + email (awaited so Vercel doesn't kill it)
+    await notifyNewLead({
       id: lead.id, name, phone, email,
       source: "WEBSITE",
       propertyType, budget, requirements,
       score: aiScore.score,
-    }).catch(() => {});
+    }).catch((e) => console.error("[NOTIFY] notifyNewLead failed:", e?.message));
 
     return NextResponse.json({ status: "success", leadId: lead.id, aiScore }, { status: 201 });
   } catch (err) {
