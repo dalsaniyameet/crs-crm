@@ -5,6 +5,24 @@ import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 
+const DEFAULT_PREFS = {
+  leadAssigned:  true,
+  followUpDue:   true,
+  siteVisit:     true,
+  dealUpdate:    true,
+  whatsapp:      false,
+  dailySummary:  true,
+};
+
+const PREF_LABELS: { key: keyof typeof DEFAULT_PREFS; label: string }[] = [
+  { key: "leadAssigned",  label: "New lead assigned" },
+  { key: "followUpDue",   label: "Follow-up reminders" },
+  { key: "siteVisit",     label: "Site visit reminders" },
+  { key: "dealUpdate",    label: "Deal stage updates" },
+  { key: "whatsapp",      label: "WhatsApp notifications" },
+  { key: "dailySummary",  label: "Daily summary email" },
+];
+
 const CRM_URL = "https://crs-crm.vercel.app";
 
 function TestNotificationButton() {
@@ -54,35 +72,13 @@ function TestNotificationButton() {
   );
 }
 
-const sections = [
-  {
-    title: "Profile",
-    icon: User,
-    color: "text-estate-400",
-    fields: [
-      { label: "Full Name",    type: "text",  value: "Admin User" },
-      { label: "Email",        type: "email", value: "admin@cityreals.com" },
-      { label: "Phone",        type: "tel",   value: "+91 98765 43210" },
-      { label: "Role",         type: "text",  value: "Admin", disabled: true },
-    ],
-  },
-  {
-    title: "Notifications",
-    icon: Bell,
-    color: "text-yellow-400",
-    toggles: [
-      { label: "New lead assigned",         defaultOn: true },
-      { label: "Follow-up reminders",       defaultOn: true },
-      { label: "Site visit reminders",      defaultOn: true },
-      { label: "Deal stage updates",        defaultOn: true },
-      { label: "WhatsApp notifications",    defaultOn: false },
-      { label: "Daily summary email",       defaultOn: true },
-    ],
-  },
-];
-
 export default function SettingsPage() {
   const searchParams = useSearchParams();
+
+  // Notification prefs state
+  const [prefs, setPrefs]           = useState(DEFAULT_PREFS);
+  const [prefsLoading, setPrefsLoading] = useState(true);
+  const [prefsSaving, setPrefsSaving]   = useState(false);
 
   // Profile state
   const [profile, setProfile]         = useState({ name: "", email: "", phone: "", role: "" });
@@ -97,6 +93,13 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setProfileLoading(false));
+
+    // Load notification prefs
+    fetch("/api/notifications")
+      .then(r => r.json())
+      .then(d => { if (d?.prefs) setPrefs(p => ({ ...p, ...d.prefs })); })
+      .catch(() => {})
+      .finally(() => setPrefsLoading(false));
   }, []);
 
   const saveProfile = async () => {
@@ -114,6 +117,18 @@ export default function SettingsPage() {
     } finally {
       setProfileSaving(false);
     }
+  };
+
+  const togglePref = async (key: keyof typeof DEFAULT_PREFS) => {
+    const updated = { ...prefs, [key]: !prefs[key] };
+    setPrefs(updated);
+    setPrefsSaving(true);
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prefs: updated }),
+    }).catch(() => {});
+    setPrefsSaving(false);
   };
 
   // Google Calendar state
@@ -248,20 +263,36 @@ export default function SettingsPage() {
 
       {/* Notifications */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-5">
-        <div className="flex items-center gap-2 mb-5">
-          <Bell className="w-5 h-5 text-yellow-400" />
-          <h2 className="font-semibold text-white">Notifications</h2>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <Bell className="w-5 h-5 text-yellow-400" />
+            <h2 className="font-semibold text-white">Notifications</h2>
+          </div>
+          {prefsSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
         </div>
-        <div className="space-y-3">
-          {sections[1].toggles!.map(t => (
-            <div key={t.label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-              <span className="text-sm text-foreground">{t.label}</span>
-              <button className={`relative w-11 h-6 rounded-full transition-colors ${t.defaultOn ? "bg-estate-600" : "bg-white/10"}`}>
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${t.defaultOn ? "translate-x-6" : "translate-x-1"}`} />
-              </button>
-            </div>
-          ))}
-        </div>
+        {prefsLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {PREF_LABELS.map(({ key, label }) => (
+              <div key={key} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                <span className="text-sm text-foreground">{label}</span>
+                <button
+                  onClick={() => togglePref(key)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    prefs[key] ? "bg-estate-600" : "bg-white/10"
+                  }`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    prefs[key] ? "translate-x-6" : "translate-x-1"
+                  }`} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Test Notification Button */}
         <div className="mt-4 pt-4 border-t border-white/5">

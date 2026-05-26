@@ -140,6 +140,7 @@ model User {
   chatRooms       ChatMember[]
   chatMessages    ChatMessage[]
   callLogs        CallLog[]
+  notifPrefs      Json?    // notification preferences
 
   @@map("users")
 }

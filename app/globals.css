@@ -357,6 +357,51 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ─── Mobile-specific utilities ────────────────────────────── */
+@media (max-width: 768px) {
+  /* Safe area padding for notches and safe areas */
+  body {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  
+  /* Mobile-friendly text sizes */
+  h1 { @apply text-lg; }
+  h2 { @apply text-base; }
+  h3 { @apply text-sm; }
+  
+  /* Better touch targets on mobile (min 44x44px) */
+  button, a { min-height: 2.75rem; min-width: 2.75rem; }
+  
+  /* Reduce spacing on mobile */
+  .p-6 { @apply p-3; }
+  .px-6 { @apply px-3; }
+  .py-6 { @apply py-3; }
+  .gap-6 { @apply gap-3; }
+  .space-y-6 > * + * { @apply mt-3; }
+  
+  /* Grid adjustments for mobile */
+  .grid-cols-3 { @apply grid-cols-2; }
+  .grid-cols-4 { @apply grid-cols-2; }
+  .grid-cols-6 { @apply grid-cols-2; }
+  
+  /* Prevent horizontal scroll */
+  * { @apply overflow-x-hidden; }
+  
+  /* Mobile nav adjustment */
+  main { padding-bottom: 5rem; }
+}
+
+@media (max-width: 640px) {
+  /* Extra small spacing */
+  .gap-4 { @apply gap-2; }
+  .px-4 { @apply px-2.5; }
+  .py-4 { @apply py-2; }
+  
+  /* Grid simplification */
+  .grid-cols-2 { @apply grid-cols-1; }
+  .md\:grid-cols-3 { @apply grid-cols-1; }
+}
+
 /* ─── Print styles (Reports PDF) ───────────────────────────── */
 @media print {
   body { background: white !important; color: black !important; }

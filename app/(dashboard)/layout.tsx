@@ -362,16 +362,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
         {/* Topbar */}
-        <header className="flex items-center gap-2 px-3 md:px-5 h-14 border-b flex-shrink-0"
-          style={{ borderColor: "rgba(234,179,8,0.08)", background: "rgba(4,8,15,0.95)", backdropFilter: "blur(12px)" }}>
+        <header className="flex items-center gap-2 px-3 md:px-5 h-14 border-b flex-shrink-0 overflow-x-auto"
+          style={{ borderColor: "rgba(234,179,8,0.08)", background: "rgba(4,8,15,0.95)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}>
 
-          {/* Mobile: Logo only */}
-          <div className="flex items-center gap-2 md:hidden">
+          {/* Mobile: Hamburger + Logo only */}
+          <div className="flex md:hidden items-center gap-2 flex-shrink-0">
+            <button onClick={() => setMobileOpen(true)} className="text-slate-400 hover:text-white transition-colors p-1 active:scale-95">
+              <Menu className="w-5 h-5" />
+            </button>
             <div className="relative w-7 h-7 rounded-lg overflow-hidden bg-white flex-shrink-0"
               style={{ border: "1px solid rgba(234,179,8,0.3)" }}>
               <Image src="/logo.jpeg" alt="CRS" fill sizes="28px" className="object-contain p-0.5" />
             </div>
-            <span className="text-sm font-bold text-white">CRS</span>
+            <span className="text-xs font-bold text-white truncate">CRS</span>
           </div>
 
           {/* Desktop: Search */}
@@ -387,30 +390,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 ml-auto">
-            {/* Punch in time desktop */}
-            {isEmployee && todayRecord && (
-              <div className="hidden sm:flex flex-col items-end mr-1">
-                <span className="text-xs font-semibold text-emerald-400">
-                  ● {new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                </span>
-                <span className="text-xs text-muted-foreground">Punched In</span>
+          <div className="flex items-center gap-1 md:gap-2 ml-auto flex-shrink-0">
+            {/* AI Badge */}
+            {role === "ADMIN" && (
+              <div className="hidden sm:flex items-center gap-1 px-2 md:px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0"
+                style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.25)", color: "#facc15" }}>
+                <Zap className="w-3 h-3" /> <span className="hidden md:inline">AI Active</span>
               </div>
             )}
 
-            {role === "ADMIN" && (
-              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
-                style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.25)", color: "#facc15" }}>
-                <Zap className="w-3 h-3" /> AI Active
+            {/* Punch in time desktop */}
+            {isEmployee && todayRecord && (
+              <div className="hidden sm:flex flex-col items-end mr-1 text-xs">
+                <span className="font-semibold text-emerald-400">
+                  ● {new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                </span>
+                <span className="text-muted-foreground hidden lg:block text-[10px]">Punched In</span>
               </div>
             )}
 
             {/* Desktop punch buttons */}
             {isEmployee && (
-              <div className="hidden sm:flex items-center gap-1.5">
+              <div className="hidden sm:flex items-center gap-1">
                 {todayRecord && (
                   <button onClick={handleBreak} disabled={!onBreak && breakUsed >= BREAK_LIMIT}
-                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
+                    className={`flex items-center gap-1 text-xs px-2 md:px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 ${
                       onBreak
                         ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 animate-pulse"
                         : breakUsed >= BREAK_LIMIT
@@ -418,27 +422,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         : "bg-white/5 text-muted-foreground border-white/10 hover:text-yellow-400 hover:border-yellow-500/30"
                     }`}>
                     <Coffee className="w-3 h-3" />
-                    {onBreak ? "End Break" : `Break${breakUsed > 0 ? ` (${Math.floor((BREAK_LIMIT-breakUsed)/60)}m)` : ""}`}
+                    <span className="hidden md:inline">{onBreak ? "End Break" : "Break"}</span>
                   </button>
                 )}
                 <button onClick={handlePunch} disabled={punching}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
+                  className={`flex items-center gap-1 text-xs px-2 md:px-3 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 flex-shrink-0 ${
                     todayRecord
                       ? "bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
                       : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30 animate-pulse"
                   }`}>
                   {todayRecord ? <PunchOut className="w-3 h-3" /> : <LogIn className="w-3 h-3" />}
-                  {punching ? "..." : todayRecord ? "Punch Out" : "Punch In"}
+                  <span className="hidden md:inline">{punching ? "..." : todayRecord ? "Punch Out" : "Punch In"}</span>
                 </button>
               </div>
             )}
 
             <NotificationBell />
 
-            <button onClick={() => router.push("/dashboard")}
-              className="cursor-pointer flex items-center gap-2" title="Dashboard">
+            <button onClick={() => router.push(role === "ADMIN" ? "/attendance" : "/employee")}
+              className="cursor-pointer flex items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform" title={role === "ADMIN" ? "Admin Dashboard" : "My Panel"}>
               <UserAvatar name={userName} imageUrl={userImage} />
-              <span className={`hidden lg:block text-xs font-semibold px-2 py-0.5 rounded-full ${
+              <span className={`hidden md:block text-xs font-semibold px-2 py-0.5 rounded-full ${
                 role === "ADMIN"
                   ? "bg-red-500/15 text-red-400 border border-red-500/25"
                   : "bg-estate-500/15 text-estate-300 border border-estate-500/25"
@@ -448,7 +452,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Page content — extra bottom padding on mobile for bottom nav */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-0 scroll-smooth">
           <div key={pathname} style={{ animation: "pageEnter 120ms ease-out" }}>
             {children}
           </div>
@@ -456,31 +460,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* ── Mobile Bottom Navigation Bar ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t"
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between border-t"
         style={{
-          background: "rgba(4,8,15,0.97)",
+          background: "rgba(4,8,15,0.98)",
           borderColor: "rgba(234,179,8,0.12)",
           backdropFilter: "blur(20px)",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          WebkitBackdropFilter: "blur(20px)",
+          paddingBottom: "max(0px, env(safe-area-inset-bottom))",
         }}>
         {MOBILE_NAV.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href} prefetch={true}
-              className={`flex flex-col items-center gap-0.5 py-2 px-3 min-w-0 flex-1 transition-all ${
-                active ? "text-yellow-400" : "text-slate-500"
+              className={`flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 flex-1 transition-all active:scale-95 ${
+                active ? "text-yellow-400" : "text-slate-500 hover:text-slate-400"
               }`}>
-              <item.icon className={`w-5 h-5 transition-transform ${active ? "scale-110" : ""}`} />
-              <span className="text-[10px] font-medium truncate">{item.label}</span>
-              {active && <span className="w-1 h-1 rounded-full bg-yellow-400 mt-0.5" />}
+              <Icon className={`w-5 h-5 transition-transform ${active ? "scale-110" : ""}`} />
+              <span className="text-[10px] font-semibold truncate">{item.label}</span>
+              {active && <span className="w-1 h-0.5 rounded-full bg-yellow-400 mt-1" />}
             </Link>
           );
         })}
         {/* More */}
         <button onClick={() => setMobileOpen(true)}
-          className="flex flex-col items-center gap-0.5 py-2 px-3 flex-1 text-slate-500 transition-all">
+          className="flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 flex-1 text-slate-500 hover:text-slate-400 transition-all active:scale-95">
           <MoreHorizontal className="w-5 h-5" />
-          <span className="text-[10px] font-medium">More</span>
+          <span className="text-[10px] font-semibold">More</span>
         </button>
       </nav>
 
