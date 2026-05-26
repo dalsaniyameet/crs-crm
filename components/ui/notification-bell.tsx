@@ -86,9 +86,9 @@ function NewNotifToast({ notif, onClose }: { notif: any; onClose: () => void }) 
           transition={{ duration: 0.7, repeat: Infinity }}
           className="text-[11px] font-bold text-red-400 flex items-center gap-1"
         >
-          🔔 Alarm vaajtoy
+          🔔 Alarm is ringing
         </motion.span>
-        <span className="text-[11px] text-orange-300 font-semibold">• 📧 Email pathavlay</span>
+        <span className="text-[11px] text-orange-300 font-semibold">• 📧 Email sent</span>
       </div>
     </motion.div>,
     document.body
@@ -151,18 +151,24 @@ export default function NotificationBell() {
             const alreadyShowing = new Set(prev.map((t: any) => t.id));
             const fresh = newOnes.filter(n => !alreadyShowing.has(n.id));
             if (fresh.length === 0) return prev;
-            // Play sound
+            // Play alarm sound
             try {
               const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-              const osc = ctx.createOscillator();
-              const gain = ctx.createGain();
-              osc.connect(gain); gain.connect(ctx.destination);
-              osc.frequency.setValueAtTime(880, ctx.currentTime);
-              osc.frequency.setValueAtTime(660, ctx.currentTime + 0.1);
-              gain.gain.setValueAtTime(0.3, ctx.currentTime);
-              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-              osc.start(ctx.currentTime);
-              osc.stop(ctx.currentTime + 0.4);
+              const playBeep = (freq: number, start: number, dur: number) => {
+                const osc  = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.type = "square";
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+                gain.gain.setValueAtTime(0.25, ctx.currentTime + start);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+                osc.start(ctx.currentTime + start);
+                osc.stop(ctx.currentTime + start + dur);
+              };
+              playBeep(1046, 0.0,  0.12);
+              playBeep(1318, 0.13, 0.12);
+              playBeep(1046, 0.26, 0.12);
+              playBeep(1318, 0.39, 0.20);
             } catch {}
             return [...prev, ...fresh.slice(0, 1)];
           });

@@ -19,7 +19,7 @@ function TestNotificationButton() {
       const data = await res.json();
       if (data.success) {
         setResult("ok");
-        toast.success("🚨 Alarm trigger zala! 📧 Email pathavlay!");
+        toast.success("Alarm triggered! Email sent!");
       } else throw new Error(data.error);
     } catch (e: any) {
       setResult("err");
@@ -49,7 +49,7 @@ function TestNotificationButton() {
         {loading ? "Testing..." : result === "ok" ? "Done! ✅" : result === "err" ? "Failed ❌" : "🚨 Test Alarm & Email"}
       </button>
       {result === "ok" && (
-        <span className="text-xs text-emerald-400">Bell madhe notification check karo 👆</span>
+        <span className="text-xs text-emerald-400">Check the notification bell above &#8593;</span>
       )}
     </div>
   );
@@ -310,7 +310,7 @@ export default function SettingsPage() {
 
         {/* Test Notification Button */}
         <div className="mt-4 pt-4 border-t border-white/5">
-          <div className="text-xs text-muted-foreground mb-3">Notification system test karo — alarm vaajel aani email yeil</div>
+          <div className="text-xs text-muted-foreground mb-3">Test the notification system — alarm will ring and an email will be sent</div>
           <TestNotificationButton />
         </div>
       </motion.div>
@@ -485,22 +485,22 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
-              ✅ Jab bhi koi lead aayega — CRM mein auto-add, WhatsApp welcome message, AI score, aur follow-up tasks — sab automatic!
+              Every new lead is auto-added to CRM with WhatsApp welcome message, AI score, and follow-up tasks — fully automatic!
             </div>
           </div>
 
           {/* Step 0 — n8n account */}
           <div className="glass-card p-5 space-y-4">
-            <div className="text-sm font-bold text-white flex items-center gap-2">📋 Pehle ye karo (one time)</div>
-            <Step n={1} title="n8n Cloud Account Banao (Free)">
+            <div className="text-sm font-bold text-white flex items-center gap-2">&#128203; Do this first (one time)</div>
+            <Step n={1} title="Create n8n Cloud Account (Free)">
               <a href="https://app.n8n.cloud" target="_blank" rel="noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-400 text-sm hover:bg-orange-500/30 transition-colors">
-                <ExternalLink className="w-3.5 h-3.5" /> app.n8n.cloud pe Sign Up karo
+                <ExternalLink className="w-3.5 h-3.5" /> Sign up at app.n8n.cloud
               </a>
-              <p className="text-xs text-muted-foreground mt-2">Free plan mein 5 workflows milte hain — enough hai tumhare liye.</p>
+              <p className="text-xs text-muted-foreground mt-2">Free plan includes 5 workflows — enough for your setup.</p>
             </Step>
-            <Step n={2} title="Tumhara CRM Webhook URL">
-              <CopyBox label="Webhook URL (ye n8n mein paste karo)" value={`${CRM_URL}/api/webhooks/n8n`} />
+            <Step n={2} title="Your CRM Webhook URL">
+              <CopyBox label="Webhook URL (paste this in n8n)" value={`${CRM_URL}/api/webhooks/n8n`} />
               <CopyBox label="Secret Token (Header: x-n8n-token)" value={N8N_TOKEN} />
             </Step>
           </div>
@@ -511,24 +511,24 @@ export default function SettingsPage() {
               <span className="text-xl">🏠</span>
               <div>
                 <div className="text-sm font-bold text-white">Workflow 1 — MagicBricks Leads</div>
-                <div className="text-xs text-muted-foreground">MagicBricks email se auto lead capture</div>
+                <div className="text-xs text-muted-foreground">Auto capture leads from MagicBricks email</div>
               </div>
             </div>
-            <Step n={1} title="n8n mein New Workflow banao">
-              <p className="text-xs text-muted-foreground">n8n → New Workflow → naam do: <code className="text-estate-400">MagicBricks → CRS CRM</code></p>
+            <Step n={1} title="Create a New Workflow in n8n">
+              <p className="text-xs text-muted-foreground">n8n → New Workflow → name it: <code className="text-estate-400">MagicBricks → CRS CRM</code></p>
             </Step>
-            <Step n={2} title="Gmail Trigger node add karo">
+            <Step n={2} title="Add Gmail Trigger node">
               <div className="space-y-2 text-xs">
                 <div className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-1">
                   <div className="text-white font-medium">Node: Gmail Trigger</div>
                   <div className="text-muted-foreground">Event: <span className="text-yellow-400">Message Received</span></div>
-                  <div className="text-muted-foreground">Gmail Account: <span className="text-yellow-400">info@cityrealspace.com connect karo</span></div>
+                  <div className="text-muted-foreground">Gmail Account: <span className="text-yellow-400">Connect info@cityrealspace.com</span></div>
                   <div className="text-muted-foreground">Filter From: <span className="text-emerald-400">noreply@magicbricks.com</span></div>
                   <div className="text-muted-foreground">Poll Every: <span className="text-yellow-400">1 minute</span></div>
                 </div>
               </div>
             </Step>
-            <Step n={3} title="Code node add karo (email se data extract)">
+            <Step n={3} title="Add Code node (extract data from email)">
               <div className="p-3 rounded-lg bg-black/40 border border-white/10">
                 <pre className="text-xs text-emerald-400 overflow-x-auto whitespace-pre-wrap">{`const body = $input.item.json.text || $input.item.json.snippet || "";
 const phoneMatch = body.match(/([6-9]\\d{9})/);
@@ -542,7 +542,7 @@ return [{ json: {
 }}];`}</pre>
               </div>
             </Step>
-            <Step n={4} title="HTTP Request node add karo">
+            <Step n={4} title="Add HTTP Request node">
               <div className="space-y-2">
                 <CopyBox label="Method" value="POST" />
                 <CopyBox label="URL" value={`${CRM_URL}/api/webhooks/n8n`} />
@@ -562,8 +562,8 @@ x-n8n-token: ${N8N_TOKEN}`}</pre>
                 </div>
               </div>
             </Step>
-            <Step n={5} title="Activate karo">
-              <p className="text-xs text-muted-foreground">Top-right mein <span className="text-emerald-400 font-semibold">Active toggle ON</span> karo. Done! ✅</p>
+            <Step n={5} title="Activate the workflow">
+              <p className="text-xs text-muted-foreground">Toggle <span className="text-emerald-400 font-semibold">Active ON</span> in the top-right. Done! ✅</p>
             </Step>
           </div>
 
@@ -573,19 +573,19 @@ x-n8n-token: ${N8N_TOKEN}`}</pre>
               <span className="text-xl">🏢</span>
               <div>
                 <div className="text-sm font-bold text-white">Workflow 2 — 99acres Leads</div>
-                <div className="text-xs text-muted-foreground">Workflow 1 copy karo, sirf 2 cheezein badlo</div>
+                <div className="text-xs text-muted-foreground">Duplicate Workflow 1 and change 2 things</div>
               </div>
             </div>
             <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-3 text-xs">
-              <p className="text-blue-300 font-medium">Workflow 1 ko duplicate karo, phir:</p>
+              <p className="text-blue-300 font-medium">Duplicate Workflow 1, then:</p>
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
                   <span className="text-blue-400 font-bold">1.</span>
-                  <span className="text-muted-foreground">Gmail Trigger → Filter From change karo: <code className="text-emerald-400">leads@99acres.com</code></span>
+                  <span className="text-muted-foreground">Gmail Trigger → Change Filter From to: <code className="text-emerald-400">leads@99acres.com</code></span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-blue-400 font-bold">2.</span>
-                  <span className="text-muted-foreground">HTTP Body mein source change karo: <code className="text-emerald-400">"source": "99acres"</code></span>
+                  <span className="text-muted-foreground">Change source in HTTP Body to: <code className="text-emerald-400">"source": "99acres"</code></span>
                 </div>
               </div>
             </div>
@@ -601,10 +601,10 @@ x-n8n-token: ${N8N_TOKEN}`}</pre>
               </div>
             </div>
             <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 space-y-2 text-xs">
-              <p className="text-purple-300 font-medium">Workflow 1 ko duplicate karo, phir:</p>
+              <p className="text-purple-300 font-medium">Duplicate Workflow 1, then:</p>
               <div className="flex items-start gap-2">
                 <span className="text-purple-400 font-bold">1.</span>
-                <span className="text-muted-foreground">Gmail Filter: <code className="text-emerald-400">leads@housing.com</code> ya <code className="text-emerald-400">noreply@housing.com</code></span>
+                <span className="text-muted-foreground">Gmail Filter: <code className="text-emerald-400">leads@housing.com</code> or <code className="text-emerald-400">noreply@housing.com</code></span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-purple-400 font-bold">2.</span>
@@ -619,10 +619,10 @@ x-n8n-token: ${N8N_TOKEN}`}</pre>
               <span className="text-xl">🌐</span>
               <div>
                 <div className="text-sm font-bold text-white">Workflow 4 — cityrealspace.com Website</div>
-                <div className="text-xs text-muted-foreground">Website form seedha CRM ko call karega — n8n ki zaroorat nahi</div>
+                <div className="text-xs text-muted-foreground">Website form calls CRM directly — no n8n needed</div>
               </div>
             </div>
-            <Step n={1} title="Website ke contact form mein ye script daalo">
+            <Step n={1} title="Add this script to your website contact form">
               <div className="p-3 rounded-lg bg-black/40 border border-white/10">
                 <pre className="text-xs text-emerald-400 overflow-x-auto whitespace-pre-wrap">{`<script>
 document.querySelector('#contactForm')
@@ -646,30 +646,30 @@ document.querySelector('#contactForm')
   });
 </script>`}</pre>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">Form fields ke <code className="text-yellow-400">name</code> attribute: <code className="text-emerald-400">name, phone, email, requirements, budget</code></p>
+              <p className="text-xs text-muted-foreground mt-2">Form field <code className="text-yellow-400">name</code> attributes: <code className="text-emerald-400">name, phone, email, requirements, budget</code></p>
             </Step>
           </div>
 
           {/* Test Section */}
           <div className="glass-card p-5 space-y-4 border border-yellow-500/20">
-            <div className="text-sm font-bold text-white flex items-center gap-2">🧪 Test Karo</div>
-            <p className="text-xs text-muted-foreground">n8n workflow activate karne ke baad, ye curl command run karo ya browser mein test karo:</p>
+            <div className="text-sm font-bold text-white flex items-center gap-2">&#129514; Test It</div>
+            <p className="text-xs text-muted-foreground">After activating the n8n workflow, run this curl command or test from browser:</p>
             <CopyBox
-              label="Test Command (Terminal mein run karo)"
+              label="Test Command (run in Terminal)"
               value={`curl -X POST ${CRM_URL}/api/webhooks/n8n -H "Content-Type: application/json" -H "x-n8n-token: ${N8N_TOKEN}" -d "{\"name\":\"Test Lead\",\"phone\":\"9876543210\",\"requirements\":\"2BHK in Prahlad Nagar\",\"source\":\"magicbricks\"}"`}
             />
             <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-xs space-y-1">
-              <p className="text-white font-medium">Agar sab sahi hai toh:</p>
-              <p className="text-emerald-400">✅ CRM mein lead dikhega</p>
-              <p className="text-emerald-400">✅ WhatsApp message jayega 9876543210 pe</p>
-              <p className="text-emerald-400">✅ Admin ko notification milegi</p>
-              <p className="text-emerald-400">✅ 3 follow-up tasks create honge</p>
+              <p className="text-white font-medium">If everything is working:</p>
+              <p className="text-emerald-400">&#10003; Lead will appear in CRM</p>
+              <p className="text-emerald-400">&#10003; WhatsApp message sent to 9876543210</p>
+              <p className="text-emerald-400">&#10003; Admin gets notification</p>
+              <p className="text-emerald-400">&#10003; 3 follow-up tasks created</p>
             </div>
           </div>
 
           {/* Live Webhook URLs */}
           <div className="glass-card p-5 space-y-3">
-            <div className="text-sm font-bold text-white">📌 Saare Webhook URLs (Reference)</div>
+            <div className="text-sm font-bold text-white">&#128204; All Webhook URLs (Reference)</div>
             <div className="space-y-2">
               {[
                 { label: "n8n Universal Webhook",  url: `${CRM_URL}/api/webhooks/n8n` },

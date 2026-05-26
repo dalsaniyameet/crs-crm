@@ -12,32 +12,32 @@ export async function POST() {
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const time = new Date().toLocaleString("en-IN");
+    const name = user.name || user.email || "User";
 
-    // 1. Notification create - bell madhe alarm trigger hoil
+    // 1. Create notification — triggers alarm in bell
     await prisma.notification.create({
       data: {
         userId:  user.id,
         type:    "SYSTEM",
-        title:   "Test Alert - Alarm Vaajtoy!",
-        message: `He ek test notification ahe. Alarm vaajtoy aani email pathavlay! - ${time}`,
+        title:   "Test Alert — Alarm is ringing!",
+        message: `This is a test notification. Alarm triggered and email sent at ${time}.`,
         isRead:  false,
       },
     });
 
-    // 2. Test email pathavto
-    const name = user.name || user.email || "User";
+    // 2. Send test email
     await sendAdminEmail(
-      "Test Alert - CRS CRM Alarm",
+      "Test Alert — CRS CRM Alarm",
       `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;padding:0;border-radius:12px;overflow:hidden">
   <div style="background:linear-gradient(135deg,#7f1d1d,#0f172a);padding:28px 32px;text-align:center">
     <div style="font-size:48px;margin-bottom:10px">&#128680;</div>
     <h1 style="color:#f87171;font-size:22px;margin:0 0 6px;font-weight:900;letter-spacing:2px">TEST ALARM</h1>
-    <p style="color:#fca5a5;font-size:14px;margin:0">City Real Space CRM - Notification System Test</p>
+    <p style="color:#fca5a5;font-size:14px;margin:0">City Real Space CRM — Notification System Test</p>
   </div>
   <div style="background:#1e293b;padding:24px 32px">
     <div style="background:#450a0a;border:2px solid #dc2626;border-radius:8px;padding:16px;margin-bottom:20px">
-      <p style="color:#f87171;font-size:16px;font-weight:900;margin:0 0 6px">&#9888; Alarm vaajtoy!</p>
-      <p style="color:#fca5a5;font-size:13px;margin:0">He ek test alert ahe. Notification bell madhe alarm trigger zala ahe.</p>
+      <p style="color:#f87171;font-size:16px;font-weight:900;margin:0 0 6px">&#9888; Alarm is ringing!</p>
+      <p style="color:#fca5a5;font-size:13px;margin:0">This is a test alert. The notification bell alarm has been triggered successfully.</p>
     </div>
     <table style="width:100%;border-collapse:collapse">
       <tr style="background:#0f172a">
@@ -50,13 +50,13 @@ export async function POST() {
       </tr>
       <tr style="background:#0f172a">
         <td style="padding:8px 10px;color:#64748b;font-size:13px">Status</td>
-        <td style="padding:8px 10px;color:#4ade80;font-size:14px;font-weight:700">Email pathavlay!</td>
+        <td style="padding:8px 10px;color:#4ade80;font-size:14px;font-weight:700">Email sent successfully!</td>
       </tr>
     </table>
     <div style="margin-top:20px;text-align:center">
       <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://crs-crm.vercel.app"}/settings"
         style="display:inline-block;padding:10px 24px;background:#dc2626;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700">
-        CRM Ugha
+        Open CRM
       </a>
     </div>
   </div>
@@ -66,7 +66,7 @@ export async function POST() {
 </div>`
     );
 
-    return NextResponse.json({ success: true, message: "Alarm trigger zala! Email pathavlay!" });
+    return NextResponse.json({ success: true, message: "Alarm triggered! Email sent!" });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
