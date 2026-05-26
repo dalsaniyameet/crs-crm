@@ -62,10 +62,10 @@ export async function notifyNewLead(lead: {
     { leadId: lead.id }
   );
 
-  sendAdminEmail(
+  await sendAdminEmail(
     `New Lead: ${lead.name} (Score: ${lead.score})`,
     newLeadEmailHtml(lead)
-  ).catch(() => {});
+  );
 }
 
 // ── 2. New Property ───────────────────────────────────────────────────────────

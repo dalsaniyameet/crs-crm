@@ -49,13 +49,21 @@ function row(label: string, value: string, bg = "#fff") {
 
 export async function sendAdminEmail(subject: string, html: string) {
   const t = getTransporter();
-  if (!t) return;
-  await t.sendMail({
-    from: `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`,
-    to:   ADMIN_EMAILS.join(", "),
-    subject,
-    html,
-  });
+  if (!t) {
+    console.error("[EMAIL] Transporter not configured — EMAIL_PASS missing or not set");
+    return;
+  }
+  try {
+    const info = await t.sendMail({
+      from: `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`,
+      to:   ADMIN_EMAILS.join(", "),
+      subject,
+      html,
+    });
+    console.log("[EMAIL] Sent OK:", info.messageId, "→", ADMIN_EMAILS.join(", "));
+  } catch (err: any) {
+    console.error("[EMAIL] Send failed:", err.message);
+  }
 }
 
 // ── 1. New Lead ───────────────────────────────────────────────────────────────
