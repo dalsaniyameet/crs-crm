@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Search, MapPin, Eye, Edit, Share2, Star,
   Zap, Camera, CheckCircle, Loader2, RefreshCw, ScanLine, Phone, X, Download, MessageSquare,
+  ChevronLeft, ChevronRight, Building2, Layers, IndianRupee, Maximize2, BedDouble, Bath, CalendarClock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -48,6 +49,62 @@ const fmtPrice = (price: number, txType: string) => {
   return txType === "RENT" || txType === "LEASE" ? `${val}/mo` : val;
 };
 
+function PropCardImage({ photos, status, price, txType, isFeatured, isVerified }: {
+  photos: string[]; status: PropStatus; price: number; txType: string;
+  isFeatured: boolean; isVerified: boolean;
+}) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (photos.length <= 1) return;
+    const t = setInterval(() => setIdx(i => (i + 1) % photos.length), 3000);
+    return () => clearInterval(t);
+  }, [photos.length]);
+
+  return (
+    <div className="relative h-44 overflow-hidden bg-white/5 flex-shrink-0">
+      {photos.length > 0 ? (
+        <AnimatePresence mode="wait">
+          <motion.img key={idx} src={photos[idx]} alt=""
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 w-full h-full object-cover" />
+        </AnimatePresence>
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <Camera className="w-10 h-10 opacity-20" />
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+      {photos.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+          {photos.slice(0, 8).map((_, i) => (
+            <div key={i} className={`rounded-full transition-all duration-300 ${
+              i === idx ? "w-4 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/50"
+            }`} />
+          ))}
+        </div>
+      )}
+      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-10">
+        {isFeatured && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/90 text-black text-xs font-bold"><Star className="w-3 h-3" /> Featured</span>}
+        {isVerified && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/90 text-white text-xs font-bold"><CheckCircle className="w-3 h-3" /> Verified</span>}
+      </div>
+      <div className="absolute top-2.5 right-2.5 z-10">
+        <span className={`text-xs px-2 py-0.5 rounded-full border ${statusConfig[status].color}`}>{statusConfig[status].label}</span>
+      </div>
+      <div className="absolute bottom-2.5 left-2.5 z-10">
+        <div className="text-white font-bold text-base drop-shadow">{fmtPrice(price, txType)}</div>
+      </div>
+      {photos.length > 1 && (
+        <div className="absolute bottom-2.5 right-2.5 z-10">
+          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-xs">
+            <Camera className="w-3 h-3" /> {photos.length}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [total, setTotal]           = useState(0);
@@ -75,8 +132,167 @@ export default function PropertiesPage() {
     amenities: "", description: "",
   });
 
-  const [viewProp, setViewProp]   = useState<Property | null>(null);
-  const [editProp, setEditProp]   = useState<Property | null>(null);
+  const [viewProp, setViewProp]     = useState<Property | null>(null);
+  const [viewPropFull, setViewPropFull] = useState<any>(null);
+  const [photoIdx, setPhotoIdx]     = useState(0);
+  const [editProp, setEditProp]     = useState<Property | null>(null);
+  const [importing, setImporting]   = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const photoUploadRef = useRef<HTMLInputElement>(null);
+
+  // ── Workflow modals ──
+  const [showLeadMatch, setShowLeadMatch]   = useState(false);
+  const [matchedLeads, setMatchedLeads]     = useState<any[]>([]);
+  const [matchLoading, setMatchLoading]     = useState(false);
+  const [showVisitModal, setShowVisitModal] = useState(false);
+  const [showDealModal, setShowDealModal]   = useState(false);
+  const [visitLeadId, setVisitLeadId]       = useState("");
+  const [visitDate, setVisitDate]           = useState("");
+  const [visitTime, setVisitTime]           = useState("");
+  const [dealLeadId, setDealLeadId]         = useState("");
+  const [dealValue, setDealValue]           = useState("");
+  const [dealStage, setDealStage]           = useState("ENQUIRY");
+  const [savingVisit, setSavingVisit]       = useState(false);
+  const [savingDeal, setSavingDeal]         = useState(false);
+  const [allLeads, setAllLeads]             = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/leads?limit=200").then(r => r.json())
+      .then(d => setAllLeads(Array.isArray(d.leads) ? d.leads : []))
+      .catch(() => {});
+  }, []);
+
+  async function findMatchingLeads(prop: Property) {
+    setShowLeadMatch(true);
+    setMatchLoading(true);
+    setMatchedLeads([]);
+    try {
+      // Filter leads by property type + transaction type
+      const txn = prop.transactionType; // RENT or SELL
+      const matched = allLeads.filter(l => {
+        const typeMatch = !l.propertyType || l.propertyType === prop.type ||
+          (prop.category === "COMMERCIAL" && ["OFFICE","SHOP","SHOWROOM","WAREHOUSE"].includes(l.propertyType)) ||
+          (prop.category === "RESIDENTIAL" && ["APARTMENT","VILLA","PLOT","PENTHOUSE"].includes(l.propertyType));
+        const txnMatch = !l.transactionType ||
+          (txn === "RENT"  && (l.transactionType === "RENT"  || l.transactionType === "LEASE")) ||
+          (txn === "SELL"  && (l.transactionType === "BUY"   || l.transactionType === "SELL")) ||
+          (txn === "LEASE" && (l.transactionType === "LEASE" || l.transactionType === "RENT"));
+        const budgetMatch = !l.budget || l.budget >= prop.price * 0.7;
+        return typeMatch && txnMatch && budgetMatch && l.status !== "DEAL_CLOSED" && l.status !== "LOST";
+      });
+      setMatchedLeads(matched.sort((a: any, b: any) => b.score - a.score).slice(0, 20));
+    } catch {}
+    setMatchLoading(false);
+  }
+
+  async function scheduleVisit() {
+    if (!viewProp || !visitLeadId || !visitDate || !visitTime) { toast.error("Sab fields fill karo"); return; }
+    setSavingVisit(true);
+    try {
+      const scheduledAt = new Date(`${visitDate}T${visitTime}`);
+      const res = await fetch("/api/visits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: visitLeadId, propertyId: viewProp.id, scheduledAt }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success("✅ Site visit scheduled!");
+      setShowVisitModal(false);
+      setVisitLeadId(""); setVisitDate(""); setVisitTime("");
+    } catch (err: any) { toast.error(err.message || "Failed"); }
+    setSavingVisit(false);
+  }
+
+  async function createDeal() {
+    if (!viewProp || !dealLeadId) { toast.error("Lead select karo"); return; }
+    setSavingDeal(true);
+    try {
+      const lead  = allLeads.find(l => l.id === dealLeadId);
+      const value = parseFloat(dealValue) || viewProp.price;
+      const commission = viewProp.transactionType === "SELL"
+        ? value * 0.01
+        : viewProp.price; // 1 month brokerage
+      const res = await fetch("/api/deals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title:      `${lead?.name || "Client"} — ${viewProp.title}`,
+          leadId:     dealLeadId,
+          propertyId: viewProp.id,
+          stage:      dealStage,
+          value,
+          commission,
+          commissionRate: viewProp.transactionType === "SELL" ? 1 : null,
+          notes: viewProp.transactionType === "RENT"
+            ? `Rent: ₹${viewProp.price.toLocaleString("en-IN")}/mo | Brokerage: ₹${viewProp.price.toLocaleString("en-IN")} | Security: ₹${(viewProp.price*2).toLocaleString("en-IN")} | Advance: ₹${viewProp.price.toLocaleString("en-IN")}`
+            : `Sell: ₹${value.toLocaleString("en-IN")} | Commission 1%: ₹${commission.toLocaleString("en-IN")}`,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success("✅ Deal created! Check Deal Pipeline.");
+      setShowDealModal(false);
+      setDealLeadId(""); setDealValue(""); setDealStage("ENQUIRY");
+    } catch (err: any) { toast.error(err.message || "Failed"); }
+    setSavingDeal(false);
+  }
+
+  async function openDetail(prop: Property) {
+    setViewProp(prop);
+    setPhotoIdx(0);
+    setViewPropFull(null);
+    try {
+      const res  = await fetch(`/api/properties/${prop.id}`);
+      const data = await res.json();
+      if (data?.id) setViewPropFull(data);
+    } catch {}
+  }
+
+  async function uploadPhotos(files: FileList, propId: string) {
+    setUploadingPhotos(true);
+    try {
+      const fd = new FormData();
+      Array.from(files).forEach(f => fd.append("file", f));
+      fd.append("folder", `properties/${propId}`);
+      const res  = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const newUrls: string[] = (data.urls || [data]).map((u: any) => u.url).filter(Boolean);
+      // Save to property
+      const existing = viewProp?.photos || [];
+      const merged   = [...existing, ...newUrls];
+      const patchRes = await fetch(`/api/properties/${propId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photos: merged }),
+      });
+      const updated = await patchRes.json();
+      if (!patchRes.ok) throw new Error(updated.error);
+      // Update local state
+      setViewProp(prev => prev ? { ...prev, photos: merged } : prev);
+      setProperties(prev => prev.map(p => p.id === propId ? { ...p, photos: merged } : p));
+      toast.success(`✅ ${newUrls.length} photo${newUrls.length > 1 ? "s" : ""} added!`);
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    }
+    setUploadingPhotos(false);
+  }
+
+  async function deletePhoto(propId: string, photoUrl: string) {
+    const newPhotos = (viewProp?.photos || []).filter(p => p !== photoUrl);
+    const res = await fetch(`/api/properties/${propId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photos: newPhotos }),
+    });
+    if (res.ok) {
+      setViewProp(prev => prev ? { ...prev, photos: newPhotos } : prev);
+      setProperties(prev => prev.map(p => p.id === propId ? { ...p, photos: newPhotos } : p));
+      if (photoIdx >= newPhotos.length) setPhotoIdx(Math.max(0, newPhotos.length - 1));
+      toast.success("Photo removed");
+    }
+  }
 
   // Auto-highlight from URL param
   useEffect(() => {
@@ -257,6 +473,21 @@ export default function PropertiesPage() {
     }
   };
 
+  async function importFromWebsite() {
+    setImporting(true);
+    const tid = toast.loading("Importing from cityrealspace.com...");
+    try {
+      const res  = await fetch("/api/webhooks/import-website", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(`✅ ${data.imported} imported, ${data.updated} updated, ${data.errors} errors`, { id: tid, duration: 5000 });
+      fetchProperties();
+    } catch (err: any) {
+      toast.error(err.message || "Import failed", { id: tid });
+    }
+    setImporting(false);
+  }
+
   const available = properties.filter(p => p.status === "AVAILABLE").length;
 
   return (
@@ -270,8 +501,10 @@ export default function PropertiesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={fetchProperties} className="p-2 rounded-lg bg-white/5 border border-white/10 text-muted-foreground hover:text-white transition-all">
-            <RefreshCw className="w-4 h-4" />
+          <button onClick={importFromWebsite} disabled={importing}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 text-xs font-medium transition-all disabled:opacity-50">
+            {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{importing ? "Importing..." : "Sync Website"}</span>
           </button>
           <a href="/api/properties/export" download
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 text-xs font-medium transition-all">
@@ -334,48 +567,16 @@ export default function PropertiesPage() {
               <motion.div key={prop.id}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 transition={{ duration: 0.15 }}
-                className="glass-card-hover overflow-hidden group">
-                {/* Image */}
-                <div className="relative h-48 overflow-hidden bg-white/5">
-                  {prop.photos[0] ? (
-                    <img src={prop.photos[0]} alt={prop.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                      <Camera className="w-12 h-12 opacity-20" />
-                    </div>
-                  )}
-                  <div className="property-img-overlay absolute inset-0" />
-                  <div className="absolute top-3 left-3 flex items-center gap-2">
-                    {prop.isFeatured && (
-                      <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-black text-xs font-bold">
-                        <Star className="w-3 h-3" /> Featured
-                      </span>
-                    )}
-                    {prop.isVerified && (
-                      <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/90 text-white text-xs font-bold">
-                        <CheckCircle className="w-3 h-3" /> Verified
-                      </span>
-                    )}
-                  </div>
-                  <div className="absolute top-3 right-3">
-                    <span className={`text-xs px-2 py-1 rounded-full border ${statusConfig[prop.status].color}`}>
-                      {statusConfig[prop.status].label}
-                    </span>
-                  </div>
-                  <div className="absolute bottom-3 left-3">
-                    <div className="text-white font-bold text-lg">
-                      {fmtPrice(prop.price, prop.transactionType)}
-                    </div>
-                  </div>
-                  {prop.photos.length > 0 && (
-                    <div className="absolute bottom-3 right-3">
-                      <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 text-white text-xs">
-                        <Camera className="w-3 h-3" /> {prop.photos.length}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                onClick={() => openDetail(prop)}
+                className="glass-card-hover overflow-hidden group cursor-pointer">
+                <PropCardImage
+                  photos={prop.photos}
+                  status={prop.status}
+                  price={prop.price}
+                  txType={prop.transactionType}
+                  isFeatured={prop.isFeatured}
+                  isVerified={prop.isVerified}
+                />
 
                 {/* Content */}
                 <div className="p-4">
@@ -423,7 +624,7 @@ export default function PropertiesPage() {
                           <Phone className="w-3.5 h-3.5" />
                         </a>
                       )}
-                      <button onClick={() => setViewProp(prop)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => openDetail(prop)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Eye className="w-3.5 h-3.5" /></button>
                       <button onClick={() => setEditProp(prop)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Edit className="w-3.5 h-3.5" /></button>
                       <button className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-estate-400 transition-colors"><Share2 className="w-3.5 h-3.5" /></button>
                       <button className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-gold-400 transition-colors" title="AI Match"><Zap className="w-3.5 h-3.5" /></button>
@@ -600,73 +801,298 @@ export default function PropertiesPage() {
         )}
       </AnimatePresence>
 
-      {/* Property View Modal */}
+      {/* ── Property Detail Modal ── */}
       <AnimatePresence>
         {viewProp && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4"
             onClick={e => e.target === e.currentTarget && setViewProp(null)}>
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="glass-card w-full max-w-lg max-h-[90vh] overflow-y-auto">
-              <div className="p-5 border-b border-white/10 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-white">{viewProp.title}</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">📍 {viewProp.locality}, {viewProp.city} · {viewProp.type}</p>
-                </div>
-                <button onClick={() => setViewProp(null)} className="text-muted-foreground hover:text-white flex-shrink-0"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="p-5 space-y-4">
-                {viewProp.photos[0] && (
-                  <img src={viewProp.photos[0]} alt={viewProp.title} className="w-full h-48 object-cover rounded-xl" />
-                )}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-center">
-                    <div className="text-lg font-bold text-yellow-400">{fmtPrice(viewProp.price, viewProp.transactionType)}</div>
-                    <div className="text-xs text-muted-foreground">Price</div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
-                    <div className="text-lg font-bold text-white">{viewProp.area.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">Sq.ft</div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
-                    <div className="text-lg font-bold text-estate-400">{viewProp.commissionRate ?? "—"}%</div>
-                    <div className="text-xs text-muted-foreground">Commission</div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <span className={`text-xs px-2.5 py-1 rounded-full border ${statusConfig[viewProp.status].color}`}>{statusConfig[viewProp.status].label}</span>
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{viewProp.transactionType}</span>
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{viewProp.category}</span>
-                </div>
-                {viewProp.amenities?.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {viewProp.amenities.map(a => (
-                      <span key={a} className="text-xs px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{a}</span>
-                    ))}
-                  </div>
-                )}
-                {viewProp.ownerName && (
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-white">{viewProp.ownerName}</div>
-                      {viewProp.ownerPhone && <div className="text-xs text-muted-foreground">{viewProp.ownerPhone}</div>}
-                    </div>
-                    {viewProp.ownerPhone && (
-                      <div className="flex gap-2">
-                        <a href={`tel:${viewProp.ownerPhone}`} className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Phone className="w-4 h-4" /></a>
-                        <a href={`https://wa.me/91${viewProp.ownerPhone.replace(/\D/g,"").slice(-10)}`} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"><MessageSquare className="w-4 h-4" /></a>
+              className="glass-card w-full max-w-2xl max-h-[95vh] overflow-y-auto flex flex-col">
+
+              {/* Photo Gallery */}
+              <div className="relative h-56 md:h-72 bg-white/5 flex-shrink-0">
+                {viewProp.photos.length > 0 ? (
+                  <>
+                    <img src={viewProp.photos[photoIdx]} alt={viewProp.title}
+                      className="w-full h-full object-cover" />
+                    {/* Prev/Next */}
+                    {viewProp.photos.length > 1 && (
+                      <>
+                        <button onClick={() => setPhotoIdx(i => (i - 1 + viewProp.photos.length) % viewProp.photos.length)}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setPhotoIdx(i => (i + 1) % viewProp.photos.length)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                        {/* Dots */}
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
+                          {viewProp.photos.map((_, i) => (
+                            <button key={i} onClick={() => setPhotoIdx(i)}
+                              className={`w-1.5 h-1.5 rounded-full transition-all ${
+                                i === photoIdx ? "bg-white w-4" : "bg-white/40"
+                              }`} />
+                          ))}
+                        </div>
+                        {/* Counter */}
+                        <div className="absolute top-3 right-3 px-2 py-1 rounded-full bg-black/60 text-white text-xs">
+                          {photoIdx + 1}/{viewProp.photos.length}
+                        </div>
+                      </>
+                    )}
+                    {/* Thumbnail strip */}
+                    {viewProp.photos.length > 1 && (
+                      <div className="absolute bottom-0 left-0 right-0 flex gap-1 p-2 bg-gradient-to-t from-black/70 to-transparent overflow-x-auto">
+                        {viewProp.photos.map((ph, i) => (
+                          <button key={i} onClick={() => setPhotoIdx(i)}
+                            className={`flex-shrink-0 w-12 h-9 rounded overflow-hidden border-2 transition-all ${
+                              i === photoIdx ? "border-white" : "border-transparent opacity-60 hover:opacity-100"
+                            }`}>
+                            <img src={ph} alt="" className="w-full h-full object-cover" />
+                          </button>
+                        ))}
                       </div>
                     )}
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Camera className="w-16 h-16 opacity-20" />
                   </div>
                 )}
-                <div className="flex gap-3">
-                  <button onClick={() => { setViewProp(null); setEditProp(viewProp); }}
-                    className="flex-1 py-2.5 rounded-xl bg-estate-500/20 border border-estate-500/30 text-estate-300 text-sm font-medium hover:bg-estate-500/30 transition-all">
-                    ✏️ Edit Property
+                {/* Badges */}
+                <div className="absolute top-3 left-3 flex gap-2">
+                  {viewProp.isFeatured && <span className="px-2 py-1 rounded-full bg-yellow-500/90 text-black text-xs font-bold">⭐ Featured</span>}
+                  {viewProp.isVerified && <span className="px-2 py-1 rounded-full bg-emerald-500/90 text-white text-xs font-bold">✓ Verified</span>}
+                </div>
+                <button onClick={() => setViewProp(null)}
+                  className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-4 md:p-5 space-y-4 overflow-y-auto">
+
+                {/* Title + Status */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-base md:text-lg font-bold text-white leading-tight">{viewProp.title}</h2>
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" /> {viewProp.locality}, {viewProp.city}
+                    </p>
+                  </div>
+                  <span className={`text-xs px-2.5 py-1 rounded-full border flex-shrink-0 ${statusConfig[viewProp.status].color}`}>
+                    {statusConfig[viewProp.status].label}
+                  </span>
+                </div>
+
+                {/* Price + Key Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-center col-span-2 md:col-span-1">
+                    <div className="text-xl font-bold text-yellow-400">{fmtPrice(viewProp.price, viewProp.transactionType)}</div>
+                    <div className="text-xs text-muted-foreground">{viewProp.transactionType}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+                    <div className="text-base font-bold text-white">{viewProp.area > 0 ? viewProp.area.toLocaleString() : "—"}</div>
+                    <div className="text-xs text-muted-foreground">Sq.ft (SBA)</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+                    <div className="text-base font-bold text-white">{viewProp.carpetArea ? viewProp.carpetArea.toLocaleString() : "—"}</div>
+                    <div className="text-xs text-muted-foreground">Carpet</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-estate-500/10 border border-estate-500/20 text-center">
+                    <div className="text-base font-bold text-estate-400">
+                      {viewProp.transactionType === "SELL" ? "1%" : "1 mo"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Brokerage</div>
+                  </div>
+                </div>
+
+                {/* Brokerage Breakdown */}
+                <div className={`p-3 rounded-xl border ${
+                  viewProp.transactionType === "SELL"
+                    ? "bg-emerald-500/8 border-emerald-500/20"
+                    : "bg-blue-500/8 border-blue-500/20"
+                }`}>
+                  <p className={`text-xs font-semibold mb-2 ${
+                    viewProp.transactionType === "SELL" ? "text-emerald-400" : "text-blue-400"
+                  }`}>
+                    {viewProp.transactionType === "SELL" ? "💰 Sell Brokerage" : "🔑 Rent Brokerage"}
+                  </p>
+                  {viewProp.transactionType === "SELL" ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2 rounded-lg bg-white/5 text-center">
+                        <div className="text-sm font-bold text-emerald-400">1%</div>
+                        <div className="text-xs text-muted-foreground">Commission</div>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white/5 text-center">
+                        <div className="text-sm font-bold text-emerald-400">
+                          ₹{Math.round(viewProp.price * 0.01).toLocaleString("en-IN")}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Amount</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="p-2 rounded-lg bg-white/5 text-center">
+                        <div className="text-sm font-bold text-blue-400">₹{viewProp.price.toLocaleString("en-IN")}</div>
+                        <div className="text-xs text-muted-foreground">1 mo Brokerage</div>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white/5 text-center">
+                        <div className="text-sm font-bold text-purple-400">₹{(viewProp.price * 2).toLocaleString("en-IN")}</div>
+                        <div className="text-xs text-muted-foreground">2 mo Security</div>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white/5 text-center">
+                        <div className="text-sm font-bold text-orange-400">₹{viewProp.price.toLocaleString("en-IN")}</div>
+                        <div className="text-xs text-muted-foreground">1 mo Advance</div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Total client pays upfront:</span>
+                    <span className="text-sm font-bold text-yellow-400">
+                      {viewProp.transactionType === "SELL"
+                        ? `₹${Math.round(viewProp.price * 0.01).toLocaleString("en-IN")}`
+                        : `₹${(viewProp.price * 4).toLocaleString("en-IN")}`
+                      }
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/15 border border-blue-500/20 text-blue-400">{viewProp.type}</span>
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{viewProp.category}</span>
+                  {viewPropFull?.floor && <span className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-muted-foreground">Floor {viewPropFull.floor}{viewPropFull.totalFloors ? `/${viewPropFull.totalFloors}` : ""}</span>}
+                  {viewPropFull?.residential?.furnishing && <span className="text-xs px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400">{viewPropFull.residential.furnishing.replace(/_/g, " ")}</span>}
+                  {viewPropFull?.residential?.bhk && <span className="text-xs px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400">{viewPropFull.residential.bhk} BHK</span>}
+                  {viewPropFull?.residential?.society && <span className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-muted-foreground">🏢 {viewPropFull.residential.society}</span>}
+                </div>
+
+                {/* Photos Management */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-white">🖼️ Photos ({viewProp.photos.length})</p>
+                    <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all ${
+                      uploadingPhotos
+                        ? "bg-white/5 text-muted-foreground opacity-50 pointer-events-none"
+                        : "bg-gold-500/20 border border-gold-500/30 text-gold-400 hover:bg-gold-500/30"
+                    }`}>
+                      {uploadingPhotos
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...</>
+                        : <><Camera className="w-3.5 h-3.5" /> Add Photos</>}
+                      <input ref={photoUploadRef} type="file" accept="image/*" multiple className="hidden"
+                        onChange={e => { if (e.target.files?.length) uploadPhotos(e.target.files, viewProp.id); e.target.value = ""; }} />
+                    </label>
+                  </div>
+                  {viewProp.photos.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {viewProp.photos.map((ph, i) => (
+                        <div key={i} onClick={() => setPhotoIdx(i)}
+                          className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                            i === photoIdx ? "border-white" : "border-transparent hover:border-white/40"
+                          }`}>
+                          <img src={ph} alt="" className="w-full h-full object-cover" />
+                          <button onClick={e => { e.stopPropagation(); deletePhoto(viewProp.id, ph); }}
+                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center text-white hover:bg-red-500/80 transition-colors opacity-0 group-hover:opacity-100 hover:opacity-100">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {/* Add more tile */}
+                      <label className="aspect-square rounded-lg border-2 border-dashed border-white/15 flex items-center justify-center cursor-pointer hover:border-gold-500/40 hover:bg-gold-500/5 transition-all">
+                        <Plus className="w-5 h-5 text-muted-foreground" />
+                        <input type="file" accept="image/*" multiple className="hidden"
+                          onChange={e => { if (e.target.files?.length) uploadPhotos(e.target.files, viewProp.id); e.target.value = ""; }} />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-white/15 cursor-pointer hover:border-gold-500/40 hover:bg-gold-500/5 transition-all">
+                      <Camera className="w-8 h-8 text-muted-foreground opacity-40" />
+                      <p className="text-xs text-muted-foreground">Click to add photos</p>
+                      <input type="file" accept="image/*" multiple className="hidden"
+                        onChange={e => { if (e.target.files?.length) uploadPhotos(e.target.files, viewProp.id); e.target.value = ""; }} />
+                    </label>
+                  )}
+                </div>
+
+                {/* Description */}
+                {viewPropFull?.description && (
+                  <div className="p-3 rounded-xl bg-white/3 border border-white/8">
+                    <p className="text-xs text-muted-foreground leading-relaxed">{viewPropFull.description}</p>
+                  </div>
+                )}
+
+                {/* Amenities — ALL */}
+                {viewProp.amenities?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-white mb-2">✨ Amenities ({viewProp.amenities.length})</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {viewProp.amenities.map(a => (
+                        <span key={a} className="text-xs px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{a}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Owner Contact */}
+                {viewProp.ownerName && (
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                    <p className="text-xs text-muted-foreground mb-2">👤 Owner / Agent</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-white">{viewProp.ownerName}</div>
+                        {viewProp.ownerPhone && <div className="text-xs text-emerald-400 mt-0.5">{viewProp.ownerPhone}</div>}
+                      </div>
+                      {viewProp.ownerPhone && (
+                        <div className="flex gap-2">
+                          <a href={`tel:${viewProp.ownerPhone}`}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-medium hover:bg-emerald-500/30 transition-all">
+                            <Phone className="w-3.5 h-3.5" /> Call
+                          </a>
+                          <a href={`https://wa.me/91${viewProp.ownerPhone.replace(/\D/g,"").slice(-10)}`}
+                            target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-medium hover:bg-green-500/30 transition-all">
+                            <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button onClick={() => { setShowLeadMatch(true); findMatchingLeads(viewProp); }}
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-400 text-sm font-medium hover:bg-purple-500/30 transition-all">
+                    <Zap className="w-4 h-4" /> Match Leads
                   </button>
-                  <button onClick={() => setViewProp(null)}
-                    className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-muted-foreground text-sm hover:text-white transition-all">
-                    Close
+                  <button onClick={() => setShowVisitModal(true)}
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-orange-500/20 border border-orange-500/30 text-orange-400 text-sm font-medium hover:bg-orange-500/30 transition-all">
+                    <Eye className="w-4 h-4" /> Site Visit
+                  </button>
+                  <button onClick={() => setShowDealModal(true)}
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-medium hover:bg-emerald-500/30 transition-all">
+                    <CheckCircle className="w-4 h-4" /> Create Deal
+                  </button>
+                  <button onClick={() => {
+                    const txt = `🏢 *${viewProp.title}*\n📍 ${viewProp.locality}, ${viewProp.city}\n💰 ${fmtPrice(viewProp.price, viewProp.transactionType)}\n📐 ${viewProp.area} sqft${viewProp.carpetArea ? ` (Carpet: ${viewProp.carpetArea})` : ""}\n📞 ${viewProp.ownerPhone || ""}\n\n${viewProp.photos[0] || ""}`;
+                    navigator.clipboard.writeText(txt);
+                    toast.success("Property details copied! 📋");
+                  }}
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 text-sm font-medium hover:bg-blue-500/30 transition-all">
+                    <Share2 className="w-4 h-4" /> Copy & Share
+                  </button>
+                  <a href={`https://wa.me/91${(viewProp.ownerPhone||"").replace(/\D/g,"").slice(-10)}?text=${encodeURIComponent(`Hi, I have a client interested in your property: ${viewProp.title} — ${viewProp.locality}. Price: ${fmtPrice(viewProp.price, viewProp.transactionType)}. Can we discuss?`)}`}
+                    target="_blank" rel="noreferrer"
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium hover:bg-green-500/30 transition-all">
+                    <MessageSquare className="w-4 h-4" /> WA Owner
+                  </a>
+                  <button onClick={() => { setViewProp(null); setEditProp(viewProp); }}
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-estate-500/20 border border-estate-500/30 text-estate-300 text-sm font-medium hover:bg-estate-500/30 transition-all">
+                    <Edit className="w-4 h-4" /> Edit Status
                   </button>
                 </div>
               </div>
@@ -869,6 +1295,189 @@ export default function PropertiesPage() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Lead Match Modal ── */}
+      <AnimatePresence>
+        {showLeadMatch && viewProp && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setShowLeadMatch(false)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="glass-card w-full max-w-lg max-h-[85vh] flex flex-col">
+              <div className="p-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
+                <div>
+                  <h2 className="text-base font-bold text-white">⚡ Matching Leads</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{viewProp.title}</p>
+                </div>
+                <button onClick={() => setShowLeadMatch(false)} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                {matchLoading ? (
+                  <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-purple-400" /></div>
+                ) : matchedLeads.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p className="text-sm">Koi matching lead nahi mila</p>
+                    <p className="text-xs mt-1 opacity-60">Property type ya budget match nahi hua</p>
+                  </div>
+                ) : matchedLeads.map(lead => (
+                  <div key={lead.id} className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                      lead.score >= 80 ? "bg-red-500/20 text-red-400" : lead.score >= 60 ? "bg-orange-500/20 text-orange-400" : "bg-blue-500/20 text-blue-400"
+                    }`}>{lead.name[0]?.toUpperCase()}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-white">{lead.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          lead.score >= 80 ? "bg-red-500/15 text-red-400" : lead.score >= 60 ? "bg-orange-500/15 text-orange-400" : "bg-blue-500/15 text-blue-400"
+                        }`}>{lead.score >= 80 ? "🔥" : lead.score >= 60 ? "🌡️" : "❄️"} {lead.score}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{lead.phone} · {lead.status?.replace(/_/g," ")}</div>
+                      {lead.budget && <div className="text-xs text-gold-400">₹{(lead.budget/100000).toFixed(1)}L budget</div>}
+                    </div>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <a href={`tel:${lead.phone}`} className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"><Phone className="w-3.5 h-3.5" /></a>
+                      <a href={`https://wa.me/91${lead.phone.replace(/\D/g,"").slice(-10)}?text=${encodeURIComponent(`Hi ${lead.name}, I have a property matching your requirement: ${viewProp.title} — ${viewProp.locality} at ${fmtPrice(viewProp.price, viewProp.transactionType)}. Interested?`)}`}
+                        target="_blank" rel="noreferrer" className="p-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"><MessageSquare className="w-3.5 h-3.5" /></a>
+                      <button onClick={() => { setVisitLeadId(lead.id); setShowLeadMatch(false); setShowVisitModal(true); }}
+                        className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition-colors" title="Schedule Visit"><Eye className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { setDealLeadId(lead.id); setDealValue(String(viewProp.price)); setShowLeadMatch(false); setShowDealModal(true); }}
+                        className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors" title="Create Deal"><CheckCircle className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-3 border-t border-white/10 flex-shrink-0">
+                <p className="text-xs text-muted-foreground text-center">{matchedLeads.length} leads matched · 📞 WA 💬 Visit 👁️ Deal ✅</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Site Visit Modal ── */}
+      <AnimatePresence>
+        {showVisitModal && viewProp && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setShowVisitModal(false)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="glass-card w-full max-w-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-white">📅 Schedule Site Visit</h2>
+                <button onClick={() => setShowVisitModal(false)} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10 mb-4">
+                <p className="text-xs text-muted-foreground">Property</p>
+                <p className="text-sm font-semibold text-white truncate">{viewProp.title}</p>
+                <p className="text-xs text-muted-foreground">{viewProp.locality} · {fmtPrice(viewProp.price, viewProp.transactionType)}</p>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Client / Lead *</label>
+                  <select value={visitLeadId} onChange={e => setVisitLeadId(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50">
+                    <option value="">Select lead...</option>
+                    {allLeads.filter(l => l.status !== "DEAL_CLOSED" && l.status !== "LOST").map(l => (
+                      <option key={l.id} value={l.id} className="bg-[#0f1f35]">{l.name} — {l.phone}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Date *</label>
+                    <input type="date" value={visitDate} min={new Date().toISOString().split("T")[0]}
+                      onChange={e => setVisitDate(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Time *</label>
+                    <input type="time" value={visitTime} onChange={e => setVisitTime(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]" />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => setShowVisitModal(false)}
+                    className="flex-1 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white">Cancel</button>
+                  <button onClick={scheduleVisit} disabled={savingVisit}
+                    className="flex-1 py-2 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-400 text-sm font-medium hover:bg-orange-500/30 disabled:opacity-50 flex items-center justify-center gap-2">
+                    {savingVisit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                    {savingVisit ? "Saving..." : "Schedule Visit"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Create Deal Modal ── */}
+      <AnimatePresence>
+        {showDealModal && viewProp && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setShowDealModal(false)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="glass-card w-full max-w-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-white">🤝 Create Deal</h2>
+                <button onClick={() => setShowDealModal(false)} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10 mb-3">
+                <p className="text-xs text-muted-foreground">Property</p>
+                <p className="text-sm font-semibold text-white truncate">{viewProp.title}</p>
+                <p className="text-xs text-muted-foreground">{viewProp.locality} · {fmtPrice(viewProp.price, viewProp.transactionType)}</p>
+              </div>
+              <div className={`p-3 rounded-xl mb-4 ${
+                viewProp.transactionType === "SELL" ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-blue-500/10 border border-blue-500/20"
+              }`}>
+                <p className="text-xs font-semibold text-white mb-1">Brokerage Earned:</p>
+                {viewProp.transactionType === "SELL"
+                  ? <p className="text-sm font-bold text-emerald-400">₹{Math.round((parseFloat(dealValue)||viewProp.price)*0.01).toLocaleString("en-IN")} (1%)</p>
+                  : <p className="text-sm font-bold text-blue-400">₹{viewProp.price.toLocaleString("en-IN")} (1 month)</p>
+                }
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Client / Lead *</label>
+                  <select value={dealLeadId} onChange={e => setDealLeadId(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50">
+                    <option value="">Select lead...</option>
+                    {allLeads.filter(l => l.status !== "DEAL_CLOSED" && l.status !== "LOST").map(l => (
+                      <option key={l.id} value={l.id} className="bg-[#0f1f35]">{l.name} — {l.phone}</option>
+                    ))}
+                  </select>
+                </div>
+                {viewProp.transactionType === "SELL" && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Deal Value (₹)</label>
+                    <input type="number" value={dealValue} onChange={e => setDealValue(e.target.value)}
+                      placeholder={String(viewProp.price)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50" />
+                  </div>
+                )}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Stage</label>
+                  <select value={dealStage} onChange={e => setDealStage(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50">
+                    {["ENQUIRY","SITE_VISIT","NEGOTIATION","TOKEN","AGREEMENT","REGISTRATION"].map(s => (
+                      <option key={s} value={s} className="bg-[#0f1f35]">{s.replace(/_/g," ")}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => setShowDealModal(false)}
+                    className="flex-1 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white">Cancel</button>
+                  <button onClick={createDeal} disabled={savingDeal}
+                    className="flex-1 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-medium hover:bg-emerald-500/30 disabled:opacity-50 flex items-center justify-center gap-2">
+                    {savingDeal ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                    {savingDeal ? "Creating..." : "Create Deal"}
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}

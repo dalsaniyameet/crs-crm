@@ -38,16 +38,16 @@ function FloatingLogo({ size, delay, initialX, initialY }: { size: number; delay
   return (
     <motion.div
       className="absolute rounded-2xl overflow-hidden"
-      style={{ width: size, height: size, left: initialX, top: initialY, background: "rgba(234,179,8,0.04)", border: "1px solid rgba(234,179,8,0.08)" }}
+      style={{ width: size, height: size, left: initialX, top: initialY, background: "#ffffff", border: "1px solid rgba(234,179,8,0.4)", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}
       animate={{
         x: [0, 20, -15, 10, 0],
         y: [0, -20, 15, -10, 0],
         rotate: [0, 3, -2, 2, 0],
-        opacity: [0.4, 0.6, 0.5, 0.6, 0.4],
+        opacity: [0.7, 0.9, 0.8, 0.9, 0.7],
       }}
       transition={{ duration: 14, delay, repeat: Infinity, ease: "easeInOut" }}
     >
-      <Image src="/logo.jpeg" alt="" fill sizes={`${size}px`} className="object-contain p-2" style={{ opacity: 0.12 }} />
+      <Image src="/logo.jpeg" alt="" fill sizes={`${size}px`} className="object-contain p-1" style={{ opacity: 1 }} />
     </motion.div>
   );
 }
@@ -224,62 +224,99 @@ export default function HomePage() {
 
         {/* Badge */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3, duration: 0.6, ease: "easeOut" }}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-6"
           style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", color: "#eab308" }}>
-          <Zap className="w-4 h-4" />
+          <motion.span animate={{ rotate: [0, 15, -10, 0] }} transition={{ delay: 1.2, duration: 0.6 }}>
+            <Zap className="w-4 h-4" />
+          </motion.span>
           AI-Powered Real Estate CRM for Ahmedabad
         </motion.div>
 
         {/* Headline */}
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-          className="text-5xl md:text-7xl font-bold mb-6 leading-tight tracking-tight">
-          <span className="text-white">City Real Space</span>
-          <br />
-          <span style={{
-            background: "linear-gradient(135deg, #ca8a04 0%, #eab308 40%, #fde047 70%, #eab308 100%)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-          }}>
-            CRM Platform
-          </span>
-        </motion.h1>
+        <div className="mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <span className="text-5xl md:text-7xl font-bold leading-tight tracking-tight text-white block">City Real Space</span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.62, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <span className="text-5xl md:text-7xl font-bold leading-tight tracking-tight block" style={{
+              background: "linear-gradient(135deg, #ca8a04 0%, #eab308 40%, #fde047 70%, #eab308 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+              backgroundSize: "200% auto",
+            }}>
+              CRM Platform
+            </span>
+          </motion.div>
+        </div>
 
+        {/* Description — word by word */}
         <motion.p
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.82, duration: 0.7, ease: "easeOut" }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
           The most automation-driven CRM built specifically for{" "}
-          <span style={{ color: "#eab308" }} className="font-semibold">Ahmedabad real estate brokers</span>.
-          AI matching, WhatsApp automation, and smart deal tracking.
+          <motion.span
+            initial={{ opacity: 0, color: "#94a3b8" }}
+            animate={{ opacity: 1, color: "#eab308" }}
+            transition={{ delay: 1.3, duration: 0.8 }}
+            className="font-semibold"
+          >Ahmedabad real estate brokers</motion.span>.
+          {" "}AI matching, WhatsApp automation, and smart deal tracking.
         </motion.p>
 
         {/* CTAs */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.0, duration: 0.6, ease: "easeOut" }}
           className="flex items-center justify-center gap-4 flex-wrap mb-20">
-          <Link href="/sign-in"
-            className="flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105"
-            style={{
-              background: "linear-gradient(135deg,#ca8a04,#eab308,#fde047)",
-              color: "#050508",
-              boxShadow: "0 0 30px rgba(234,179,8,0.4), 0 4px 20px rgba(0,0,0,0.3)"
-            }}>
-            Open CRM Dashboard <ArrowRight className="w-5 h-5" />
-          </Link>
-          <a href="https://cityrealspace.com" target="_blank" rel="noreferrer"
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1.05, duration: 0.5 }}>
+            <Link href="/sign-in"
+              className="flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-bold transition-all hover:scale-105"
+              style={{
+                background: "linear-gradient(135deg,#ca8a04,#eab308,#fde047)",
+                color: "#050508",
+                boxShadow: "0 0 30px rgba(234,179,8,0.4), 0 4px 20px rgba(0,0,0,0.3)"
+              }}>
+              Open CRM Dashboard <ArrowRight className="w-5 h-5" />
+            </Link>
+          </motion.div>
+          <motion.a
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1.15, duration: 0.5 }}
+            href="https://cityrealspace.com" target="_blank" rel="noreferrer"
             className="flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-medium transition-all hover:scale-105"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8" }}>
             <Globe className="w-5 h-5" /> Visit Website
-          </a>
+          </motion.a>
         </motion.div>
 
         {/* Stats */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2, duration: 0.7, ease: "easeOut" }}
           className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
           {stats.map((s, i) => (
             <motion.div key={s.label}
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.1 }}
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: 1.3 + i * 0.12, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               whileHover={{ y: -4, scale: 1.02 }}
               className="text-center p-5 rounded-2xl"
               style={{

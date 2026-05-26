@@ -8,7 +8,7 @@ import {
   Plus, Trash2, Loader2, Upload, X, Eye,
   CheckCircle2, XCircle, AlertCircle, CalendarDays,
   Clock, FileText, Bell, ChevronDown, ChevronUp,
-  Users, TrendingUp, Shield, Mail,
+  Users, TrendingUp, Shield, Mail, ClipboardList, Phone, Building2,
 } from "lucide-react";
 
 type Employee = {
@@ -149,10 +149,12 @@ function EmployeeCard({
           { icon: <FileText className="w-3.5 h-3.5" />,     label: "Docs",    value: empDocs.length,   color: "text-estate-400" },
           { icon: <Bell className="w-3.5 h-3.5" />,         label: "Pending", value: totalAlerts,      color: totalAlerts > 0 ? "text-yellow-400" : "text-muted-foreground" },
         ].map(s => (
-          <div key={s.label} className="text-center p-2 rounded-lg bg-white/5">
-            <div className={`flex items-center justify-center gap-1 ${s.color} mb-0.5`}>{s.icon}</div>
-            <div className={`text-sm font-bold ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-muted-foreground">{s.label}</div>
+          <div key={s.label} className="flex items-center gap-2 p-2.5 rounded-lg bg-white/5">
+            <div className={`flex-shrink-0 ${s.color}`}>{s.icon}</div>
+            <div className="min-w-0">
+              <div className={`text-sm font-bold leading-none ${s.color}`}>{s.value}</div>
+              <div className="text-xs text-muted-foreground mt-0.5 truncate">{s.label}</div>
+            </div>
           </div>
         ))}
       </div>
@@ -226,6 +228,8 @@ export default function AdminEmployeesPage() {
   const [documents, setDocuments]   = useState<any[]>([]);
   const [attendance, setAttendance] = useState<any[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [todayReports, setTodayReports] = useState<any[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
 
   const myRole = (user?.publicMetadata?.role as string | undefined)?.toUpperCase();
   useEffect(() => {
@@ -233,18 +237,22 @@ export default function AdminEmployeesPage() {
   }, [isLoaded, user, myRole, router]);
 
   useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
     Promise.all([
       fetch("/api/admin/employees").then(r => r.json()),
       fetch("/api/leaves").then(r => r.json()),
       fetch("/api/employee/documents?all=true").then(r => r.json()),
       fetch(`/api/attendance/guest?date=all`).then(r => r.json()),
-    ]).then(([emps, leavs, docs, att]) => {
+      fetch(`/api/daily-reports?date=${today}&limit=50`).then(r => r.json()),
+    ]).then(([emps, leavs, docs, att, reports]) => {
       setEmployees(Array.isArray(emps) ? emps : []);
       setLeaves(Array.isArray(leavs) ? leavs : []);
       setDocuments(Array.isArray(docs) ? docs : []);
       setAttendance(Array.isArray(att) ? att : []);
+      setTodayReports(Array.isArray(reports) ? reports : []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+      setReportsLoading(false);
+    }).catch(() => { setLoading(false); setReportsLoading(false); });
   }, []);
 
   useEffect(() => {
@@ -474,6 +482,105 @@ export default function AdminEmployeesPage() {
           </form>
         </div>
       )}
+
+      {/* Today's Daily Reports */}
+      <div className="glass-card p-4 border border-white/10">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-estate-400" />
+            <span className="text-sm font-semibold text-white">Aaj ke Daily Reports</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-estate-500/15 border border-estate-500/30 text-estate-300">
+              {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+            </span>
+          </div>
+          <button onClick={() => router.push("/admin-employees/daily-reports")}
+            className="text-xs text-estate-400 hover:text-estate-300 underline">
+            Sab dekho →
+          </button>
+        </div>
+
+        {reportsLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="w-5 h-5 animate-spin text-estate-400" />
+          </div>
+        ) : todayReports.length === 0 ? (
+          <div className="text-center py-6">
+            <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-20" />
+            <p className="text-xs text-muted-foreground">Abhi tak kisi ne report submit nahi ki</p>
+            {employees.filter(e => e.isActive).length > 0 && (
+              <p className="text-xs text-yellow-400 mt-1">
+                ⚠️ {employees.filter(e => e.isActive).length} employees mein se 0 ne submit kiya
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Summary row */}
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {[
+                { label: "Calls",   value: todayReports.reduce((s, r) => s + r.totalCalls, 0),   color: "text-blue-400" },
+                { label: "Leads",   value: todayReports.reduce((s, r) => s + r.newLeads, 0),     color: "text-yellow-400" },
+                { label: "Visits",  value: todayReports.reduce((s, r) => s + r.siteVisits, 0),   color: "text-orange-400" },
+                { label: "Closed",  value: todayReports.reduce((s, r) => s + r.dealsClosed, 0),  color: "text-emerald-400" },
+              ].map(s => (
+                <div key={s.label} className="p-2.5 rounded-lg bg-white/5 text-center">
+                  <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-xs text-muted-foreground">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Per-employee rows */}
+            <div className="space-y-2">
+              {todayReports.map(r => (
+                <div key={r.id} className={`flex items-center gap-3 p-3 rounded-xl border ${
+                  r.status === "REVIEWED" ? "bg-emerald-500/5 border-emerald-500/15" : "bg-white/3 border-white/8"
+                }`}>
+                  <div className="w-8 h-8 rounded-full bg-estate-600/30 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                    {r.employee?.name?.[0]?.toUpperCase() || "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-white">{r.employee?.name}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                        r.status === "REVIEWED" ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400"
+                      }`}>{r.status === "REVIEWED" ? "✓ Reviewed" : "Submitted"}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                      <span className="text-xs text-blue-400 flex items-center gap-1"><Phone className="w-3 h-3" />{r.totalCalls}</span>
+                      <span className="text-xs text-orange-400 flex items-center gap-1"><Building2 className="w-3 h-3" />{r.siteVisits}</span>
+                      <span className="text-xs text-yellow-400">⭐ {r.newLeads} leads</span>
+                      {r.dealsClosed > 0 && <span className="text-xs text-emerald-400 font-semibold">✅ {r.dealsClosed} closed</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => router.push("/admin-employees/daily-reports")}
+                    className="text-xs text-muted-foreground hover:text-white flex-shrink-0 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Who hasn't submitted */}
+            {(() => {
+              const submittedIds = new Set(todayReports.map(r => r.employeeId));
+              const missing = employees.filter(e => e.isActive && !submittedIds.has(e.id));
+              return missing.length > 0 ? (
+                <div className="mt-3 p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/15">
+                  <p className="text-xs text-yellow-400 font-medium mb-1.5">⏳ Abhi submit nahi kiya ({missing.length})</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {missing.map(e => (
+                      <span key={e.id} className="text-xs px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">
+                        {e.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+          </>
+        )}
+      </div>
 
       {/* Employee Cards */}
       {employees.filter(e => e.isActive).length === 0 ? (

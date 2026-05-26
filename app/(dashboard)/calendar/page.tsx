@@ -130,6 +130,37 @@ export default function CalendarPage() {
 
   const totalEvents = selVisits.length + selLeaves.length + selGcal.length + selFollowUps.length;
 
+  // Active filters for legend
+  type FilterType = "visits" | "leaves" | "gcal" | "followups" | "festival" | "holiday";
+  const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(new Set(["visits","leaves","gcal","followups","festival","holiday"]));
+  const [showAllFestivals, setShowAllFestivals] = useState(false);
+
+  function toggleFilter(f: FilterType) {
+    if (f === "festival" || f === "holiday") {
+      // toggle show all festivals panel
+      const willBeActive = !activeFilters.has(f);
+      setActiveFilters(prev => { const n = new Set(prev); willBeActive ? n.add(f) : n.delete(f); return n; });
+      if (willBeActive) setShowAllFestivals(true);
+      else {
+        // if both festival & holiday off, hide panel
+        const otherKey = f === "festival" ? "holiday" : "festival";
+        if (!activeFilters.has(otherKey)) setShowAllFestivals(false);
+      }
+      return;
+    }
+    setActiveFilters(prev => { const n = new Set(prev); n.has(f) ? n.delete(f) : n.add(f); return n; });
+  }
+
+  // All festivals in current month
+  const monthFestivals = Array.from({ length: new Date(curYear, curMonth + 1, 0).getDate() }, (_, i) => {
+    const key = `${curYear}-${String(curMonth+1).padStart(2,"0")}-${String(i+1).padStart(2,"0")}`;
+    const fest = getFestival(key);
+    if (!fest) return null;
+    if (fest.type === "national" && !activeFilters.has("holiday")) return null;
+    if (fest.type === "festival" && !activeFilters.has("festival")) return null;
+    return { key, day: i + 1, fest };
+  }).filter(Boolean) as { key: string; day: number; fest: { name: string; emoji: string; type: string } }[];
+
   const monthFollowUps = assignedLeads.filter((l: any) => {
     if (!l.nextFollowUpAt) return false;
     const d = new Date(l.nextFollowUpAt);
@@ -221,13 +252,23 @@ export default function CalendarPage() {
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-400" /> Visits</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Leaves</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" /> GCal</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-400" /> Follow-ups</span>
-              <span className="flex items-center gap-1"><span className="text-xs">🎉</span> Festival</span>
-              <span className="flex items-center gap-1"><span className="text-xs">🇮🇳</span> Holiday</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {([
+                { key: "visits",    label: "Visits",     dot: "bg-orange-400",  active: "bg-orange-500/20 border-orange-400/60 text-orange-300",  inactive: "bg-white/5 border-white/10 text-white/40" },
+                { key: "leaves",    label: "Leaves",     dot: "bg-red-400",     active: "bg-red-500/20 border-red-400/60 text-red-300",           inactive: "bg-white/5 border-white/10 text-white/40" },
+                { key: "gcal",      label: "GCal",       dot: "bg-blue-400",    active: "bg-blue-500/20 border-blue-400/60 text-blue-300",         inactive: "bg-white/5 border-white/10 text-white/40" },
+                { key: "followups", label: "Follow-ups", dot: "bg-purple-400",  active: "bg-purple-500/20 border-purple-400/60 text-purple-300",   inactive: "bg-white/5 border-white/10 text-white/40" },
+                { key: "festival",  label: "🎉 Festival", dot: null,            active: "bg-pink-500/20 border-pink-400/60 text-pink-300",         inactive: "bg-white/5 border-white/10 text-white/40" },
+                { key: "holiday",   label: "🇮🇳 Holiday",  dot: null,            active: "bg-orange-500/20 border-orange-400/60 text-orange-300",  inactive: "bg-white/5 border-white/10 text-white/40" },
+              ] as const).map(f => (
+                <button key={f.key} onClick={() => toggleFilter(f.key)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                    activeFilters.has(f.key) ? f.active : f.inactive
+                  }`}>
+                  {f.dot && <span className={`w-1.5 h-1.5 rounded-full ${f.dot}`} />}
+                  {f.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -252,45 +293,49 @@ export default function CalendarPage() {
                   const key      = `${curYear}-${String(curMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
                   const isToday  = key === todayKey;
                   const isSel    = key === selected;
-                  const hasVisit   = visitDays.has(key);
-                  const hasLeave   = leaveDays.has(key);
-                  const hasGcal    = gcalDays.has(key);
-                  const hasFollowUp = followUpDays.has(key);
-                  const festival   = getFestival(key);
-                  const isHoliday  = festival?.type === "national";
+                  const hasVisit    = activeFilters.has("visits")    && visitDays.has(key);
+                  const hasLeave    = activeFilters.has("leaves")    && leaveDays.has(key);
+                  const hasGcal     = activeFilters.has("gcal")      && gcalDays.has(key);
+                  const hasFollowUp = activeFilters.has("followups") && followUpDays.has(key);
+                  const festival    = (activeFilters.has("festival") || activeFilters.has("holiday")) ? getFestival(key) : null;
+                  const filteredFest = festival && (
+                    (festival.type === "national" && activeFilters.has("holiday")) ||
+                    (festival.type === "festival" && activeFilters.has("festival"))
+                  ) ? festival : null;
+                  const isHoliday  = filteredFest?.type === "national";
                   return (
                     <motion.button key={i} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}
                       onClick={() => setSelected(key)}
-                      className={`relative h-14 rounded-xl flex flex-col items-center justify-center transition-all text-sm font-medium border ${
+                      className={`relative h-14 rounded-xl flex flex-col items-center justify-center transition-all text-sm font-semibold border ${
                         isSel
-                          ? "border-yellow-500/60 text-yellow-300"
+                          ? "border-yellow-400/80 text-yellow-200"
                           : isToday
-                          ? "border-estate-500/50 text-white"
+                          ? "border-white/60 text-white"
                           : isHoliday
-                          ? "border-orange-500/30 text-orange-300"
-                          : festival
-                          ? "border-pink-500/20 text-pink-200"
-                          : "border-transparent text-muted-foreground hover:text-white hover:border-white/10"
+                          ? "border-orange-400/50 text-orange-200"
+                          : filteredFest
+                          ? "border-pink-400/40 text-pink-200"
+                          : "border-white/8 text-white/70 hover:text-white hover:border-white/25"
                       }`}
                       style={{
                         background: isSel
-                          ? "rgba(234,179,8,0.2)"
+                          ? "rgba(234,179,8,0.25)"
                           : isToday
-                          ? "rgba(99,102,241,0.2)"
+                          ? "rgba(255,255,255,0.15)"
                           : isHoliday
-                          ? "rgba(249,115,22,0.08)"
-                          : festival
-                          ? "rgba(236,72,153,0.06)"
-                          : "rgba(255,255,255,0.03)",
+                          ? "rgba(249,115,22,0.12)"
+                          : filteredFest
+                          ? "rgba(236,72,153,0.08)"
+                          : "rgba(255,255,255,0.04)",
                       }}>
-                      {festival && <span className="text-xs leading-none mb-0.5">{festival.emoji}</span>}
+                      {filteredFest && <span className="text-xs leading-none mb-0.5">{filteredFest.emoji}</span>}
                       <span className={festival ? "text-xs" : ""}>{day}</span>
                       {(hasVisit || hasLeave || hasGcal || hasFollowUp) && (
                         <div className="flex gap-0.5 mt-0.5">
-                          {hasVisit    && <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />}
-                          {hasLeave    && <span className="w-1.5 h-1.5 rounded-full bg-red-400" />}
-                          {hasGcal     && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
-                          {hasFollowUp && <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />}
+                          {hasVisit    && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shadow-[0_0_4px_rgba(251,146,60,0.8)]" />}
+                          {hasLeave    && <span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_4px_rgba(248,113,113,0.8)]" />}
+                          {hasGcal     && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_4px_rgba(96,165,250,0.8)]" />}
+                          {hasFollowUp && <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shadow-[0_0_4px_rgba(192,132,252,0.8)]" />}
                         </div>
                       )}
                     </motion.button>
@@ -301,8 +346,57 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* Day detail panel */}
+        {/* Day detail panel / Festivals panel */}
         <div className="glass-card p-5 flex flex-col lg:sticky lg:top-4 lg:self-start overflow-hidden">
+
+          {/* If festival/holiday filter active & user clicked it — show all month festivals */}
+          {(activeFilters.has("festival") || activeFilters.has("holiday")) && monthFestivals.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>🗓️</span> {new Date(curYear, curMonth).toLocaleString("en-IN", { month: "long" })} Festivals & Holidays
+                </p>
+                <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                  style={{ background: "rgba(236,72,153,0.15)", border: "1px solid rgba(236,72,153,0.3)", color: "#f9a8d4" }}>
+                  {monthFestivals.length}
+                </span>
+              </div>
+              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                {monthFestivals.map(({ key, day, fest }) => (
+                  <motion.button key={key}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    onClick={() => setSelected(key)}
+                    className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl text-left transition-all border ${
+                      selected === key
+                        ? fest.type === "national"
+                          ? "bg-orange-500/20 border-orange-400/60"
+                          : "bg-pink-500/20 border-pink-400/60"
+                        : fest.type === "national"
+                          ? "bg-orange-500/8 border-orange-500/20 hover:bg-orange-500/15"
+                          : "bg-pink-500/8 border-pink-500/15 hover:bg-pink-500/12"
+                    }`}>
+                    <span className="text-xl flex-shrink-0">{fest.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-semibold truncate ${
+                        fest.type === "national" ? "text-orange-200" : "text-pink-200"
+                      }`}>{fest.name}</p>
+                      <p className="text-xs text-white/40">
+                        {new Date(key + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                      </p>
+                    </div>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                      fest.type === "national"
+                        ? "bg-orange-500/20 text-orange-300"
+                        : "bg-pink-500/20 text-pink-300"
+                    }`}>
+                      {fest.type === "national" ? "Holiday" : "Festival"}
+                    </span>
+                  </motion.button>
+                ))}
+              </div>
+              <div className="mt-3 border-t border-white/8 pt-3" />
+            </div>
+          )}
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm font-bold text-white">

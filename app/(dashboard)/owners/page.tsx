@@ -149,9 +149,11 @@ export default function OwnersPage() {
   const router = useRouter();
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState("");
-  const [filterType, setFilterType] = useState("ALL"); // property type filter  
-  const [filterBudget, setFilterBudget] = useState("ALL"); // budget range filter
-  const [filterTransaction, setFilterTransaction] = useState("ALL"); // RENT/SELL
+  const [filterType, setFilterType] = useState("ALL");
+  const [filterBudget, setFilterBudget] = useState("ALL");
+  const [filterTransaction, setFilterTransaction] = useState("ALL");
+  const [filterLocality, setFilterLocality] = useState("ALL");
+  const [filterScanned, setFilterScanned] = useState("ALL"); // ALL | SCANNED | NO_CARD
   const [scanning, setScanning]   = useState(false);
   const [showScan, setShowScan]   = useState(false);
   // Batch scan state
@@ -995,64 +997,94 @@ export default function OwnersPage() {
     return b >= 10000000 ? `₹${(b/10000000).toFixed(1)}Cr` : b >= 100000 ? `₹${(b/100000).toFixed(1)}L` : `₹${(b/1000).toFixed(0)}K`;
   };
 
-  // ── Smart Owner-Client Property Match ──
+  // ── Smart Owner-Client Property Match (Real Estate Logic) ──
   function matchScore(owner: Owner, client: Client): number {
-    const pd = parseOwnerNotes(owner.notes);
+    const pd         = parseOwnerNotes(owner.notes);
     const ownerProps = owner.properties;
 
-    const ownerType     = pd?.propertyType     || ownerProps[0]?.type            || "";
-    const ownerTxn      = pd?.transactionType  || ownerProps[0]?.transactionType || "";
-    const ownerPrice    = Number(pd?.price      || ownerProps[0]?.price           || 0);
-    const ownerLocality = (owner.locality || "").toLowerCase();
+    const ownerType     = (pd?.propertyType     || ownerProps[0]?.type            || "").toUpperCase();
+    const ownerTxn      = (pd?.transactionType  || ownerProps[0]?.transactionType || "").toUpperCase();
+    const ownerPrice    = Number(pd?.price       || ownerProps[0]?.price           || 0);
+    const ownerLocality = (owner.locality        || pd?.locality                   || "").toLowerCase();
+    const ownerAddress  = (owner.address         || "").toLowerCase();
 
-    const clientType   = client.propertyType   || "";
-    const clientTxn    = client.transactionType || "";
-    const clientBudget = client.budget          || 0;
-    const clientReq    = (client.requirements  || "").toLowerCase();
+    const clientType   = (client.propertyType    || "").toUpperCase();
+    const clientTxn    = (client.transactionType || "").toUpperCase();
+    const clientBudget = client.budget            || 0;
+    const clientReq    = (client.requirements    || "").toLowerCase();
 
-    // No owner property data = skip entirely
-    if (!ownerType && ownerProps.length === 0) return 0;
+    // No owner property data at all = skip
+    if (!ownerType && ownerProps.length === 0 && !ownerPrice) return 0;
 
-    // ── 1. Property Type MUST match (40 pts) ──
-    // If both specified and they don't match → 0 (hard filter)
-    if (clientType && ownerType && clientType !== ownerType) return 0;
     let score = 0;
-    if (clientType && ownerType && clientType === ownerType) score += 40;
-    else if (!clientType && ownerType) score += 15; // client didn't specify
+    let reasons: string[] = [];
 
-    // ── 2. Transaction Type MUST match (30 pts) ──
-    // BUY↔SELL, RENT↔RENT, LEASE↔LEASE
+    // ── 1. Property Type match (35 pts) ──
+    if (clientType && ownerType) {
+      if (clientType === ownerType) {
+        score += 35;
+      } else {
+        // Commercial group: OFFICE, SHOP, SHOWROOM, WAREHOUSE, COMMERCIAL_LAND, INDUSTRIAL
+        // Residential group: APARTMENT, VILLA, PLOT, PENTHOUSE, STUDIO
+        const commercial = ["OFFICE","SHOP","SHOWROOM","WAREHOUSE","COMMERCIAL_LAND","INDUSTRIAL"];
+        const residential = ["APARTMENT","VILLA","PLOT","PENTHOUSE","STUDIO"];
+        const sameGroup =
+          (commercial.includes(clientType) && commercial.includes(ownerType)) ||
+          (residential.includes(clientType) && residential.includes(ownerType));
+        if (sameGroup) score += 12; // same category, different type — partial
+        else return 0; // completely different category — no match
+      }
+    } else if (!clientType && ownerType) {
+      score += 12; // client didn't specify type
+    } else if (clientType && !ownerType) {
+      score += 8;  // owner has no type info
+    }
+
+    // ── 2. Transaction Type match (30 pts) ──
+    // Real estate: owner SELL → client BUY, owner RENT → client RENT/LEASE
     const txnMatch =
-      (clientTxn === "BUY"   && ownerTxn === "SELL") ||
-      (clientTxn === "SELL"  && ownerTxn === "BUY")  ||
-      (clientTxn === "RENT"  && ownerTxn === "RENT") ||
-      (clientTxn === "LEASE" && ownerTxn === "LEASE");
-    // If both specified and don't match → 0 (hard filter)
-    if (clientTxn && ownerTxn && !txnMatch) return 0;
-    if (txnMatch) score += 30;
-    else if (!clientTxn || !ownerTxn) score += 10;
+      (ownerTxn === "SELL"  && (clientTxn === "BUY"  || clientTxn === "SELL")) ||
+      (ownerTxn === "BUY"   && (clientTxn === "SELL" || clientTxn === "BUY"))  ||
+      (ownerTxn === "RENT"  && (clientTxn === "RENT" || clientTxn === "LEASE" || clientTxn === "BUY")) ||
+      (ownerTxn === "LEASE" && (clientTxn === "LEASE"|| clientTxn === "RENT"  || clientTxn === "BUY"));
 
-    // ── 3. Budget vs Price (20 pts) ──
-    // Client budget >= owner price = good match (client can afford it)
-    // Owner price >> client budget = no match
+    if (clientTxn && ownerTxn) {
+      if (txnMatch) score += 30;
+      else return 0; // hard mismatch — e.g. client wants RENT but owner wants to SELL
+    } else {
+      score += 10; // one side missing — partial credit
+    }
+
+    // ── 3. Budget vs Price — negotiable ±25% (25 pts) ──
     if (clientBudget > 0 && ownerPrice > 0) {
       const ratio = ownerPrice / clientBudget;
-      if (ratio >= 0.5 && ratio <= 1.0)  score += 20; // owner price within budget ✔
-      else if (ratio > 1.0 && ratio <= 1.15) score += 10; // slightly over budget
-      else if (ratio < 0.5) score += 5;  // owner price way too cheap (mismatch)
-      else return 0; // owner price > 115% of budget — skip
+      if (ratio <= 1.0)                    score += 25; // owner price within budget ✅
+      else if (ratio <= 1.10)              score += 20; // up to 10% over — negotiable
+      else if (ratio <= 1.20)              score += 14; // up to 20% over — possible
+      else if (ratio <= 1.30)              score += 6;  // up to 30% over — stretch
+      else                                 return 0;    // >30% over budget — skip
+    } else if (clientBudget > 0 || ownerPrice > 0) {
+      score += 10; // partial info
     } else {
-      score += 8; // no budget info, partial
+      score += 8;  // no price info at all
     }
 
-    // ── 4. Locality match (10 pts) ──
-    if (ownerLocality && clientReq) {
-      const words = ownerLocality.split(/[\s,]+/).filter(w => w.length > 3);
-      if (words.some(w => clientReq.includes(w))) score += 10;
+    // ── 4. Locality / Area match (10 pts) ──
+    // Check owner locality against client requirements text
+    const localityWords = ownerLocality.split(/[\s,]+/).filter(w => w.length > 2);
+    const addressWords  = ownerAddress.split(/[\s,]+/).filter(w => w.length > 3);
+    const allLocWords   = [...new Set([...localityWords, ...addressWords])];
+
+    if (allLocWords.length > 0 && clientReq) {
+      const matchCount = allLocWords.filter(w => clientReq.includes(w)).length;
+      if (matchCount >= 2)      score += 10;
+      else if (matchCount === 1) score += 6;
+    } else if (ownerLocality && clientReq.includes(ownerLocality.slice(0, 4))) {
+      score += 5; // partial locality match
     }
 
-    // Minimum threshold — only show meaningful matches
-    return score >= 50 ? Math.min(score, 100) : 0;
+    // Minimum threshold — only meaningful matches
+    return score >= 45 ? Math.min(score, 100) : 0;
   }
 
   // For each owner, find best matching clients
@@ -1060,17 +1092,16 @@ export default function OwnersPage() {
     if (!clients.length) return [];
     return clients
       .map(c => ({ client: c, score: matchScore(owner, c) }))
-      .filter(m => m.score >= 40) // only show meaningful matches
+      .filter(m => m.score >= 45)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 3); // top 3
+      .slice(0, 3);
   }
 
-  // For each client, find best matching owners
   function getBestOwnerMatches(client: Client): Array<{ owner: Owner; score: number }> {
     if (!owners.length) return [];
     return owners
       .map(o => ({ owner: o, score: matchScore(o, client) }))
-      .filter(m => m.score >= 40)
+      .filter(m => m.score >= 45)
       .sort((a, b) => b.score - a.score)
       .slice(0, 3);
   }
@@ -1086,42 +1117,80 @@ export default function OwnersPage() {
   );
 
   const filtered = owners.filter(o => {
-    // Text search
-    const textMatch = search.length === 0 || 
+    // Text search — also search inside scanned notes
+    const pd = parseOwnerNotes(o.notes);
+    const textMatch = search.length === 0 ||
       o.name.toLowerCase().includes(search.toLowerCase()) ||
       o.phone.includes(search) ||
+      (o.phone2 || "").includes(search) ||
       (o.locality || "").toLowerCase().includes(search.toLowerCase()) ||
-      (o.company  || "").toLowerCase().includes(search.toLowerCase());
+      (o.company  || "").toLowerCase().includes(search.toLowerCase()) ||
+      (o.address  || "").toLowerCase().includes(search.toLowerCase()) ||
+      (pd?.propertyType  || "").toLowerCase().includes(search.toLowerCase()) ||
+      (pd?.locality      || "").toLowerCase().includes(search.toLowerCase()) ||
+      (pd?.amenities     || "").toLowerCase().includes(search.toLowerCase()) ||
+      (pd?.rawNotes      || "").toLowerCase().includes(search.toLowerCase());
 
     if (!textMatch) return false;
 
-    // Property type filter (check owner's properties)
-    if (filterType !== "ALL" && o.properties.length > 0) {
-      const hasType = o.properties.some(p => p.type === filterType);
-      if (!hasType) return false;
+    // Property type filter — check scanned notes first, then linked DB properties
+    if (filterType !== "ALL") {
+      const scannedType = (pd?.propertyType || "").toUpperCase();
+      const dbHasType   = o.properties.some(p => p.type === filterType);
+      if (scannedType !== filterType && !dbHasType) return false;
     }
 
-    // Budget filter (check owner's properties)
-    if (filterBudget !== "ALL" && o.properties.length > 0) {
+    // Budget filter — check scanned price first, then linked DB properties
+    if (filterBudget !== "ALL") {
       const budgetRanges: Record<string, [number, number]> = {
-        "LOW": [0, 5000000], // up to 50L
-        "MID": [5000000, 15000000], // 50L - 1.5Cr
-        "HIGH": [15000000, 50000000], // 1.5Cr - 5Cr
-        "LUXURY": [50000000, Infinity], // 5Cr+
+        "LOW":    [0,        5_000_000],
+        "MID":    [5_000_000, 15_000_000],
+        "HIGH":   [15_000_000, 50_000_000],
+        "LUXURY": [50_000_000, Infinity],
       };
       const [min, max] = budgetRanges[filterBudget] || [0, Infinity];
-      const inRange = o.properties.some(p => p.price >= min && p.price <= max);
-      if (!inRange) return false;
+      const scannedPrice = pd?.price ? Number(pd.price) : null;
+      const scannedInRange = scannedPrice !== null && scannedPrice >= min && scannedPrice <= max;
+      const dbInRange = o.properties.some(p => p.price >= min && p.price <= max);
+      if (!scannedInRange && !dbInRange) return false;
     }
 
-    // Transaction type filter
-    if (filterTransaction !== "ALL" && o.properties.length > 0) {
-      const hasTransaction = o.properties.some(p => p.transactionType === filterTransaction);
-      if (!hasTransaction) return false;
+    // Transaction type filter — check scanned notes first, then linked DB properties
+    if (filterTransaction !== "ALL") {
+      const scannedTxn = (pd?.transactionType || "").toUpperCase();
+      const txnMatch = (t: string) =>
+        filterTransaction === "RENT" ? (t === "RENT" || t === "LEASE") :
+        filterTransaction === "SELL" ? (t === "SELL" || t === "BUY")  :
+        t === filterTransaction;
+      const dbHasTxn = o.properties.some(p => txnMatch(p.transactionType));
+      if (!txnMatch(scannedTxn) && !dbHasTxn) return false;
     }
+
+    // Locality filter — owner.locality OR scanned pd.locality
+    if (filterLocality !== "ALL") {
+      const ownerLoc   = (o.locality || "").toLowerCase().trim();
+      const scannedLoc = (pd?.locality || "").toLowerCase().trim();
+      const filterLoc  = filterLocality.toLowerCase();
+      if (!ownerLoc.includes(filterLoc) && !scannedLoc.includes(filterLoc)) return false;
+    }
+
+    // Scanned card filter
+    if (filterScanned === "SCANNED" && !o.cardImageUrl) return false;
+    if (filterScanned === "NO_CARD" && o.cardImageUrl) return false;
 
     return true;
   });
+
+  // Dynamic locality list from all owners (owner.locality + scanned pd.locality)
+  const localityOptions = Array.from(new Set(
+    owners.flatMap(o => {
+      const pd = parseOwnerNotes(o.notes);
+      return [
+        (o.locality || "").trim(),
+        (pd?.locality || "").trim(),
+      ].filter(Boolean);
+    })
+  )).sort();
 
   return (
     <div className="p-4 md:p-6 space-y-5">
@@ -1477,16 +1546,14 @@ export default function OwnersPage() {
         {/* Filters */}
         <div className="flex gap-2 flex-wrap">
           <select value={filterTransaction} onChange={e => setFilterTransaction(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground hover:text-white focus:outline-none focus:border-estate-500/50 cursor-pointer transition-all"
-            title="Filter by transaction type">
+            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground hover:text-white focus:outline-none focus:border-estate-500/50 cursor-pointer transition-all">
             <option value="ALL">All Types</option>
             <option value="RENT">🔑 Rent/Lease</option>
             <option value="SELL">💰 Buy/Sell</option>
           </select>
 
           <select value={filterType} onChange={e => setFilterType(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground hover:text-white focus:outline-none focus:border-estate-500/50 cursor-pointer transition-all"
-            title="Filter by property type">
+            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground hover:text-white focus:outline-none focus:border-estate-500/50 cursor-pointer transition-all">
             <option value="ALL">All Property Types</option>
             <optgroup label="Commercial">
               <option value="OFFICE">🏢 Office</option>
@@ -1506,17 +1573,35 @@ export default function OwnersPage() {
           </select>
 
           <select value={filterBudget} onChange={e => setFilterBudget(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground hover:text-white focus:outline-none focus:border-estate-500/50 cursor-pointer transition-all"
-            title="Filter by budget">
+            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground hover:text-white focus:outline-none focus:border-estate-500/50 cursor-pointer transition-all">
             <option value="ALL">All Budgets</option>
             <option value="LOW">💵 Up to ₹50L</option>
-            <option value="MID">💴 ₹50L - ₹1.5Cr</option>
-            <option value="HIGH">💶 ₹1.5Cr - ₹5Cr</option>
+            <option value="MID">💴 ₹50L–₹1.5Cr</option>
+            <option value="HIGH">💶 ₹1.5Cr–₹5Cr</option>
             <option value="LUXURY">💎 ₹5Cr+</option>
           </select>
 
-          {(filterTransaction !== "ALL" || filterType !== "ALL" || filterBudget !== "ALL") && (
-            <button onClick={() => { setFilterTransaction("ALL"); setFilterType("ALL"); setFilterBudget("ALL"); }}
+          {/* Dynamic Locality dropdown from actual data */}
+          {localityOptions.length > 0 && (
+            <select value={filterLocality} onChange={e => setFilterLocality(e.target.value)}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground hover:text-white focus:outline-none focus:border-estate-500/50 cursor-pointer transition-all">
+              <option value="ALL">📍 All Localities</option>
+              {localityOptions.map(loc => (
+                <option key={loc} value={loc} className="bg-[#0f1f35]">{loc}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Scanned card filter */}
+          <select value={filterScanned} onChange={e => setFilterScanned(e.target.value)}
+            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground hover:text-white focus:outline-none focus:border-estate-500/50 cursor-pointer transition-all">
+            <option value="ALL">All Cards</option>
+            <option value="SCANNED">📇 Scanned Only</option>
+            <option value="NO_CARD">✏️ Manual Only</option>
+          </select>
+
+          {(filterTransaction !== "ALL" || filterType !== "ALL" || filterBudget !== "ALL" || filterLocality !== "ALL" || filterScanned !== "ALL") && (
+            <button onClick={() => { setFilterTransaction("ALL"); setFilterType("ALL"); setFilterBudget("ALL"); setFilterLocality("ALL"); setFilterScanned("ALL"); }}
               className="px-2 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-xs text-red-400 hover:bg-red-500/30 transition-all font-medium">
               ✕ Clear Filters
             </button>
@@ -1565,8 +1650,8 @@ export default function OwnersPage() {
             const hasDealMatch  = dealMatches.length > 0;
             return (
             <div key={owner.id}
-              className={`glass-card p-4 space-y-3 transition-all ${
-                selectMode && selectedIds.has(owner.id) ? "ring-2 ring-purple-500/60 bg-purple-500/5" :
+              className={`glass-card p-4 space-y-3 transition-all select-none ${
+                selectMode && selectedIds.has(owner.id) ? "ring-2 ring-purple-500/60 bg-purple-500/10" :
                 matchedClient ? "border-orange-500/30 bg-orange-500/3" :
                 hasDealMatch && dealMatches[0].score >= 80 ? "border-emerald-500/20" :
                 hasDealMatch ? "border-blue-500/15" : ""
@@ -1928,7 +2013,7 @@ export default function OwnersPage() {
               <div className="flex items-center justify-between mb-5">
                 <div>
                   <h2 className="text-lg font-bold text-white">📇 Scan Owner Cards</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Select 1 or 50 images — all will be scanned automatically</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">JPG · PNG · WEBP · PDF — 1 se 500 cards scan karo</p>
                 </div>
                 {!batchRunning && (
                   <button onClick={() => { setShowScan(false); setBatchFiles([]); setBatchResults([]); }}
@@ -1942,9 +2027,9 @@ export default function OwnersPage() {
                   <label className="block border-2 border-dashed border-gold-500/30 rounded-xl p-10 text-center cursor-pointer hover:border-gold-500/60 hover:bg-gold-500/5 transition-all">
                     <ScanLine className="w-14 h-14 text-gold-400 mx-auto mb-3" />
                     <p className="text-white font-semibold text-base">Click to select card images</p>
-                    <p className="text-xs text-muted-foreground mt-1">1 card or 50 cards — select as many as you want</p>
+                    <p className="text-xs text-muted-foreground mt-1">JPG · PNG · WEBP · PDF — 1 to 500 files</p>
                     <p className="text-xs text-gold-400 mt-2">Ctrl+Click or Shift+Click to select multiple</p>
-                    <input type="file" accept="image/*" multiple className="hidden"
+                    <input type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" multiple className="hidden"
                       onChange={e => {
                         const files = Array.from(e.target.files || []);
                         if (files.length === 0) return;
@@ -1952,7 +2037,7 @@ export default function OwnersPage() {
                           setShowScan(false);
                           handleScan(files[0]);
                         } else {
-                          setBatchFiles(files);
+                          setBatchFiles(files.slice(0, 500)); // max 500
                         }
                       }} />
                   </label>

@@ -39,6 +39,20 @@ const TRANSACTION_MAP: Record<string, string> = {
   "new-launch": "SELL",
 };
 
+// CRS Brokerage Logic
+function calcBrokerage(txn: string, price: number) {
+  if (txn === "SELL") {
+    return {
+      commissionRate: 1,
+      commissionNotes: `Sell: 1% = ₹${Math.round(price * 0.01).toLocaleString("en-IN")}`,
+    };
+  }
+  return {
+    commissionRate: null,
+    commissionNotes: `Rent: 1 month brokerage (₹${price.toLocaleString("en-IN")}) + 2 months security (₹${(price*2).toLocaleString("en-IN")}) + 1 month advance (₹${price.toLocaleString("en-IN")})`,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Verify secret
@@ -60,9 +74,13 @@ export async function POST(req: NextRequest) {
     const description = body.description || body.desc || null;
     const photos      = Array.isArray(body.images) ? body.images : [];
     const amenities   = Array.isArray(body.amenities) ? body.amenities : [];
-    const ownerName   = body.agent?.name || body.agentName || null;
+    const ownerName   = body.agent?.name  || body.agentName  || null;
     const ownerPhone  = body.agent?.phone || body.agentPhone || null;
-    const websiteId   = body._id || body.websiteId || null; // website's MongoDB _id
+    const websiteId   = String(body._id || body.websiteId || "") || null;
+    const isFeatured  = body.isFeatured || body.featured || false;
+
+    const txnType = TRANSACTION_MAP[statusRaw] as any || "SELL";
+    const brok     = calcBrokerage(txnType, price);
 
     if (!title || !locality) {
       return NextResponse.json({ error: "title and locality required" }, { status: 400 });
@@ -79,13 +97,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (existing) {
-      // Update existing property with latest data
       await prisma.property.update({
         where: { id: existing.id },
         data: {
           price,
           photos,
           description,
+          commissionNotes: brok.commissionNotes,
+          commissionRate:  brok.commissionRate,
           status: STATUS_MAP[statusRaw] as any || "AVAILABLE",
           updatedAt: new Date(),
         },
@@ -109,9 +128,11 @@ export async function POST(req: NextRequest) {
         description,
         type:            TYPE_MAP[typeRaw] as any || "APARTMENT",
         category:        CATEGORY_MAP[categoryRaw] as any || "RESIDENTIAL",
-        transactionType: TRANSACTION_MAP[statusRaw] as any || "SELL",
+        transactionType: txnType,
         status:          STATUS_MAP[statusRaw] as any || "AVAILABLE",
         price,
+        commissionRate:  brok.commissionRate,
+        commissionNotes: brok.commissionNotes,
         area:            parseFloat(body.extraDetails?.superBuiltUp || body.specs?.sqft || "0") || 0,
         carpetArea:      parseFloat(body.extraDetails?.carpetArea || "0") || null,
         superBuiltUp:    parseFloat(body.extraDetails?.superBuiltUp || "0") || null,

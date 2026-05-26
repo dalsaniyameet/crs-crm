@@ -233,3 +233,38 @@ export function punchOutEmailHtml(e: {
   ].join("");
   return baseTemplate("Employee Punch Out", "🔴", "#dc2626", rows, `${APP_URL}/attendance`, "View Attendance");
 }
+
+// ── 11. New Lead Message ──────────────────────────────────────────────────────
+export function newLeadMessageEmailHtml(m: {
+  leadName: string; leadPhone: string; message: string; channel: string;
+}) {
+  const rows = [
+    row("From",    `<strong>${m.leadName}</strong>`),
+    row("Phone",   m.leadPhone, "#f8fafc"),
+    row("Channel", m.channel),
+    row("Message", `<em style="color:#1e293b">${m.message}</em>`, "#f8fafc"),
+  ].join("");
+  return baseTemplate("New Message from Lead", "💬", "#16a34a", rows, `${APP_URL}/leads`, "View Lead");
+}
+
+// ── 12. Daily Report Submitted ────────────────────────────────────────────────
+export function dailyReportEmailHtml(r: {
+  employeeName: string; date: string;
+  totalCalls: number; connectedCalls: number; newLeads: number;
+  siteVisits: number; dealsClosed: number; dealValue: number;
+  highlights?: string | null; challenges?: string | null; tomorrowPlan?: string | null;
+}) {
+  const rows = [
+    row("Employee",     `<strong>${r.employeeName}</strong>`),
+    row("Date",         r.date, "#f8fafc"),
+    row("Total Calls",  `${r.totalCalls} (${r.connectedCalls} connected)`),
+    row("New Leads",    `<strong style="color:#d97706">${r.newLeads}</strong>`, "#f8fafc"),
+    row("Site Visits",  String(r.siteVisits)),
+    row("Deals Closed", `<strong style="color:#16a34a">${r.dealsClosed}</strong>`, "#f8fafc"),
+    r.dealValue > 0   ? row("Deal Value",    `₹${r.dealValue.toLocaleString("en-IN")}`)  : "",
+    r.highlights      ? row("Highlights",    r.highlights, "#f8fafc")                    : "",
+    r.challenges      ? row("Challenges",    r.challenges)                               : "",
+    r.tomorrowPlan    ? row("Tomorrow Plan", r.tomorrowPlan, "#f8fafc")                  : "",
+  ].join("");
+  return baseTemplate("Daily Report Submitted", "📋", "#7c3aed", rows, `${APP_URL}/admin-employees/daily-reports`, "View Reports");
+}

@@ -50,26 +50,45 @@ function NewNotifToast({ notif, onClose }: { notif: any; onClose: () => void }) 
       animate={{ opacity: 1, y: 0,   x: 0  }}
       exit={{   opacity: 0, y: -20, x: 20  }}
       className="fixed top-4 right-4 z-[9999] w-80 rounded-2xl overflow-hidden shadow-2xl cursor-pointer"
-      style={{ background: "#060c18", border: "1px solid rgba(234,179,8,0.3)", boxShadow: "0 0 30px rgba(234,179,8,0.15)" }}
+      style={{ background: "#0a0a0a", border: "2px solid rgba(239,68,68,0.7)", boxShadow: "0 0 30px rgba(239,68,68,0.35), 0 0 60px rgba(239,68,68,0.15)" }}
       onClick={onClose}
     >
-      {/* Gold top bar */}
+      {/* Red alarm top bar */}
       <motion.div
-        className="h-0.5 w-full"
-        style={{ background: "linear-gradient(90deg,#eab308,#facc15)", transformOrigin: "left", height: 3 }}
+        style={{ background: "linear-gradient(90deg,#ef4444,#f97316)", transformOrigin: "left", height: 4 }}
         initial={{ scaleX: 1 }}
         animate={{ scaleX: 0 }}
         transition={{ duration: 5, ease: "linear" }}
       />
-      <div className="flex items-start gap-3 px-4 py-3">
-        <span className="text-xl flex-shrink-0 mt-0.5">{TYPE_ICONS[notif.type] || "🔔"}</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white leading-snug">{notif.title}</p>
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.message}</p>
-        </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-white flex-shrink-0">
+      {/* Alarm header */}
+      <div className="flex items-center gap-2 px-4 pt-2.5 pb-1">
+        <motion.span
+          animate={{ opacity: [1, 0.3, 1] }}
+          transition={{ duration: 0.6, repeat: Infinity }}
+          className="text-base"
+        >🚨</motion.span>
+        <span className="text-xs font-black uppercase tracking-widest text-red-400">⚠ NEW ALERT</span>
+        <button onClick={onClose} className="ml-auto text-red-400 hover:text-white flex-shrink-0">
           <X className="w-3.5 h-3.5" />
         </button>
+      </div>
+      <div className="flex items-start gap-3 px-4 pb-1">
+        <span className="text-xl flex-shrink-0 mt-0.5">{TYPE_ICONS[notif.type] || "🔔"}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black text-red-300 leading-snug uppercase tracking-wide">{notif.title}</p>
+          <p className="text-xs text-orange-200 mt-0.5 line-clamp-2">{notif.message}</p>
+        </div>
+      </div>
+      {/* Status line */}
+      <div className="flex items-center gap-3 px-4 pb-3 pt-1 border-t border-red-500/20 mt-1">
+        <motion.span
+          animate={{ opacity: [1, 0.4, 1] }}
+          transition={{ duration: 0.7, repeat: Infinity }}
+          className="text-[11px] font-bold text-red-400 flex items-center gap-1"
+        >
+          🔔 Alarm vaajtoy
+        </motion.span>
+        <span className="text-[11px] text-orange-300 font-semibold">• 📧 Email pathavlay</span>
       </div>
     </motion.div>,
     document.body
@@ -127,12 +146,31 @@ export default function NotificationBell() {
         if (newOnes.length > 0 && prevIdsRef.current.size > 0) {
           setBellAnim(true);
           setTimeout(() => setBellAnim(false), 1000);
-          setToasts(prev => [...prev, newOnes[0]]);
+          // Show only 1 toast at a time
+          setToasts(prev => {
+            const alreadyShowing = new Set(prev.map((t: any) => t.id));
+            const fresh = newOnes.filter(n => !alreadyShowing.has(n.id));
+            if (fresh.length === 0) return prev;
+            // Play sound
+            try {
+              const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain); gain.connect(ctx.destination);
+              osc.frequency.setValueAtTime(880, ctx.currentTime);
+              osc.frequency.setValueAtTime(660, ctx.currentTime + 0.1);
+              gain.gain.setValueAtTime(0.3, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+              osc.start(ctx.currentTime);
+              osc.stop(ctx.currentTime + 0.4);
+            } catch {}
+            return [...prev, ...fresh.slice(0, 1)];
+          });
         }
 
         incoming.forEach(n => prevIdsRef.current.add(n.id));
 
-        // Preserve local isRead=true — don't let server overwrite optimistic updates
+        // Preserve local isRead=true
         setNotifications(prev => {
           const localReadIds = new Set(prev.filter(n => n.isRead).map(n => n.id));
           return incoming.map(n => ({
@@ -288,23 +326,35 @@ export default function NotificationBell() {
                         }}
                       >
                         {/* Icon with colored bg */}
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 border ${TYPE_COLOR[n.type] || "bg-white/10 border-white/20"}`}>
-                          {TYPE_ICONS[n.type] || "🔔"}
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0 border ${!n.isRead ? "bg-red-500/20 border-red-500/40" : (TYPE_COLOR[n.type] || "bg-white/10 border-white/20")}`}>
+                          {!n.isRead
+                            ? <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.8, repeat: Infinity }}>{TYPE_ICONS[n.type] || "🔔"}</motion.span>
+                            : (TYPE_ICONS[n.type] || "🔔")
+                          }
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-1">
-                            <p className={`text-xs font-semibold leading-snug ${!n.isRead ? "text-white" : "text-slate-400"}`}>
-                              {n.title}
-                            </p>
+                            {!n.isRead ? (
+                              <motion.p
+                                animate={{ color: ["#fca5a5", "#f97316", "#fca5a5"] }}
+                                transition={{ duration: 1.5, repeat: Infinity }}
+                                className="text-xs font-black leading-snug uppercase tracking-wide"
+                              >
+                                🚨 {n.title}
+                              </motion.p>
+                            ) : (
+                              <p className="text-xs font-semibold leading-snug text-slate-400">{n.title}</p>
+                            )}
                             {!n.isRead && (
                               <motion.span
-                                initial={{ scale: 0 }} animate={{ scale: 1 }}
-                                className="w-2 h-2 rounded-full flex-shrink-0 mt-1 bg-yellow-400"
+                                animate={{ opacity: [1, 0, 1] }}
+                                transition={{ duration: 0.8, repeat: Infinity }}
+                                className="w-2 h-2 rounded-full flex-shrink-0 mt-1 bg-red-400"
                               />
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
+                          <p className={`text-xs mt-0.5 line-clamp-2 leading-relaxed ${!n.isRead ? "text-orange-200" : "text-muted-foreground"}`}>
                             {n.message}
                           </p>
                           <p className="text-[10px] mt-1.5 text-slate-600">{timeAgo(n.createdAt)}</p>

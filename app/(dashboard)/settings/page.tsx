@@ -1,12 +1,59 @@
 "use client";
 import { motion } from "framer-motion";
-import { Settings, User, Bell, Shield, Zap, ChevronRight, Loader2, CheckCircle2, XCircle, ExternalLink, Calendar, Save, Copy, Check, Workflow } from "lucide-react";
+import { Settings, User, Bell, Shield, Zap, ChevronRight, Loader2, CheckCircle2, XCircle, ExternalLink, Calendar, Save, Copy, Check, Workflow, FlaskConical } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 
 const CRM_URL = "https://crs-crm.vercel.app";
 const N8N_TOKEN = "crs_n8n_secret_2024";
+
+function TestNotificationButton() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult]   = useState<"idle"|"ok"|"err">("idle");
+
+  const runTest = async () => {
+    setLoading(true); setResult("idle");
+    try {
+      const res = await fetch("/api/notifications/test", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setResult("ok");
+        toast.success("🚨 Alarm trigger zala! 📧 Email pathavlay!");
+      } else throw new Error(data.error);
+    } catch (e: any) {
+      setResult("err");
+      toast.error(e.message || "Test failed");
+    } finally {
+      setLoading(false);
+      setTimeout(() => setResult("idle"), 4000);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        onClick={runTest}
+        disabled={loading}
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-all disabled:opacity-60 ${
+          result === "ok"  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" :
+          result === "err" ? "bg-red-500/20 text-red-400 border-red-500/30" :
+          "bg-red-500/15 text-red-400 border-red-500/25 hover:bg-red-500/25"
+        }`}
+      >
+        {loading
+          ? <Loader2 className="w-4 h-4 animate-spin" />
+          : result === "ok"  ? <CheckCircle2 className="w-4 h-4" />
+          : result === "err" ? <XCircle className="w-4 h-4" />
+          : <FlaskConical className="w-4 h-4" />}
+        {loading ? "Testing..." : result === "ok" ? "Done! ✅" : result === "err" ? "Failed ❌" : "🚨 Test Alarm & Email"}
+      </button>
+      {result === "ok" && (
+        <span className="text-xs text-emerald-400">Bell madhe notification check karo 👆</span>
+      )}
+    </div>
+  );
+}
 
 function CopyBox({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -259,6 +306,12 @@ export default function SettingsPage() {
               </button>
             </div>
           ))}
+        </div>
+
+        {/* Test Notification Button */}
+        <div className="mt-4 pt-4 border-t border-white/5">
+          <div className="text-xs text-muted-foreground mb-3">Notification system test karo — alarm vaajel aani email yeil</div>
+          <TestNotificationButton />
         </div>
       </motion.div>
 

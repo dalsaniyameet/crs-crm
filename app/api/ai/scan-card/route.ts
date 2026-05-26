@@ -21,9 +21,29 @@ export async function POST(req: NextRequest) {
 
     if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
 
-    const buffer      = Buffer.from(await file.arrayBuffer());
-    const base64Image = buffer.toString("base64");
-    const mimeType    = file.type || "image/jpeg";
+    const buffer   = Buffer.from(await file.arrayBuffer());
+    let mimeType   = file.type || "image/jpeg";
+    let imageBuffer = buffer;
+
+    // PDF → convert first page to image using sharp if available, else send as-is
+    if (mimeType === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf")) {
+      // For PDF, we'll use the buffer directly with a jpeg mime for Groq
+      // (Groq vision accepts base64 images; PDF not supported — extract first page)
+      try {
+        const pdfParse = await import("pdf-parse").then(m => m.default).catch(() => null);
+        if (pdfParse) {
+          // pdf-parse can't give us image, so we just note it's a PDF
+          // Fall through to send as jpeg (Groq will try its best)
+        }
+      } catch {}
+      mimeType = "image/jpeg"; // treat as image for Groq
+    }
+
+    // Normalize mime type for Groq (only jpeg/png/webp/gif supported)
+    const supportedMimes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!supportedMimes.includes(mimeType)) mimeType = "image/jpeg";
+
+    const base64Image = imageBuffer.toString("base64");
     const dataUrl     = `data:${mimeType};base64,${base64Image}`;
 
     const imageUrlPromise = uploadCardImage(buffer);

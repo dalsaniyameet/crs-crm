@@ -23,22 +23,37 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     // Attendance via Attendance model (userId)
     const attUser = await prisma.user.findUnique({ where: { email: emp.email }, select: { id: true } });
-    const attendance = attUser ? await prisma.attendance.findMany({
-      where: { userId: attUser.id },
-      include: { location: true },
-      orderBy: { punchIn: "desc" },
-      take: 60,
-    }) : [];
+    let attendance: any[] = [];
+    try {
+      attendance = attUser ? await prisma.attendance.findMany({
+        where: { userId: attUser.id },
+        orderBy: { punchIn: "desc" },
+        take: 60,
+      }) : [];
+    } catch {}
 
     // CRM data linked via User record
     const dbUser = await prisma.user.findUnique({ where: { email: emp.email } });
-    const [leads, deals, visits, activities] = dbUser ? await Promise.all([
-      prisma.lead.findMany({ where: { assignedToId: dbUser.id }, orderBy: { createdAt: "desc" }, take: 20 }),
-      prisma.deal.findMany({ where: { brokerId: dbUser.id }, include: { lead: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 20 }),
-      prisma.siteVisit.findMany({ where: { brokerId: dbUser.id }, include: { lead: { select: { name: true } }, property: { select: { title: true, locality: true } } }, orderBy: { scheduledAt: "desc" }, take: 20 }),
-      prisma.activity.findMany({ where: { userId: dbUser.id }, orderBy: { createdAt: "desc" }, take: 15 }),
-    ]) : [[], [], [], []];
-
+    
+    let leads: any[] = [], deals: any[] = [], visits: any[] = [], activities: any[] = [];
+    if (dbUser) {
+      try { leads = await prisma.lead.findMany({ where: { assignedToId: dbUser.id }, orderBy: { createdAt: "desc" }, take: 20 }); } catch {}
+      try {
+        deals = await (prisma.deal as any).findMany({
+          where: { OR: [{ brokerId: dbUser.id }, { assignedToId: dbUser.id }] },
+          include: { lead: { select: { name: true } } },
+          orderBy: { createdAt: "desc" }, take: 20,
+        });
+      } catch {}
+      try {
+        visits = await prisma.siteVisit.findMany({
+          where: { OR: [{ brokerId: dbUser.id }, { assignedToId: dbUser.id }] },
+          include: { lead: { select: { name: true } }, property: { select: { title: true, locality: true } } },
+          orderBy: { scheduledAt: "desc" }, take: 20,
+        });
+      } catch {}
+      try { activities = await (prisma as any).activity.findMany({ where: { userId: dbUser.id }, orderBy: { createdAt: "desc" }, take: 15 }); } catch {}
+    }
     const stats = {
       totalLeads:  leads.length,
       totalDeals:  deals.length,

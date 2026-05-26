@@ -526,6 +526,7 @@ model EmployeeProfile {
   leaves      LeaveRequest[]
   documents   EmployeeDocument[]
   salarySlips SalarySlip[]
+  dailyReports DailyReport[]
 
   @@map("employee_profiles")
 }
@@ -758,4 +759,40 @@ model CallLog {
   user         User     @relation(fields: [userId], references: [id])
 
   @@map("call_logs")
+}
+
+// ─── DAILY REPORT ────────────────────────────────────────────────────────────
+model DailyReport {
+  id              String   @id @default(cuid())
+  employeeId      String
+  employee        EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date            DateTime // date of report (start of day)
+  // Calls
+  totalCalls      Int      @default(0)
+  connectedCalls  Int      @default(0)
+  newLeads        Int      @default(0)
+  // Site Visits
+  siteVisits      Int      @default(0)
+  visitsFeedback  String?
+  // Deals
+  dealsInProgress Int      @default(0)
+  dealsClosed     Int      @default(0)
+  dealValue       Float    @default(0)
+  // Properties
+  propertiesListed Int     @default(0)
+  propertiesVisited Int    @default(0)
+  // Follow-ups
+  followUpsDone   Int      @default(0)
+  followUpsPending Int     @default(0)
+  // General
+  highlights      String?  // key achievements of the day
+  challenges      String?  // problems faced
+  tomorrowPlan    String?  // plan for next day
+  status          String   @default("SUBMITTED") // SUBMITTED, REVIEWED
+  adminNote       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@map("daily_reports")
 }

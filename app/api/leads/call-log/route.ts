@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { sendAdminEmail, newLeadMessageEmailHtml } from "@/lib/email";
 
 async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
@@ -79,6 +80,20 @@ export async function POST(req: NextRequest) {
         leadId,
       },
     });
+  }
+
+  // Send email to admin on call log
+  const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { name: true, phone: true } }).catch(() => null);
+  if (lead && (notes || outcome)) {
+    sendAdminEmail(
+      `📞 Call Logged: ${lead.name} — ${outcome || type || "OUTGOING"}`,
+      newLeadMessageEmailHtml({
+        leadName:  lead.name,
+        leadPhone: lead.phone,
+        message:   `${outcome || type} ${duration ? `(${Math.floor(duration/60)}m ${duration%60}s)` : ""} ${notes ? `— ${notes}` : ""}`.trim(),
+        channel:   "Phone Call",
+      })
+    ).catch(() => {});
   }
 
   return NextResponse.json(log, { status: 201 });

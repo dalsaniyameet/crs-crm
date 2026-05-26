@@ -58,7 +58,7 @@
   ::-webkit-scrollbar-thumb:hover { background: rgba(234,179,8,0.5); }
 
   /* Selection */
-  ::selection { background: rgba(234,179,8,0.25); color: #fef9c3; }
+  ::selection { background: rgba(139,92,246,0.4); color: #ffffff; }
 
   /* Force dark color-scheme everywhere */
   html { color-scheme: dark; }
