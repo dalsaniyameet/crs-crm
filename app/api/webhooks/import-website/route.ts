@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const maxDuration = 60; // Vercel max timeout
+export const dynamic = "force-dynamic";
+
 const WEBSITE_API = "https://cityrealspace.com/api/properties";
 
 const TYPE_MAP: Record<string, string> = {
@@ -16,8 +19,13 @@ const TYPE_MAP: Record<string, string> = {
 };
 
 const TRANSACTION_MAP: Record<string, string> = {
-  "for-sale": "SELL", "new-launch": "SELL",
-  "for-rent": "RENT", "rented": "RENT", "sold": "SELL",
+  "for-sale":   "SELL",
+  "new-launch": "SELL",
+  "for-rent":   "RENT",
+  "rented":     "RENT",
+  "sold":       "SELL",
+  "for-lease":  "LEASE",
+  "leased":     "LEASE",
 };
 
 const STATUS_MAP: Record<string, string> = {
@@ -92,16 +100,26 @@ export async function POST(req: NextRequest) {
     let imported = 0, updated = 0, errors = 0;
     const log: string[] = [];
 
-    // Fetch all pages
-    let page = 1, allProps: any[] = [];
-    while (true) {
-      const res  = await fetch(`${WEBSITE_API}?page=${page}&limit=50`, { cache: "no-store" });
-      const data = await res.json();
-      const props = data.properties || [];
-      if (!props.length) break;
-      allProps = [...allProps, ...props];
-      if (page >= (data.pages || 1)) break;
-      page++;
+    // First get total pages
+    const firstRes  = await fetch(`${WEBSITE_API}?page=1&limit=50`, { cache: "no-store" });
+    if (!firstRes.ok) throw new Error(`Website API error: ${firstRes.status}`);
+    const firstData = await firstRes.json();
+    const firstProps = firstData.properties || [];
+    const totalPages = firstData.pages || 1;
+
+    // Fetch remaining pages in parallel
+    let allProps: any[] = [...firstProps];
+    if (totalPages > 1) {
+      const pageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+      const results = await Promise.all(
+        pageNums.map(p =>
+          fetch(`${WEBSITE_API}?page=${p}&limit=50`, { cache: "no-store" })
+            .then(r => r.json())
+            .then(d => d.properties || [])
+            .catch(() => [])
+        )
+      );
+      allProps = [...allProps, ...results.flat()];
     }
 
     for (const p of allProps) {
@@ -158,8 +176,9 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   try {
     const res  = await fetch(`${WEBSITE_API}?page=1&limit=1`, { cache: "no-store" });
+    if (!res.ok) return NextResponse.json({ error: `Website API returned ${res.status}` }, { status: 502 });
     const data = await res.json();
-    return NextResponse.json({ total: data.total || 0, pages: data.pages || 0 });
+    return NextResponse.json({ total: data.total || 0, pages: data.pages || 0, ok: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
