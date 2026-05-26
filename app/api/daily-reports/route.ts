@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendAdminEmail, dailyReportEmailHtml } from "@/lib/email";
+import { notifyDailyReport } from "@/lib/notify";
 
 // GET — fetch reports (admin: all, employee: own)
 export async function GET(req: NextRequest) {
@@ -75,23 +75,19 @@ export async function POST(req: NextRequest) {
       include: { employee: { select: { name: true } } },
     });
 
-    // Send email to admin
-    sendAdminEmail(
-      `📋 Daily Report: ${report.employee?.name} — ${new Date(reportDate).toLocaleDateString("en-IN")}`,
-      dailyReportEmailHtml({
-        employeeName: report.employee?.name || "Employee",
-        date:         new Date(reportDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
-        totalCalls:   totalCalls || 0,
-        connectedCalls: connectedCalls || 0,
-        newLeads:     newLeads || 0,
-        siteVisits:   siteVisits || 0,
-        dealsClosed:  dealsClosed || 0,
-        dealValue:    dealValue || 0,
-        highlights,
-        challenges,
-        tomorrowPlan,
-      })
-    ).catch(() => {});
+    notifyDailyReport({
+      employeeName: report.employee?.name || "Employee",
+      date:         new Date(reportDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+      totalCalls:   totalCalls || 0,
+      connectedCalls: connectedCalls || 0,
+      newLeads:     newLeads || 0,
+      siteVisits:   siteVisits || 0,
+      dealsClosed:  dealsClosed || 0,
+      dealValue:    dealValue || 0,
+      highlights,
+      challenges,
+      tomorrowPlan,
+    }).catch(() => {});
 
     return NextResponse.json(report);
   } catch (err: any) {

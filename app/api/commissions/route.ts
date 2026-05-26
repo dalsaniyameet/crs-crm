@@ -1,10 +1,10 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { sendAdminEmail, newCommissionEmailHtml } from "@/lib/email";
+import { notifyNewCommission } from "@/lib/notify";
 
 export async function GET(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const commissions = await prisma.commission.findMany({
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body       = await req.json();
@@ -28,15 +28,13 @@ export async function POST(req: NextRequest) {
     include: { deal: true, broker: true },
   });
 
-  sendAdminEmail(
-    `💰 Commission Recorded: ${commission.broker.name} — ₹${commission.amount.toLocaleString("en-IN")}`,
-    newCommissionEmailHtml({
-      brokerName: commission.broker.name,
-      dealTitle:  commission.deal.title,
-      amount:     commission.amount,
-      rate:       commission.rate,
-    })
-  ).catch(() => {});
+  notifyNewCommission({
+    brokerName: commission.broker.name,
+    dealTitle:  commission.deal.title,
+    amount:     commission.amount,
+    rate:       commission.rate,
+    brokerId:   commission.brokerId,
+  }).catch(() => {});
 
   return NextResponse.json(commission, { status: 201 });
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { notifyDealStageChange } from "@/lib/notify";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -22,6 +23,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           dealId: deal.id,
         },
       });
+      notifyDealStageChange({
+        title: deal.title, stage: deal.stage, value: deal.value,
+        clientName: deal.lead.name, brokerId: deal.brokerId, leadId: deal.leadId,
+      }).catch(() => {});
     }
 
     return NextResponse.json(deal);

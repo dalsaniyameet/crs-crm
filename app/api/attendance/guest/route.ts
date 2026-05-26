@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendAdminEmail, punchInEmailHtml, punchOutEmailHtml } from "@/lib/email";
 
 const BREAK_MINUTES = 45;
 
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
         include: { location: true },
       });
 
-      // Notify all admins
+      // Notify all admins — DB notification + email
       try {
         const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true } });
         const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
@@ -54,11 +55,15 @@ export async function POST(req: Request) {
             data: {
               userId:  admin.id,
               type:    "SYSTEM",
-              title:   `✅ ${name.trim()} Punched In`,
+              title:   `${name.trim()} Punched In`,
               message: `${name.trim()} punched in at ${timeStr} — ${record.location.name}`,
             },
           })
         ));
+        sendAdminEmail(
+          `Punch In: ${name.trim()} — ${timeStr}`,
+          punchInEmailHtml({ employeeName: name.trim(), location: record.location.name, time: timeStr })
+        ).catch(() => {});
       } catch { /* non-critical */ }
 
       return NextResponse.json({ type: "IN", record });
@@ -89,21 +94,33 @@ export async function POST(req: Request) {
         include: { location: true },
       });
 
-      // Notify all admins
+      // Notify all admins — DB notification + email
       try {
         const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true } });
         const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
         const timeStr = ist.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+        const punchInTime = new Date(existing.punchIn.getTime() + 5.5 * 60 * 60 * 1000)
+          .toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
         await Promise.all(admins.map(admin =>
           prisma.notification.create({
             data: {
               userId:  admin.id,
               type:    "SYSTEM",
-              title:   `🚪 ${name.trim()} Punched Out`,
+              title:   `${name.trim()} Punched Out`,
               message: `${name.trim()} punched out at ${timeStr} — ${workHours.toFixed(1)}h worked`,
             },
           })
         ));
+        sendAdminEmail(
+          `Punch Out: ${name.trim()} — ${workHours.toFixed(2)} hrs`,
+          punchOutEmailHtml({
+            employeeName: name.trim(),
+            location:     updated.location.name,
+            punchIn:      punchInTime,
+            punchOut:     timeStr,
+            workHours:    workHours.toFixed(2),
+          })
+        ).catch(() => {});
       } catch { /* non-critical */ }
 
       return NextResponse.json({ type: "OUT", record: updated, breakDeducted: BREAK_MINUTES });

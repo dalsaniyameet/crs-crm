@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { sendAdminEmail, leaveRequestEmailHtml } from "@/lib/email";
+import { notifyLeaveRequest } from "@/lib/notify";
 
 async function getEmployeeProfile(email: string) {
   return prisma.employeeProfile.findUnique({ where: { email } });
@@ -108,17 +108,14 @@ export async function POST(req: NextRequest) {
     ));
   } catch { /* notifications are non-critical */ }
 
-  sendAdminEmail(
-    `🗓️ Leave Request: ${emp.name} (${(type || "CASUAL").replace("_", " ")})`,
-    leaveRequestEmailHtml({
-      employeeName: emp.name,
-      type:         type || "CASUAL",
-      fromDate:     from.toLocaleDateString("en-IN"),
-      toDate:       to.toLocaleDateString("en-IN"),
-      days,
-      reason,
-    })
-  ).catch(() => {});
+  notifyLeaveRequest({
+    employeeName: emp.name,
+    type:         type || "CASUAL",
+    fromDate:     from.toLocaleDateString("en-IN"),
+    toDate:       to.toLocaleDateString("en-IN"),
+    days,
+    reason,
+  }).catch(() => {});
 
   return NextResponse.json(leave, { status: 201 });
 }

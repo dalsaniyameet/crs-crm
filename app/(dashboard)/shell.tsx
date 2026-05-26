@@ -521,17 +521,17 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             </div>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-1.5 ml-auto">
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
               style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.25)", color: "#facc15" }}>
               <Zap className="w-3 h-3" /> AI Active
             </div>
 
             {isEmployee && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 {todayRecord && (
                   <button onClick={handleBreak}
-                    className={`hidden sm:flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
+                    className={`hidden sm:flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border transition-colors ${
                       onBreak
                         ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 animate-pulse"
                         : breakUsed >= BREAK_LIMIT
@@ -540,24 +540,24 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                     }`}
                     disabled={!onBreak && breakUsed >= BREAK_LIMIT}>
                     <Coffee className="w-3 h-3" />
-                    {onBreak ? "End Break" : `Break ${breakUsed > 0 ? `(${Math.floor((BREAK_LIMIT-breakUsed)/60)}m left)` : ""}`}
+                    <span className="hidden sm:inline">{onBreak ? "End Break" : `Break${breakUsed > 0 ? ` (${Math.floor((BREAK_LIMIT-breakUsed)/60)}m)` : ""}`}</span>
                   </button>
                 )}
                 <button onClick={handlePunch} disabled={punching}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
+                  className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
                     todayRecord
                       ? "bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
                       : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30 animate-pulse"
                   }`}>
                   {todayRecord ? <PunchOut className="w-3 h-3" /> : <LogIn className="w-3 h-3" />}
-                  {punching ? "..." : todayRecord ? "Punch Out" : "Punch In"}
+                  <span>{punching ? "..." : todayRecord ? "Out" : "In"}</span>
                 </button>
               </div>
             )}
 
             <NotificationBell />
             <button onClick={() => router.push(role === "ADMIN" ? "/attendance" : "/employee")}
-              className="cursor-pointer flex items-center gap-2" title={role === "ADMIN" ? "Admin Dashboard" : "My Panel"}>
+              className="cursor-pointer flex items-center gap-1.5" title={role === "ADMIN" ? "Admin Dashboard" : "My Panel"}>
               <UserAvatar name={userName} imageUrl={userImage} />
               <span className={`hidden lg:block text-xs font-semibold px-2 py-0.5 rounded-full ${
                 role === "ADMIN"

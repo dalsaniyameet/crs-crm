@@ -359,7 +359,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </AnimatePresence>
 
       {/* ── Main Content ── */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 max-w-full">
 
         {/* Topbar */}
         <header className="flex items-center gap-2 px-3 md:px-5 h-14 border-b flex-shrink-0 overflow-x-auto"
@@ -451,8 +451,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        {/* Page content — extra bottom padding on mobile for bottom nav */}
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-0 scroll-smooth">
+        {/* Page content — stops at bottom nav on mobile */}
+        <main
+          className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth"
+          style={{ paddingBottom: "calc(56px + env(safe-area-inset-bottom, 0px))" }}
+        >
           <div key={pathname} style={{ animation: "pageEnter 120ms ease-out" }}>
             {children}
           </div>
@@ -460,33 +463,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* ── Mobile Bottom Navigation Bar ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between border-t"
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t"
         style={{
           background: "rgba(4,8,15,0.98)",
           borderColor: "rgba(234,179,8,0.12)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          paddingBottom: "max(0px, env(safe-area-inset-bottom))",
+          height: "calc(56px + env(safe-area-inset-bottom, 0px))",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}>
         {MOBILE_NAV.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href} prefetch={true}
-              className={`flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 flex-1 transition-all active:scale-95 ${
-                active ? "text-yellow-400" : "text-slate-500 hover:text-slate-400"
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-14 transition-all active:scale-95 ${
+                active ? "text-yellow-400" : "text-slate-500"
               }`}>
-              <Icon className={`w-5 h-5 transition-transform ${active ? "scale-110" : ""}`} />
-              <span className="text-[10px] font-semibold truncate">{item.label}</span>
-              {active && <span className="w-1 h-0.5 rounded-full bg-yellow-400 mt-1" />}
+              <Icon className={`w-5 h-5 flex-shrink-0 ${active ? "scale-110" : ""}`} />
+              <span className="text-[10px] font-semibold leading-none">{item.label}</span>
+              {active && <span className="w-4 h-0.5 rounded-full bg-yellow-400" />}
             </Link>
           );
         })}
-        {/* More */}
         <button onClick={() => setMobileOpen(true)}
-          className="flex flex-col items-center justify-center gap-0.5 py-2.5 px-2 flex-1 text-slate-500 hover:text-slate-400 transition-all active:scale-95">
-          <MoreHorizontal className="w-5 h-5" />
-          <span className="text-[10px] font-semibold">More</span>
+          className="flex flex-col items-center justify-center gap-0.5 flex-1 h-14 text-slate-500 active:scale-95 transition-all">
+          <MoreHorizontal className="w-5 h-5 flex-shrink-0" />
+          <span className="text-[10px] font-semibold leading-none">More</span>
         </button>
       </nav>
 

@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { sendAdminEmail, punchInEmailHtml, punchOutEmailHtml } from "@/lib/email";
+import { notifyPunchIn, notifyPunchOut } from "@/lib/notify";
 
 // Office hours (IST): Monâ€“Sat 10:00â€“19:00, Sun 16:00â€“18:00
 const SCHEDULE = {
@@ -139,14 +139,11 @@ export async function POST(req: Request) {
       });
 
       const punchInTime = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-      sendAdminEmail(
-        `🟢 Punch In: ${user.name} — ${punchInTime}`,
-        punchInEmailHtml({
-          employeeName: user.name,
-          location:     location.name,
-          time:         punchInTime,
-        })
-      ).catch(() => {});
+      notifyPunchIn({
+        employeeName: user.name,
+        location:     location.name,
+        time:         punchInTime,
+      }).catch(() => {});
 
       return NextResponse.json(attendance);
     } else {
@@ -166,16 +163,13 @@ export async function POST(req: Request) {
       });
 
       const fmt = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-      sendAdminEmail(
-        `🔴 Punch Out: ${user.name} — ${workHours.toFixed(2)} hrs`,
-        punchOutEmailHtml({
-          employeeName: user.name,
-          location:     updated.location.name,
-          punchIn:      fmt(attendance.punchIn),
-          punchOut:     fmt(punchOut),
-          workHours:    workHours.toFixed(2),
-        })
-      ).catch(() => {});
+      notifyPunchOut({
+        employeeName: user.name,
+        location:     updated.location.name,
+        punchIn:      fmt(attendance.punchIn),
+        punchOut:     fmt(punchOut),
+        workHours:    workHours.toFixed(2),
+      }).catch(() => {});
 
       return NextResponse.json(updated);
     }

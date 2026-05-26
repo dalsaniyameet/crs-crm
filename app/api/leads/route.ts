@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { scoreLeadAI } from "@/lib/openai";
 import { autoMatchProperties } from "@/lib/autoMatch";
 import { runLeadAutomation } from "@/lib/leadAutomation";
-import { sendAdminEmail, newLeadEmailHtml } from "@/lib/email";
+import { notifyNewLead } from "@/lib/notify";
 
 async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
@@ -12,7 +12,7 @@ async function getUser(clerkId: string) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const user = await getUser(userId);
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const user = await getUser(userId);
@@ -119,16 +119,13 @@ export async function POST(req: NextRequest) {
     autoMatchProperties(lead.id).catch(() => {});
     runLeadAutomation({ leadId: lead.id, newStatus: "NEW", oldStatus: "", triggeredBy: user.id }).catch(() => {});
 
-    sendAdminEmail(
-      `🏠 New Lead: ${lead.name} (Score: ${aiScore.score})`,
-      newLeadEmailHtml({
-        name: lead.name, phone: lead.phone, email: lead.email,
-        source: lead.source, propertyType: lead.propertyType,
-        budget: lead.budget, requirements: lead.requirements,
-        score: aiScore.score,
-        assignedTo: user.name,
-      })
-    ).catch(() => {});
+    notifyNewLead({
+      id: lead.id, name: lead.name, phone: lead.phone, email: lead.email,
+      source: lead.source, propertyType: lead.propertyType,
+      budget: lead.budget, requirements: lead.requirements,
+      score: aiScore.score, assignedTo: user.name,
+      assignedToId: lead.assignedToId,
+    }).catch(() => {});
 
     return NextResponse.json({ lead, aiScore }, { status: 201 });
   } catch (err: any) {
