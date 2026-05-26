@@ -3,6 +3,21 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { sendAdminEmail } from "@/lib/email";
 
+// GET — check email config status on Vercel
+export async function GET() {
+  const hasEmailPass = !!(process.env.EMAIL_PASS && process.env.EMAIL_PASS !== "YOUR_EMAIL_PASSWORD");
+  const hasEmailUser = !!process.env.EMAIL_USER;
+  const adminEmails  = process.env.ADMIN_EMAILS || "not set";
+  return NextResponse.json({
+    emailConfigured: hasEmailPass && hasEmailUser,
+    EMAIL_USER:  hasEmailUser ? process.env.EMAIL_USER : "NOT SET",
+    EMAIL_HOST:  process.env.EMAIL_HOST || "NOT SET",
+    EMAIL_PORT:  process.env.EMAIL_PORT || "NOT SET",
+    EMAIL_PASS:  hasEmailPass ? "SET (hidden)" : "NOT SET",
+    ADMIN_EMAILS: adminEmails,
+  });
+}
+
 export async function POST() {
   try {
     const { userId } = await auth();
