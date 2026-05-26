@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { scoreLeadAI } from "@/lib/openai";
+import { notifyNewLead } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,9 +32,7 @@ export async function POST(req: NextRequest) {
 
     const lead = await prisma.lead.create({
       data: {
-        name,
-        phone,
-        email,
+        name, phone, email,
         source:          "WEBSITE",
         status:          "NEW",
         requirements,
@@ -42,8 +41,8 @@ export async function POST(req: NextRequest) {
         score:           aiScore.score,
         dealProbability: aiScore.probability,
         nextFollowUpAt:  new Date(Date.now() + 2 * 60 * 60 * 1000),
-        utmSource:       body.utmSource || "website",
-        utmMedium:       body.utmMedium || null,
+        utmSource:       body.utmSource  || "website",
+        utmMedium:       body.utmMedium  || null,
         utmCampaign:     body.utmCampaign || null,
       },
     });
@@ -55,6 +54,14 @@ export async function POST(req: NextRequest) {
         leadId:      lead.id,
       },
     });
+
+    // Notify admins — DB notification + email
+    notifyNewLead({
+      id: lead.id, name, phone, email,
+      source: "WEBSITE",
+      propertyType, budget, requirements,
+      score: aiScore.score,
+    }).catch(() => {});
 
     return NextResponse.json({ status: "success", leadId: lead.id, aiScore }, { status: 201 });
   } catch (err) {
