@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function GET() {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ notifications: [], unreadCount: 0 });
 
     const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
@@ -23,7 +23,7 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ success: true });
 
     const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } });
