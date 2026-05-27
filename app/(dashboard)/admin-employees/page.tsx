@@ -415,11 +415,22 @@ export default function AdminEmployeesPage() {
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={async e => {
                   const file = e.target.files?.[0]; if (!file) return;
                   setUploading(true);
-                  const fd = new FormData(); fd.append("file", file); fd.append("folder", "employees");
-                  const res = await fetch("/api/upload", { method: "POST", body: fd });
-                  const text = await res.text();
-                  try { const d = JSON.parse(text); if (d.url) setForm(f => ({ ...f, avatarUrl: d.url })); } catch { toast.error("Upload failed"); }
-                  setUploading(false);
+                  try {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("folder", "employees");
+                    const res  = await fetch("/api/upload", { method: "POST", body: fd });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Upload failed");
+                    if (data.url) {
+                      setForm(f => ({ ...f, avatarUrl: data.url }));
+                      toast.success("Photo uploaded! ✅");
+                    } else throw new Error("No URL returned");
+                  } catch (err: any) {
+                    toast.error(err.message || "Upload failed");
+                  } finally {
+                    setUploading(false);
+                  }
                 }} />
               </div>
             </div>
@@ -488,14 +499,14 @@ export default function AdminEmployeesPage() {
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-estate-400" />
-            <span className="text-sm font-semibold text-white">Aaj ke Daily Reports</span>
+            <span className="text-sm font-semibold text-white">Today's Daily Reports</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-estate-500/15 border border-estate-500/30 text-estate-300">
               {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
             </span>
           </div>
           <button onClick={() => router.push("/admin-employees/daily-reports")}
             className="text-xs text-estate-400 hover:text-estate-300 underline">
-            Sab dekho →
+            View All →
           </button>
         </div>
 
@@ -506,10 +517,10 @@ export default function AdminEmployeesPage() {
         ) : todayReports.length === 0 ? (
           <div className="text-center py-6">
             <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-20" />
-            <p className="text-xs text-muted-foreground">Abhi tak kisi ne report submit nahi ki</p>
+            <p className="text-xs text-muted-foreground">No reports submitted yet</p>
             {employees.filter(e => e.isActive).length > 0 && (
               <p className="text-xs text-yellow-400 mt-1">
-                ⚠️ {employees.filter(e => e.isActive).length} employees mein se 0 ne submit kiya
+                ⚠️ {employees.filter(e => e.isActive).length} of {employees.filter(e => e.isActive).length} employees have not submitted
               </p>
             )}
           </div>
@@ -567,7 +578,7 @@ export default function AdminEmployeesPage() {
               const missing = employees.filter(e => e.isActive && !submittedIds.has(e.id));
               return missing.length > 0 ? (
                 <div className="mt-3 p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/15">
-                  <p className="text-xs text-yellow-400 font-medium mb-1.5">⏳ Abhi submit nahi kiya ({missing.length})</p>
+                  <p className="text-xs text-yellow-400 font-medium mb-1.5">⏳ Not yet submitted ({missing.length})</p>
                   <div className="flex flex-wrap gap-1.5">
                     {missing.map(e => (
                       <span key={e.id} className="text-xs px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">

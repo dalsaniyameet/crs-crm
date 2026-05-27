@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const [
       totalLeads, newLeads, hotLeads, dealsClosedCount,
       totalRevenue, totalCommission, siteVisitsCount,
-      leadsBySource, dealsByStage, brokerPerformance,
+      leadsBySource, dealsByStage, brokers,
     ] = await Promise.all([
       prisma.lead.count(),
       prisma.lead.count({ where: { createdAt: { gte: startDate } } }),
@@ -28,13 +28,22 @@ export async function GET(req: NextRequest) {
       prisma.lead.groupBy({ by: ["source"], _count: { id: true } }),
       prisma.deal.groupBy({ by: ["stage"],  _count: { id: true } }),
       prisma.user.findMany({
-        where:   { role: "BROKER" },
-        include: {
-          _count:      { select: { leads: true, deals: true } },
-          commissions: { where: { isPaid: true }, select: { amount: true } },
-        },
+        where:   { role: "BROKER", isActive: true },
+        select:  { id: true, name: true },
       }),
     ]);
+
+    // Broker performance — separate queries to avoid relation name issues
+    const brokerPerformance = await Promise.all(
+      brokers.map(async (b) => {
+        const [leads, deals, commissions] = await Promise.all([
+          prisma.lead.count({ where: { assignedToId: b.id } }),
+          prisma.deal.count({ where: { brokerId: b.id } }),
+          prisma.commission.aggregate({ where: { brokerId: b.id, isPaid: true }, _sum: { amount: true } }),
+        ]);
+        return { id: b.id, name: b.name, leads, deals, commission: commissions._sum.amount ?? 0 };
+      })
+    );
 
     return NextResponse.json({
       overview: {
@@ -45,13 +54,7 @@ export async function GET(req: NextRequest) {
       },
       leadsBySource,
       dealsByStage,
-      brokerPerformance: brokerPerformance.map(b => ({
-        id:         b.id,
-        name:       b.name,
-        leads:      b._count.leads,
-        deals:      b._count.deals,
-        commission: b.commissions.reduce((s, c) => s + c.amount, 0),
-      })),
+      brokerPerformance,
     });
   } catch (err: any) {
     console.error("Reports GET error:", err.message);

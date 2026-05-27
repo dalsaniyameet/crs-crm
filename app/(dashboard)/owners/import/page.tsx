@@ -242,7 +242,7 @@ export default function ClientImportPage() {
             <FileSpreadsheet className="w-6 h-6 text-green-400" /> Client Import
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Excel se clients import karo — call, WhatsApp, email seedha CRM se
+            Import clients from Excel — call, WhatsApp, email directly from CRM
           </p>
         </div>
         {clients.length > 0 && (

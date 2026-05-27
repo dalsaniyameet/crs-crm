@@ -16,7 +16,7 @@ export async function GET() {
 
     const [
       totalLeads, hotLeads, dealsClosedCount,
-      totalRevenue, activeProperties, leadsBySource, brokerPerformance,
+      totalRevenue, activeProperties, leadsBySource, brokers,
       recentLeads, todayVisits, todayFollowUps,
     ] = await Promise.all([
       prisma.lead.count(),
@@ -27,11 +27,7 @@ export async function GET() {
       prisma.lead.groupBy({ by: ["source"], _count: { id: true } }),
       prisma.user.findMany({
         where: { role: "BROKER", isActive: true },
-        select: {
-          id: true, name: true,
-          _count: { select: { leads: true, deals: true } },
-          commissions: { where: { isPaid: true }, select: { amount: true } },
-        },
+        select: { id: true, name: true },
         take: 5,
       }),
       prisma.lead.findMany({
@@ -61,6 +57,17 @@ export async function GET() {
       }),
     ]);
 
+    const brokerPerformance = await Promise.all(
+      brokers.map(async (b) => {
+        const [leads, deals, commissions] = await Promise.all([
+          prisma.lead.count({ where: { assignedToId: b.id } }),
+          prisma.deal.count({ where: { brokerId: b.id } }),
+          prisma.commission.aggregate({ where: { brokerId: b.id, isPaid: true }, _sum: { amount: true } }),
+        ]);
+        return { name: b.name, leads, deals, commission: commissions._sum.amount ?? 0 };
+      })
+    );
+
     return NextResponse.json({
       overview: {
         totalLeads,
@@ -70,12 +77,7 @@ export async function GET() {
         activeProperties,
       },
       leadsBySource,
-      brokerPerformance: brokerPerformance.map(b => ({
-        name:       b.name,
-        leads:      b._count.leads,
-        deals:      b._count.deals,
-        commission: b.commissions.reduce((s, c) => s + c.amount, 0),
-      })),
+      brokerPerformance,
       recentLeads,
       todayVisits,
       todayFollowUps,

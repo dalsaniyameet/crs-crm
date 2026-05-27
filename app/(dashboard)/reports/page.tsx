@@ -139,54 +139,83 @@ export default function ReportsPage() {
         {/* Lead Sources */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
           className="glass-card p-5">
+          <style>{`
+            @keyframes crs-outer { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+            @keyframes crs-inner { 0%{transform:rotate(0deg)} 100%{transform:rotate(-360deg)} }
+            .crs-outer-ring { animation: crs-outer 4s linear infinite; transform-box: fill-box; transform-origin: center; }
+            .crs-inner-ring { animation: crs-inner 7s linear infinite; transform-box: fill-box; transform-origin: center; }
+          `}</style>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white">Lead Sources</h3>
             <span className="text-xs text-muted-foreground">{sourceChartData.reduce((s: number, d: any) => s + d.value, 0)} total leads</span>
           </div>
           {sourceChartData.length > 0 ? (
-            <div className="flex gap-4 items-start">
-              {/* Donut */}
-              <div className="relative flex-shrink-0" style={{ width: 160, height: 160 }}>
-                <ResponsiveContainer width={160} height={160}>
-                  <PieChart>
-                    <Pie
-                      data={sourceChartData}
-                      cx="50%" cy="50%"
-                      innerRadius={48} outerRadius={72}
-                      paddingAngle={2}
-                      dataKey="value"
-                      startAngle={90} endAngle={-270}
-                    >
-                      {sourceChartData.map((e: any, i: number) => (
-                        <Cell key={i} fill={e.color} stroke="transparent" />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(v: any, n: any, p: any) => [
-                        `${v} leads (${((v / sourceChartData.reduce((s: number, d: any) => s + d.value, 0)) * 100).toFixed(0)}%)`,
-                        p.payload.name
-                      ]}
-                      contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "11px" }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                {/* Center label */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-bold text-white">{sourceChartData.reduce((s: number, d: any) => s + d.value, 0)}</span>
-                  <span className="text-xs text-muted-foreground">Leads</span>
-                </div>
+            <div className="flex gap-6 items-center">
+              {/* Pure SVG Donut + Spinning Rings */}
+              <div className="relative flex-shrink-0" style={{ width: 170, height: 170 }}>
+                <svg viewBox="0 0 170 170" width="170" height="170" style={{ position: "absolute", top: 0, left: 0 }}>
+                  {/* Outer spinning ring */}
+                  <g className="crs-outer-ring">
+                    <circle cx="85" cy="85" r="82" fill="none" stroke="#0ea5e9" strokeWidth="3"
+                      strokeDasharray="55 25" strokeLinecap="round" opacity="0.7" />
+                    <circle cx="85" cy="85" r="82" fill="none" stroke="#f59e0b" strokeWidth="3"
+                      strokeDasharray="20 60" strokeDashoffset="-90" strokeLinecap="round" opacity="0.5" />
+                  </g>
+                  {/* Inner counter-spin ring */}
+                  <g className="crs-inner-ring">
+                    <circle cx="85" cy="85" r="38" fill="none" stroke="#6366f1" strokeWidth="2"
+                      strokeDasharray="30 209" strokeLinecap="round" opacity="0.5" />
+                    <circle cx="85" cy="85" r="38" fill="none" stroke="#10b981" strokeWidth="2"
+                      strokeDasharray="15 224" strokeDashoffset="-70" strokeLinecap="round" opacity="0.4" />
+                  </g>
+                  {/* SVG Donut segments */}
+                  {(() => {
+                    const total = sourceChartData.reduce((a: number, d: any) => a + d.value, 0);
+                    const cx = 85, cy = 85, r = 60, ir = 42;
+                    let angle = -90;
+                    return sourceChartData.map((s: any, i: number) => {
+                      const pct   = s.value / total;
+                      const sweep = pct * 360;
+                      const a1    = (angle * Math.PI) / 180;
+                      const a2    = ((angle + sweep) * Math.PI) / 180;
+                      const x1o = cx + r  * Math.cos(a1), y1o = cy + r  * Math.sin(a1);
+                      const x2o = cx + r  * Math.cos(a2), y2o = cy + r  * Math.sin(a2);
+                      const x1i = cx + ir * Math.cos(a2), y1i = cy + ir * Math.sin(a2);
+                      const x2i = cx + ir * Math.cos(a1), y2i = cy + ir * Math.sin(a1);
+                      const large = sweep > 180 ? 1 : 0;
+                      const d = `M${x1o},${y1o} A${r},${r} 0 ${large},1 ${x2o},${y2o} L${x1i},${y1i} A${ir},${ir} 0 ${large},0 ${x2i},${y2i} Z`;
+                      angle += sweep;
+                      return <path key={i} d={d} fill={s.color} opacity="0.9" />;
+                    });
+                  })()}
+                  {/* Center text */}
+                  <text x="85" y="80" textAnchor="middle" fill="white" fontSize="26" fontWeight="bold">
+                    {sourceChartData.reduce((s: number, d: any) => s + d.value, 0)}
+                  </text>
+                  <text x="85" y="96" textAnchor="middle" fill="#64748b" fontSize="10">
+                    Total Leads
+                  </text>
+                </svg>
               </div>
+
               {/* Legend */}
-              <div className="flex-1 space-y-1.5 min-w-0">
+              <div className="flex-1 space-y-2 min-w-0">
                 {sourceChartData.map((s: any) => {
                   const total = sourceChartData.reduce((acc: number, d: any) => acc + d.value, 0);
                   const pct   = total > 0 ? Math.round((s.value / total) * 100) : 0;
                   return (
-                    <div key={s.name} className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
-                      <span className="text-xs text-muted-foreground truncate flex-1">{s.name}</span>
-                      <span className="text-xs font-bold text-white flex-shrink-0">{s.value}</span>
-                      <span className="text-xs text-muted-foreground flex-shrink-0 w-8 text-right">{pct}%</span>
+                    <div key={s.name}>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                        <span className="text-xs text-white truncate flex-1 font-medium">{s.name}</span>
+                        <span className="text-xs font-bold text-white flex-shrink-0">{s.value}</span>
+                        <span className="text-xs text-muted-foreground flex-shrink-0 w-8 text-right">{pct}%</span>
+                      </div>
+                      <div className="h-1 rounded-full bg-white/10 ml-4">
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                          transition={{ duration: 1, delay: 0.3 }}
+                          className="h-1 rounded-full" style={{ background: s.color }} />
+                      </div>
                     </div>
                   );
                 })}

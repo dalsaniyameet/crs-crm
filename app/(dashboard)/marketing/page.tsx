@@ -102,7 +102,7 @@ export default function MarketingPage() {
   // ── Send to one owner ──
   // Flow: if card image → open image in new tab first → then open WA with message
   const sendToOwner = (owner: any) => {
-    if (!ownerMsg.trim()) { toast.error("Message likhna zaroori hai"); return; }
+    if (!ownerMsg.trim()) { toast.error("Message is required"); return; }
     const phone = owner.phone.replace(/\D/g, "");
     const wa    = phone.startsWith("91") ? phone : `91${phone}`;
     const text  = encodeURIComponent(ownerMsg);
@@ -136,8 +136,8 @@ export default function MarketingPage() {
 
   // ── Send to selected employees ──
   const sendToSelectedEmps = () => {
-    if (!empMsg.trim()) { toast.error("Message likhna zaroori hai"); return; }
-    if (selectedEmps.size === 0) { toast.error("Koi employee select nahi kiya"); return; }
+    if (!empMsg.trim()) { toast.error("Message is required"); return; }
+    if (selectedEmps.size === 0) { toast.error("No employee selected"); return; }
     const targets = employees.filter(e => selectedEmps.has(e.id));
     targets.forEach((emp, i) => {
       const phone = emp.phone?.replace(/\D/g, "");
@@ -218,7 +218,7 @@ export default function MarketingPage() {
             <div>
               <label className="text-xs text-muted-foreground mb-2 block">
                 📎 Visiting Card Image (JPG/PNG)
-                <span className="ml-2 text-yellow-400/70">— image tab mein khulegi, WhatsApp mein manually attach karo</span>
+                <span className="ml-2 text-yellow-400/70">— image will open in a tab, attach manually in WhatsApp</span>
               </label>
               {cardImageUrl ? (
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
@@ -226,7 +226,7 @@ export default function MarketingPage() {
                   <img src={cardImageUrl} alt="card" className="h-20 rounded-lg object-cover border border-white/10" />
                   <div className="flex-1">
                     <p className="text-xs text-green-400 font-medium">✅ Card ready</p>
-                    <p className="text-xs text-muted-foreground mt-1">Owner click karo → card image tab mein khulegi → WhatsApp mein attach karo → Send</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click owner → card image opens in tab → attach in WhatsApp → Send</p>
                   </div>
                   <button onClick={() => setCardImageUrl("")}
                     className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors">
@@ -323,8 +323,8 @@ export default function MarketingPage() {
             {filteredOwners.length > 0 && (
               <div className="px-5 py-3 border-t border-white/5 text-xs text-muted-foreground flex items-center gap-2">
                 <MessageSquare className="w-3.5 h-3.5 text-green-400" />
-                Owner pe click karo → WhatsApp seedha khulega message ready
-                {cardImageUrl && " → Card image bhi tab mein khulegi"}
+                Click owner → WhatsApp will open with message ready
+                {cardImageUrl && " → Card image will also open in a tab"}
               </div>
             )}
           </div>

@@ -108,6 +108,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const BREAK_LIMIT = 3600;
   const isEmployee  = isLoaded && role !== "ADMIN";
 
+  // ── SECURITY: Office hours + auto-logout for employees ──────────────────
+  useEffect(() => {
+    if (!isLoaded || !isEmployee) return;
+
+    function getISTHour() {
+      const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+      return ist.getUTCHours() * 60 + ist.getUTCMinutes(); // minutes since midnight IST
+    }
+
+    function isOfficeHours() {
+      const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+      const day = now.getUTCDay(); // 0=Sun
+      const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
+      if (day === 0) return false; // Sunday — no access
+      // Mon-Sat: 9:30 AM to 7:30 PM IST
+      return cur >= 9 * 60 + 30 && cur <= 19 * 60 + 30;
+    }
+
+    // Check immediately
+    if (!isOfficeHours()) {
+      signOut().then(() => router.push("/sign-in?reason=outside-hours")).catch(() => {});
+      return;
+    }
+
+    // Check every minute
+    const interval = setInterval(() => {
+      if (!isOfficeHours()) {
+        toast.error("Office hours over. You have been logged out.", { duration: 5000 });
+        setTimeout(() => {
+          signOut().then(() => router.push("/sign-in?reason=outside-hours")).catch(() => {});
+        }, 2000);
+        clearInterval(interval);
+      }
+    }, 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [isLoaded, isEmployee, signOut, router]);
+
   useEffect(() => {
     if (!isEmployee || !userEmail) return;
     Promise.all([
@@ -454,7 +492,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Page content — stops at bottom nav on mobile */}
         <main
           className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth"
-          style={{ paddingBottom: "calc(56px + env(safe-area-inset-bottom, 0px))" }}
+          style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom, 8px))" }}
         >
           <div key={pathname} style={{ animation: "pageEnter 120ms ease-out" }}>
             {children}
@@ -463,33 +501,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* ── Mobile Bottom Navigation Bar ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t"
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[60] flex items-stretch border-t"
         style={{
-          background: "rgba(4,8,15,0.98)",
-          borderColor: "rgba(234,179,8,0.12)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
+          background: "rgba(4,8,15,0.99)",
+          borderColor: "rgba(234,179,8,0.15)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
           height: "calc(56px + env(safe-area-inset-bottom, 0px))",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        }}>
+          boxShadow: "0 -1px 0 rgba(234,179,8,0.08), 0 -8px 24px rgba(0,0,0,0.5)",
+        }}
+      >
         {MOBILE_NAV.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} prefetch={true}
-              className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-14 transition-all active:scale-95 ${
+            <Link
+              key={item.href}
+              href={item.href}
+              prefetch={true}
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 transition-all active:scale-90 touch-manipulation ${
                 active ? "text-yellow-400" : "text-slate-500"
+              }`}
+              style={{ minHeight: "56px", WebkitTapHighlightColor: "transparent" }}
+            >
+              <div className={`relative flex items-center justify-center w-10 h-7 rounded-xl transition-all ${
+                active ? "bg-yellow-400/15" : ""
               }`}>
-              <Icon className={`w-5 h-5 flex-shrink-0 ${active ? "scale-110" : ""}`} />
-              <span className="text-[10px] font-semibold leading-none">{item.label}</span>
-              {active && <span className="w-4 h-0.5 rounded-full bg-yellow-400" />}
+                <Icon className={`w-5 h-5 flex-shrink-0 transition-transform ${
+                  active ? "scale-110" : ""
+                }`} />
+              </div>
+              <span className="text-[10px] font-semibold leading-none tracking-wide">{item.label}</span>
             </Link>
           );
         })}
-        <button onClick={() => setMobileOpen(true)}
-          className="flex flex-col items-center justify-center gap-0.5 flex-1 h-14 text-slate-500 active:scale-95 transition-all">
-          <MoreHorizontal className="w-5 h-5 flex-shrink-0" />
-          <span className="text-[10px] font-semibold leading-none">More</span>
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="flex flex-col items-center justify-center gap-0.5 flex-1 text-slate-500 active:scale-90 transition-all touch-manipulation"
+          style={{ minHeight: "56px", WebkitTapHighlightColor: "transparent" }}
+        >
+          <div className="flex items-center justify-center w-10 h-7 rounded-xl">
+            <MoreHorizontal className="w-5 h-5 flex-shrink-0" />
+          </div>
+          <span className="text-[10px] font-semibold leading-none tracking-wide">More</span>
         </button>
       </nav>
 

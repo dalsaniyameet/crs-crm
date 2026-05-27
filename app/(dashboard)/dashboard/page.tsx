@@ -16,7 +16,7 @@ import {
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 const SOURCE_COLORS: Record<string, string> = {
-  WHATSAPP:        "#10b981",
+  WHATSAPP:        "#25d366",
   ACRES99:         "#eab308",
   MAGICBRICKS:     "#f97316",
   WEBSITE:         "#0ea5e9",
@@ -30,17 +30,17 @@ const SOURCE_COLORS: Record<string, string> = {
 };
 
 const SOURCE_LABEL: Record<string, string> = {
-  WHATSAPP:        "WhatsApp",
-  ACRES99:         "99acres",
-  MAGICBRICKS:     "MagicBricks",
-  WEBSITE:         "CityRealSpace",
-  REFERRAL:        "Referral",
-  FACEBOOK:        "Facebook",
-  WALK_IN:         "Walk In",
-  COLD_CALL:       "Cold Call",
-  HOUSING:         "Housing.com",
-  GOOGLE_BUSINESS: "Google",
-  OTHER:           "Other",
+  WHATSAPP:        "WhatsApp 💬",
+  ACRES99:         "99acres 🏠",
+  MAGICBRICKS:     "MagicBricks 🧱",
+  WEBSITE:         "CityRealSpace 🌐",
+  REFERRAL:        "Referral 🤝",
+  FACEBOOK:        "Facebook 📘",
+  WALK_IN:         "Walk In 🚶",
+  COLD_CALL:       "Cold Call 📞",
+  HOUSING:         "Housing.com 🏡",
+  GOOGLE_BUSINESS: "Google 🔍",
+  OTHER:           "Other 📋",
 };
 
 const fmtMoney = (n: number) =>
@@ -259,6 +259,12 @@ export default function DashboardPage() {
 
         {/* Lead Sources */}
         <div className="glass-card p-5 lg:col-span-2">
+          <style>{`
+            @keyframes db-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+            @keyframes db-spin-rev { from{transform:rotate(0deg)} to{transform:rotate(-360deg)} }
+            .db-outer { animation: db-spin 18s linear infinite; transform-box: fill-box; transform-origin: center; }
+            .db-inner { animation: db-spin-rev 25s linear infinite; transform-box: fill-box; transform-origin: center; }
+          `}</style>
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-semibold text-white">Lead Sources</h3>
             {!isLoading && sourceData.length > 0 && (
@@ -268,70 +274,80 @@ export default function DashboardPage() {
             )}
           </div>
           {isLoading ? (
-            <div className="flex items-end gap-3 h-40">
-              {Array(5).fill(0).map((_, i) => (
-                <div key={i} className="flex-1 rounded-t-xl animate-pulse bg-white/10" style={{ height: `${30 + i * 15}%` }} />
-              ))}
+            <div className="flex items-center justify-center h-52">
+              <div className="w-40 h-40 rounded-full animate-pulse bg-white/10" />
             </div>
-          ) : sourceData.length > 0 ? (() => {
-            const max    = Math.max(...sourceData.map((d: {value: number}) => d.value));
-            const total  = sourceData.reduce((s: number, d: {value: number}) => s + d.value, 0);
-            const sorted = [...sourceData].sort((a: {value: number}, b: {value: number}) => b.value - a.value);
-            return (
-              <div className="space-y-4">
-                <div className="flex items-end gap-2 h-40">
-                  {sorted.map((s: { name: string; color: string; value: number }, i: number) => {
-                    const pct = max > 0 ? (s.value / max) * 100 : 0;
-                    return (
-                      <div key={s.name} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                        <span className="text-xs font-bold text-white">{s.value}</span>
-                        {/* Bottle container */}
-                        <div className="w-full rounded-xl overflow-hidden relative" style={{ height: "85%", background: "rgba(255,255,255,0.04)", border: `1px solid ${s.color}30` }}>
-                          {/* Liquid fill */}
-                          <motion.div
-                            className="absolute bottom-0 left-0 right-0"
-                            initial={{ height: "0%" }}
-                            animate={{ height: `${pct}%` }}
-                            transition={{ delay: 0.2 + i * 0.12, duration: 1.2, ease: [0.34, 1.1, 0.64, 1] }}
-                            style={{ background: `linear-gradient(180deg, ${s.color}cc 0%, ${s.color} 100%)` }}
-                          >
-                            {/* Wave SVG on top of liquid */}
-                            <motion.div
-                              className="absolute -top-3 left-0 right-0 h-4 overflow-hidden"
-                              animate={{ x: ["-25%", "0%", "-25%"] }}
-                              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                            >
-                              <svg viewBox="0 0 200 12" preserveAspectRatio="none" className="w-[200%] h-full">
-                                <path
-                                  d="M0,6 C20,0 40,12 60,6 C80,0 100,12 120,6 C140,0 160,12 180,6 C200,0 220,12 240,6 L240,12 L0,12 Z"
-                                  fill={s.color}
-                                />
-                              </svg>
-                            </motion.div>
-                            {/* Shine */}
-                            <div className="absolute inset-0 opacity-20" style={{ background: "linear-gradient(90deg, transparent 0%, white 40%, transparent 60%)" }} />
-                          </motion.div>
-                        </div>
+          ) : sourceData.length > 0 ? (
+            <div className="flex gap-6 items-center">
+              {/* SVG Donut + Spinning Rings */}
+              <div className="relative flex-shrink-0" style={{ width: 220, height: 220 }}>
+                <svg viewBox="0 0 220 220" width="220" height="220" style={{ position: "absolute", top: 0, left: 0 }}>
+                  {/* Outer spinning dashed arc */}
+                  <g className="db-outer">
+                    <circle cx="110" cy="110" r="107" fill="none" stroke="#0ea5e9" strokeWidth="4"
+                      strokeDasharray="60 30" strokeLinecap="round" opacity="0.7" />
+                    <circle cx="110" cy="110" r="107" fill="none" stroke="#f59e0b" strokeWidth="4"
+                      strokeDasharray="25 65" strokeDashoffset="-100" strokeLinecap="round" opacity="0.5" />
+                    <circle cx="110" cy="110" r="107" fill="none" stroke="#ec4899" strokeWidth="4"
+                      strokeDasharray="15 75" strokeDashoffset="-160" strokeLinecap="round" opacity="0.4" />
+                  </g>
+                  {/* Inner counter-spin arc */}
+                  <g className="db-inner">
+                    <circle cx="110" cy="110" r="50" fill="none" stroke="#6366f1" strokeWidth="2.5"
+                      strokeDasharray="35 279" strokeLinecap="round" opacity="0.5" />
+                    <circle cx="110" cy="110" r="50" fill="none" stroke="#10b981" strokeWidth="2.5"
+                      strokeDasharray="18 296" strokeDashoffset="-100" strokeLinecap="round" opacity="0.4" />
+                  </g>
+                  {/* Donut segments */}
+                  {(() => {
+                    const total = sourceData.reduce((a: number, d: any) => a + d.value, 0);
+                    const cx = 110, cy = 110, r = 80, ir = 55;
+                    let angle = -90;
+                    return sourceData.map((s: any, i: number) => {
+                      const sweep = (s.value / total) * 360;
+                      const a1 = (angle * Math.PI) / 180;
+                      const a2 = ((angle + sweep) * Math.PI) / 180;
+                      const x1o = cx + r  * Math.cos(a1), y1o = cy + r  * Math.sin(a1);
+                      const x2o = cx + r  * Math.cos(a2), y2o = cy + r  * Math.sin(a2);
+                      const x1i = cx + ir * Math.cos(a2), y1i = cy + ir * Math.sin(a2);
+                      const x2i = cx + ir * Math.cos(a1), y2i = cy + ir * Math.sin(a1);
+                      const large = sweep > 180 ? 1 : 0;
+                      const d = `M${x1o},${y1o} A${r},${r} 0 ${large},1 ${x2o},${y2o} L${x1i},${y1i} A${ir},${ir} 0 ${large},0 ${x2i},${y2i} Z`;
+                      angle += sweep;
+                      return <path key={i} d={d} fill={s.color} opacity="0.92" />;
+                    });
+                  })()}
+                  {/* Center text */}
+                  <text x="110" y="104" textAnchor="middle" fill="white" fontSize="32" fontWeight="bold">
+                    {sourceData.reduce((s: number, d: any) => s + d.value, 0)}
+                  </text>
+                  <text x="110" y="122" textAnchor="middle" fill="#64748b" fontSize="12">Total Leads</text>
+                </svg>
+              </div>
+              {/* Legend */}
+              <div className="flex-1 space-y-2 min-w-0">
+                {sourceData.map((s: any) => {
+                  const total = sourceData.reduce((a: number, d: any) => a + d.value, 0);
+                  const pct   = total > 0 ? Math.round((s.value / total) * 100) : 0;
+                  return (
+                    <div key={s.name}>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                        <span className="text-xs text-white truncate flex-1 font-medium">{s.name}</span>
+                        <span className="text-xs font-bold text-white flex-shrink-0">{s.value}</span>
+                        <span className="text-xs text-muted-foreground flex-shrink-0 w-8 text-right">{pct}%</span>
                       </div>
-                    );
-                  })}
-                </div>
-                {/* Labels */}
-                <div className="flex gap-2">
-                  {sorted.map((s: { name: string; color: string; value: number }) => (
-                    <div key={s.name} className="flex-1 text-center">
-                      <div className="text-center" style={{ fontSize: "9px", color: "#64748b", lineHeight: 1.3 }}>
-                        {s.name}
-                      </div>
-                      <div className="text-xs font-medium mt-0.5" style={{ color: s.color }}>
-                        {total > 0 ? Math.round((s.value / total) * 100) : 0}%
+                      <div className="h-1 rounded-full bg-white/10 ml-4">
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                          transition={{ duration: 1, delay: 0.2 }}
+                          className="h-1 rounded-full" style={{ background: s.color }} />
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })() : (
+            </div>
+          ) : (
             <div className="text-center py-10 text-muted-foreground text-sm">No leads yet</div>
           )}
         </div>

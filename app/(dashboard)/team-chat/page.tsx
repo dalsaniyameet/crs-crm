@@ -181,6 +181,10 @@ export default function TeamChatPage() {
   const roomIds  = new Set(rooms.map(r => r.otherId));
   const newUsers = allUsers.filter(u => !roomIds.has(u.id));
 
+  // Group users by role for display
+  const adminUsers  = newUsers.filter(u => u.role === "ADMIN" || u.role === "SALES_MANAGER");
+  const otherUsers  = newUsers.filter(u => u.role !== "ADMIN" && u.role !== "SALES_MANAGER");
+
   if (!isLoaded) return (
     <div className="flex items-center justify-center h-full min-h-64">
       <Loader2 className="w-7 h-7 animate-spin text-estate-400" />
@@ -322,20 +326,42 @@ export default function TeamChatPage() {
 
                 {newUsers.length > 0 && (
                   <>
-                    <div className="px-5 py-2.5 text-xs text-muted-foreground font-medium uppercase tracking-wide border-b border-white/5">
-                      All Members
-                    </div>
-                    {newUsers.map(u => (
-                      <button key={u.id} onClick={() => openChat(u)}
-                        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/5 transition-colors text-left border-b border-white/5">
-                        <Avatar name={u.name} src={u.avatar} size={40} />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-white">{u.name}</div>
-                          <div className={`text-xs mt-0.5 ${ROLE_COLOR[u.role] || "text-muted-foreground"}`}>{u.role?.replace("_", " ")}</div>
+                    {adminUsers.length > 0 && (
+                      <>
+                        <div className="px-5 py-2.5 text-xs text-muted-foreground font-medium uppercase tracking-wide border-b border-white/5 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-red-400" /> Admin & Managers
                         </div>
-                        <MessageCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      </button>
-                    ))}
+                        {adminUsers.map(u => (
+                          <button key={u.id} onClick={() => openChat(u)}
+                            className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/5 transition-colors text-left border-b border-white/5">
+                            <Avatar name={u.name} src={u.avatar} size={40} />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-white">{u.name}</div>
+                              <div className={`text-xs mt-0.5 ${ROLE_COLOR[u.role] || "text-muted-foreground"}`}>{u.role?.replace("_", " ")}</div>
+                            </div>
+                            <MessageCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    {otherUsers.length > 0 && (
+                      <>
+                        <div className="px-5 py-2.5 text-xs text-muted-foreground font-medium uppercase tracking-wide border-b border-white/5">
+                          Team Members
+                        </div>
+                        {otherUsers.map(u => (
+                          <button key={u.id} onClick={() => openChat(u)}
+                            className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/5 transition-colors text-left border-b border-white/5">
+                            <Avatar name={u.name} src={u.avatar} size={40} />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-white">{u.name}</div>
+                              <div className={`text-xs mt-0.5 ${ROLE_COLOR[u.role] || "text-muted-foreground"}`}>{u.role?.replace("_", " ")}</div>
+                            </div>
+                            <MessageCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          </button>
+                        ))}
+                      </>
+                    )}
                   </>
                 )}
 

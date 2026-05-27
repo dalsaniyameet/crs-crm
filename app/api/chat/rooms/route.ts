@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -6,9 +6,9 @@ async function getMe(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
 }
 
-// GET /api/chat/rooms â€” list all rooms with last message + unread count
+// GET /api/chat/rooms — list all rooms with last message
 export async function GET() {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const me = await getMe(userId);
   if (!me) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -27,38 +27,36 @@ export async function GET() {
   });
 
   const rooms = memberships.map(m => {
-    const other = m.room.members.find(mb => mb.userId !== me.id)?.user;
+    const other   = m.room.members.find(mb => mb.userId !== me.id)?.user;
     const lastMsg = m.room.messages[0];
-    const unread = 0; // simplified
     return {
-      id:        m.room.id,
-      name:      m.room.name || other?.name || "Unknown",
-      avatar:    other?.avatar,
-      role:      other?.role,
-      otherId:   other?.id,
-      lastMsg:   lastMsg?.text || (lastMsg?.fileName ? `ðŸ“Ž ${lastMsg.fileName}` : null),
-      lastTime:  lastMsg?.createdAt,
-      unread,
+      id:       m.room.id,
+      name:     m.room.name || other?.name || "Unknown",
+      avatar:   other?.avatar,
+      role:     other?.role,
+      otherId:  other?.id,
+      lastMsg:  lastMsg?.text || (lastMsg?.fileName ? `📎 ${lastMsg.fileName}` : null),
+      lastTime: lastMsg?.createdAt,
     };
   });
 
   return NextResponse.json(rooms);
 }
 
-// POST /api/chat/rooms â€” get or create DM room with another user
+// POST /api/chat/rooms — get or create DM room with another user
 export async function POST(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const me = await getMe(userId);
   if (!me) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const { targetUserId } = await req.json();
+  if (!targetUserId) return NextResponse.json({ error: "targetUserId required" }, { status: 400 });
 
-  // Check if DM room already exists between these two users
+  // Check if DM room already exists
   const existing = await prisma.chatRoom.findFirst({
     where: {
       isGroup: false,
-      members: { every: { userId: { in: [me.id, targetUserId] } } },
       AND: [
         { members: { some: { userId: me.id } } },
         { members: { some: { userId: targetUserId } } },

@@ -178,7 +178,7 @@ export default function EmployeeDailyReportPage() {
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <ClipboardList className="w-6 h-6 text-estate-400" /> Daily Report
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Aaj ka kaam ka summary submit karo</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Submit today's work summary</p>
         </div>
         <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
           <button onClick={() => {
@@ -270,7 +270,7 @@ export default function EmployeeDailyReportPage() {
               <label className="text-xs text-muted-foreground block mb-1">Visit Feedback</label>
               <textarea rows={2} value={form.visitsFeedback}
                 onChange={e => setForm(p => ({ ...p, visitsFeedback: e.target.value }))}
-                placeholder="Client ka reaction, property ke baare mein feedback..."
+                placeholder="Client's reaction, feedback about the property..."
                 className={`${inp} resize-none`} />
             </div>
           </div>
@@ -311,9 +311,9 @@ export default function EmployeeDailyReportPage() {
               <h2 className="text-sm font-semibold text-white">📝 Day Summary</h2>
             </div>
             {[
-              { label: "🌟 Highlights (aaj kya achha hua)", key: "highlights", ph: "e.g. 2 hot leads mila, Satellite mein office deal almost close..." },
-              { label: "⚠️ Challenges (koi problem aayi)", key: "challenges", ph: "e.g. Client ne price negotiate kiya, property photos nahi mili..." },
-              { label: "📅 Kal ka Plan", key: "tomorrowPlan", ph: "e.g. 3 site visits, Rajesh Patel ko follow-up call, new listing add karna..." },
+              { label: "🌟 Highlights (what went well today)", key: "highlights", ph: "e.g. 2 hot leads found, office deal in Satellite almost closed..." },
+              { label: "⚠️ Challenges (any problems faced)", key: "challenges", ph: "e.g. Client negotiated price, property photos not available..." },
+              { label: "📅 Tomorrow's Plan", key: "tomorrowPlan", ph: "e.g. 3 site visits, follow-up call with Rajesh Patel, add new listing..." },
             ].map(f => (
               <div key={f.key}>
                 <label className="text-xs text-muted-foreground block mb-1">{f.label}</label>

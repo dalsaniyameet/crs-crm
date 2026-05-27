@@ -1,81 +1,90 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-async function getMe(clerkId: string) {
-  return prisma.user.findUnique({ where: { clerkId } });
-}
-
-// GET /api/chat/rooms â€” list all rooms with last message + unread count
-export async function GET() {
-  const { userId } = auth();
+// GET /api/chat/rooms/[roomId]/messages
+export async function GET(_req: NextRequest, { params }: { params: { roomId: string } }) {
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const me = await getMe(userId);
+
+  const me = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!me) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const memberships = await prisma.chatMember.findMany({
-    where: { userId: me.id },
-    include: {
-      room: {
-        include: {
-          members: { include: { user: { select: { id: true, name: true, avatar: true, role: true } } } },
-          messages: { orderBy: { createdAt: "desc" }, take: 1 },
-        },
-      },
-    },
-    orderBy: { lastRead: "desc" },
+  // Verify user is member of this room
+  const member = await prisma.chatMember.findFirst({
+    where: { roomId: params.roomId, userId: me.id },
+  });
+  if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
+
+  const messages = await prisma.chatMessage.findMany({
+    where:   { roomId: params.roomId },
+    include: { sender: { select: { id: true, name: true, avatar: true } } },
+    orderBy: { createdAt: "asc" },
+    take:    100,
   });
 
-  const rooms = memberships.map(m => {
-    const other = m.room.members.find(mb => mb.userId !== me.id)?.user;
-    const lastMsg = m.room.messages[0];
-    const unread = 0; // simplified
-    return {
-      id:        m.room.id,
-      name:      m.room.name || other?.name || "Unknown",
-      avatar:    other?.avatar,
-      role:      other?.role,
-      otherId:   other?.id,
-      lastMsg:   lastMsg?.text || (lastMsg?.fileName ? `ðŸ“Ž ${lastMsg.fileName}` : null),
-      lastTime:  lastMsg?.createdAt,
-      unread,
-    };
-  });
+  // Update lastRead
+  await prisma.chatMember.update({
+    where: { id: member.id },
+    data:  { lastRead: new Date() },
+  }).catch(() => {});
 
-  return NextResponse.json(rooms);
+  return NextResponse.json(messages);
 }
 
-// POST /api/chat/rooms â€” get or create DM room with another user
-export async function POST(req: NextRequest) {
-  const { userId } = auth();
+// POST /api/chat/rooms/[roomId]/messages
+export async function POST(req: NextRequest, { params }: { params: { roomId: string } }) {
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const me = await getMe(userId);
+
+  const me = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!me) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const { targetUserId } = await req.json();
-
-  // Check if DM room already exists between these two users
-  const existing = await prisma.chatRoom.findFirst({
-    where: {
-      isGroup: false,
-      members: { every: { userId: { in: [me.id, targetUserId] } } },
-      AND: [
-        { members: { some: { userId: me.id } } },
-        { members: { some: { userId: targetUserId } } },
-      ],
-    },
+  const member = await prisma.chatMember.findFirst({
+    where: { roomId: params.roomId, userId: me.id },
   });
+  if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
-  if (existing) return NextResponse.json(existing);
+  const { text, fileUrl, fileName, fileType } = await req.json();
+  if (!text?.trim() && !fileUrl) {
+    return NextResponse.json({ error: "text or fileUrl required" }, { status: 400 });
+  }
 
-  const room = await prisma.chatRoom.create({
+  const message = await prisma.chatMessage.create({
     data: {
-      isGroup: false,
-      members: {
-        create: [{ userId: me.id }, { userId: targetUserId }],
-      },
+      roomId:   params.roomId,
+      senderId: me.id,
+      text:     text?.trim() || null,
+      fileUrl:  fileUrl || null,
+      fileName: fileName || null,
+      fileType: fileType || null,
     },
+    include: { sender: { select: { id: true, name: true, avatar: true } } },
   });
 
-  return NextResponse.json(room);
+  // Notify other members
+  const otherMembers = await prisma.chatMember.findMany({
+    where: { roomId: params.roomId, userId: { not: me.id } },
+    select: { userId: true },
+  });
+
+  const preview = text?.trim()
+    ? (text.length > 80 ? text.slice(0, 80) + "..." : text)
+    : `📎 ${fileName || "file"}`;
+
+  await Promise.all(
+    otherMembers.map(m =>
+      prisma.notification.create({
+        data: {
+          userId:  m.userId,
+          type:    "SYSTEM",
+          title:   `Message from ${me.name}`,
+          message: preview,
+          isRead:  false,
+        },
+      }).catch(() => {})
+    )
+  );
+
+  return NextResponse.json(message, { status: 201 });
 }

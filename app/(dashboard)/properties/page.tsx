@@ -186,7 +186,7 @@ export default function PropertiesPage() {
   }
 
   async function scheduleVisit() {
-    if (!viewProp || !visitLeadId || !visitDate || !visitTime) { toast.error("Sab fields fill karo"); return; }
+    if (!viewProp || !visitLeadId || !visitDate || !visitTime) { toast.error("Please fill all fields"); return; }
     setSavingVisit(true);
     try {
       const scheduledAt = new Date(`${visitDate}T${visitTime}`);
@@ -205,7 +205,7 @@ export default function PropertiesPage() {
   }
 
   async function createDeal() {
-    if (!viewProp || !dealLeadId) { toast.error("Lead select karo"); return; }
+    if (!viewProp || !dealLeadId) { toast.error("Please select a lead"); return; }
     setSavingDeal(true);
     try {
       const lead  = allLeads.find(l => l.id === dealLeadId);
@@ -805,10 +805,14 @@ export default function PropertiesPage() {
       <AnimatePresence>
         {viewProp && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-end md:items-center justify-center md:p-2 md:p-4"
             onClick={e => e.target === e.currentTarget && setViewProp(null)}>
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="glass-card w-full max-w-2xl max-h-[95vh] overflow-y-auto flex flex-col">
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="glass-card w-full md:max-w-2xl max-h-[92dvh] md:max-h-[95vh] overflow-y-auto flex flex-col rounded-t-2xl md:rounded-xl">
 
               {/* Photo Gallery */}
               <div className="relative h-56 md:h-72 bg-white/5 flex-shrink-0">
@@ -1151,10 +1155,14 @@ export default function PropertiesPage() {
       <AnimatePresence>
         {showAddModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-end md:items-center justify-center md:p-4"
             onClick={e => e.target === e.currentTarget && setShowAddModal(false)}>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="glass-card w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="glass-card w-full md:max-w-2xl p-5 md:p-6 max-h-[92dvh] overflow-y-auto rounded-t-2xl md:rounded-xl">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-white">Add New Property</h2>
                 <button onClick={() => setShowAddModal(false)} className="text-muted-foreground hover:text-white">✕</button>
@@ -1320,8 +1328,8 @@ export default function PropertiesPage() {
                   <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-purple-400" /></div>
                 ) : matchedLeads.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground">
-                    <p className="text-sm">Koi matching lead nahi mila</p>
-                    <p className="text-xs mt-1 opacity-60">Property type ya budget match nahi hua</p>
+                    <p className="text-sm">No matching leads found</p>
+                    <p className="text-xs mt-1 opacity-60">Property type or budget did not match</p>
                   </div>
                 ) : matchedLeads.map(lead => (
                   <div key={lead.id} className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3">

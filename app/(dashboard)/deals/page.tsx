@@ -212,8 +212,9 @@ export default function DealsPage() {
       </div>
 
       {/* Kanban Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {stages.map(stage => {
+      <div className="-mx-4 md:mx-0">
+        <div className="flex gap-3 overflow-x-auto pb-4 px-4 md:px-0 snap-x snap-mandatory">
+          {stages.map(stage => {
           const cfg        = stageConfig[stage];
           const stageDeals = deals.filter(d => d.stage === stage);
           const stageValue = stageDeals.reduce((s, d) => s + d.value, 0);
@@ -225,7 +226,7 @@ export default function DealsPage() {
               onDragOver={e => onDragOver(e, stage)}
               onDrop={() => onDrop(stage)}
               onDragLeave={() => setOverStage(null)}
-              className={`kanban-column flex-shrink-0 transition-all duration-200 ${isOver ? "border-estate-500/60 bg-estate-500/5" : ""}`}
+              className={`kanban-column flex-shrink-0 snap-start transition-all duration-200 ${isOver ? "border-estate-500/60 bg-estate-500/5" : ""}`}
             >
               <div className={`flex items-center justify-between mb-3 p-2 rounded-lg ${cfg.bg} border ${cfg.border}`}>
                 <div>
@@ -293,16 +294,21 @@ export default function DealsPage() {
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* Add Deal Modal */}
       <AnimatePresence>
         {showModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-end md:items-center justify-center md:p-4"
             onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="glass-card w-full max-w-lg p-6">
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="glass-card w-full md:max-w-lg p-5 md:p-6 rounded-t-2xl md:rounded-xl max-h-[92dvh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-white">New Deal</h2>
                 <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>

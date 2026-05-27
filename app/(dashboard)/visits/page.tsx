@@ -247,13 +247,13 @@ export default function VisitsPage() {
               <motion.div key={visit.id}
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className={`glass-card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors ${
+                className={`glass-card p-3 md:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 hover:bg-white/5 transition-colors ${
                   todayV ? "border-l-2 border-l-red-500" : ""
                 } ${
                   highlightId === visit.id ? "ring-2 ring-estate-500/60 bg-estate-900/20" : ""
                 }`}>
                 {/* Time */}
-                <div className="text-center w-24 flex-shrink-0">
+                <div className="flex sm:flex-col items-center sm:items-center gap-2 sm:gap-0 sm:w-24 flex-shrink-0">
                   <div className={`text-sm font-bold ${todayV ? "text-red-400" : "text-white"}`}>
                     {todayV ? "Today" : dateObj.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                   </div>
@@ -262,7 +262,7 @@ export default function VisitsPage() {
                   </div>
                 </div>
 
-                <div className="w-px h-12 bg-white/10 flex-shrink-0" />
+                <div className="hidden sm:block w-px h-12 bg-white/10 flex-shrink-0" />
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
@@ -327,10 +327,14 @@ export default function VisitsPage() {
       <AnimatePresence>
         {showModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-end md:items-center justify-center md:p-4"
             onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="glass-card w-full max-w-md p-6">
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="glass-card w-full md:max-w-md p-5 md:p-6 rounded-t-2xl md:rounded-xl max-h-[92dvh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-white">Schedule Site Visit</h2>
                 <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>

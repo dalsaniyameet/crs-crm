@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page  = parseInt(searchParams.get("page")  || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const limit = parseInt(searchParams.get("limit") || "500");
     const owners = await prisma.propertyOwner.findMany({
       where:   { isActive: true },
       include: { properties: { select: { id: true, title: true, status: true, price: true, type: true, transactionType: true } } },

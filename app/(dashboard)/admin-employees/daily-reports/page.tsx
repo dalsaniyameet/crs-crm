@@ -115,7 +115,7 @@ export default function AdminDailyReportsPage() {
         <div className="text-center py-16 text-muted-foreground">
           <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm">No reports submitted for this date</p>
-          <p className="text-xs mt-1 opacity-60">Employees ne abhi report submit nahi ki</p>
+          <p className="text-xs mt-1 opacity-60">No reports submitted by employees yet</p>
         </div>
       ) : (
         <div className="space-y-3">

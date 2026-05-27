@@ -591,6 +591,7 @@ model PropertyOwner {
 
   properties   Property[]     @relation("OwnerProperties")
   messages     OwnerMessage[]
+  store        OwnerStore[]
 
   @@map("property_owners")
 }
@@ -607,6 +608,31 @@ model OwnerMessage {
   owner     PropertyOwner @relation(fields: [ownerId], references: [id])
 
   @@map("owner_messages")
+}
+
+// Owner's property store — each entry = one property listing by owner
+model OwnerStore {
+  id              String   @id @default(cuid())
+  ownerId         String
+  title           String
+  propertyType    String?  // OFFICE, SHOP, APARTMENT etc
+  transactionType String?  // RENT, SELL, LEASE
+  price           Float?
+  area            Float?
+  floor           String?
+  locality        String?
+  address         String?
+  furnishing      String?
+  status          String   @default("AVAILABLE") // AVAILABLE, RENTED, SOLD
+  imageUrl        String?  // property photo
+  notes           String?
+  listedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  owner           PropertyOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("owner_store")
 }
 
 enum LeaveStatus {

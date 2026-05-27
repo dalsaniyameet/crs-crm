@@ -3,18 +3,52 @@ import { useState, useEffect } from "react";
 import { useSignIn, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Loader2, LogIn, Lock, Mail, Shield } from "lucide-react";
+import { Loader2, LogIn, Lock, Mail, Shield, MapPin } from "lucide-react";
 
 type Tab = "admin" | "employee";
+
+// Office location — Prahlad Nagar, Ahmedabad
+const OFFICE = { lat: 23.03507, lng: 72.52398, radius: 500 }; // 500m
+
+function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function isOfficeHoursNow() {
+  const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000); // IST
+  const day = now.getUTCDay(); // 0=Sun
+  const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
+  if (day === 0) return false; // Sunday closed
+  return cur >= 9 * 60 + 30 && cur <= 19 * 60 + 30; // 9:30AM - 7:30PM
+}
 
 export default function SignInPage() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const { isSignedIn } = useAuth();
   const router = useRouter();
 
-  const [tab, setTab]       = useState<Tab>("admin");
-  const [error, setError]   = useState("");
+  const [tab, setTab]         = useState<Tab>("admin");
+  const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
+  const [locStatus, setLocStatus] = useState<"idle" | "checking" | "ok" | "denied" | "far">("idle");
+  const [distanceM, setDistanceM] = useState<number | null>(null);
+
+  // Show outside-hours message if redirected
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reason") === "outside-hours") {
+      setTab("employee");
+      setError("Access denied: CRM is only available Mon–Sat 9:30 AM – 7:30 PM (IST).");
+    }
+    if (params.get("reason") === "outside-location") {
+      setTab("employee");
+      setError("Access denied: You must be at the office to use CRM.");
+    }
+  }, []);
 
   // Admin fields
   const [adminEmail, setAdminEmail]       = useState("");
@@ -25,11 +59,26 @@ export default function SignInPage() {
   const [empEmail, setEmpEmail]       = useState("");
   const [empPassword, setEmpPassword] = useState("");
 
-  // Already logged in → check if admin then redirect
   useEffect(() => {
     if (!isSignedIn) return;
     router.replace("/dashboard");
   }, [isSignedIn, router]);
+
+  // Check location when employee tab is selected
+  useEffect(() => {
+    if (tab !== "employee") return;
+    setLocStatus("checking");
+    if (!navigator.geolocation) { setLocStatus("denied"); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, OFFICE.lat, OFFICE.lng);
+        setDistanceM(Math.round(dist));
+        setLocStatus(dist <= OFFICE.radius ? "ok" : "far");
+      },
+      () => setLocStatus("denied"),
+      { timeout: 8000, maximumAge: 60000 }
+    );
+  }, [tab]);
 
   // ── Admin Login ──
   async function handleAdminLogin(e: React.FormEvent) {
@@ -48,24 +97,18 @@ export default function SignInPage() {
         const result = await signIn!.create({ identifier: adminEmail, password: adminPassword });
         if (result.status === "complete") {
           await setActive!({ session: result.createdSessionId });
-          router.push("/dashboard");
-          return;
+          router.push("/dashboard"); return;
         }
-        // Handle any pending factors (e.g. email verification)
         if (result.status === "needs_first_factor" || result.status === "needs_second_factor") {
           const attempt = await signIn!.attemptFirstFactor({ strategy: "password", password: adminPassword });
           if (attempt.status === "complete") {
             await setActive!({ session: attempt.createdSessionId });
-            router.push("/dashboard");
-            return;
+            router.push("/dashboard"); return;
           }
         }
         setError("Login failed. Try again.");
-        setLoading(false);
-        return;
+        setLoading(false); return;
       }
-
-      // OAuth login
       const isMicrosoft = adminEmail.toLowerCase() === "info@cityrealspace.com";
       await signIn!.authenticateWithRedirect({
         strategy: isMicrosoft ? "oauth_microsoft" : "oauth_google",
@@ -75,11 +118,11 @@ export default function SignInPage() {
     } catch (err: unknown) {
       const clerkErr = err as { errors?: Array<{ message: string; code: string }> };
       const code = clerkErr?.errors?.[0]?.code || "";
-      const msg =
+      setError(
         code === "form_password_incorrect"   ? "Incorrect password." :
         code === "form_identifier_not_found" ? "Admin account not found." :
-        clerkErr?.errors?.[0]?.message || "Login failed";
-      setError(msg);
+        clerkErr?.errors?.[0]?.message || "Login failed"
+      );
       setLoading(false);
     }
   }
@@ -89,35 +132,54 @@ export default function SignInPage() {
     e.preventDefault();
     if (!isLoaded) return;
     setError(""); setLoading(true);
+
+    // 1. Office hours check
+    if (!isOfficeHoursNow()) {
+      setError("Access denied: CRM is only available Mon–Sat 9:30 AM – 7:30 PM (IST).");
+      setLoading(false); return;
+    }
+
+    // 2. Location check
+    if (locStatus === "far") {
+      setError(`Access denied: You are ${distanceM}m away from office. Must be within ${OFFICE.radius}m.`);
+      setLoading(false); return;
+    }
+    if (locStatus === "denied") {
+      setError("Location access required. Please allow location permission and try again.");
+      setLoading(false); return;
+    }
+    if (locStatus === "checking") {
+      setError("Checking your location... please wait.");
+      setLoading(false); return;
+    }
+
+    // 3. Authenticate
     try {
-      // Always use backend — bypasses breach check & 2FA
       const res = await fetch("/api/auth/employee-signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: empEmail, password: empPassword }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Invalid email or password."); return; }
+      if (!res.ok) { setError(data.error || "Invalid email or password."); setLoading(false); return; }
 
       const tokenResult = await signIn!.create({ strategy: "ticket", ticket: data.token });
       if (tokenResult.status === "complete") {
         await setActive!({ session: tokenResult.createdSessionId });
-        router.push("/employee");
-        return;
+        router.push("/employee"); return;
       }
       setError("Login failed. Contact admin.");
     } catch (err: unknown) {
       const clerkErr = err as { errors?: Array<{ message: string; code: string }> };
       const code = clerkErr?.errors?.[0]?.code || "";
-      const msg  =
+      setError(
         code === "form_password_incorrect"   ? "Incorrect password." :
         code === "form_identifier_not_found" ? "No account found. Contact admin." :
         code === "too_many_requests"         ? "Too many attempts. Wait a few minutes." :
-        clerkErr?.errors?.[0]?.message || "Login failed. Contact admin.";
-      setError(msg);
-    } finally {
-      setLoading(false);
+        clerkErr?.errors?.[0]?.message || "Login failed. Contact admin."
+      );
     }
+    setLoading(false);
   }
 
   return (

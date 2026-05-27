@@ -38,7 +38,27 @@ export default function AdminPanelPage() {
   const [stats, setStats]       = useState<any>(null);
   const [loading, setLoading]   = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "system">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "live" | "system">("overview");
+  const [liveUsers, setLiveUsers] = useState<any[]>([]);
+  const [liveLoading, setLiveLoading] = useState(false);
+
+  async function fetchLive() {
+    setLiveLoading(true);
+    try {
+      const res  = await fetch("/api/admin/active-users");
+      const data = await res.json();
+      setLiveUsers(Array.isArray(data) ? data : []);
+    } catch {}
+    setLiveLoading(false);
+  }
+
+  useEffect(() => {
+    if (activeTab === "live") {
+      fetchLive();
+      const interval = setInterval(fetchLive, 30_000); // refresh every 30s
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     Promise.all([
@@ -124,12 +144,20 @@ export default function AdminPanelPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
-        {(["overview", "users", "system"] as const).map(t => (
+        {(["overview", "users", "live", "system"] as const).map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
               activeTab === t ? "bg-red-500/20 border border-red-500/30 text-red-300" : "text-muted-foreground hover:text-white"
             }`}>
-            {t}
+            {t === "live" ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Live
+                {liveUsers.length > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{liveUsers.length}</span>
+                )}
+              </span>
+            ) : t}
           </button>
         ))}
       </div>
@@ -288,6 +316,123 @@ export default function AdminPanelPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── LIVE TAB ── */}
+      {activeTab === "live" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-white flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live Activity
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Active users in last 5 minutes · Auto-refresh every 30s</p>
+            </div>
+            <button onClick={fetchLive} disabled={liveLoading}
+              className="p-2 rounded-lg bg-white/5 border border-white/10 text-muted-foreground hover:text-white transition-all">
+              <RefreshCw className={`w-4 h-4 ${liveLoading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+
+          {liveLoading && liveUsers.length === 0 ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+            </div>
+          ) : liveUsers.length === 0 ? (
+            <div className="glass-card p-10 text-center">
+              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-muted-foreground opacity-40" />
+              </div>
+              <p className="text-white font-medium">No one is online right now</p>
+              <p className="text-xs text-muted-foreground mt-1">When someone opens the CRM, they will appear here</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {liveUsers.map((u: any) => {
+                const minsAgo = Math.floor((Date.now() - u.lastSeen) / 60000);
+                const pageName = u.page?.replace(/\//, "").replace(/-/g, " ") || "dashboard";
+                return (
+                  <motion.div key={u.clerkId}
+                    initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                    className={`glass-card p-4 border ${
+                      u.isOnline ? "border-emerald-500/30 bg-emerald-500/5" : "border-white/10"
+                    }`}>
+                    <div className="flex items-center gap-3">
+                      {/* Avatar */}
+                      <div className="relative flex-shrink-0">
+                        {u.avatar ? (
+                          <img src={u.avatar} alt={u.name} className="w-11 h-11 rounded-full object-cover border-2 border-white/10" />
+                        ) : (
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                            style={{ background: "linear-gradient(135deg,#ca8a04,#eab308)" }}>
+                            {u.name?.[0]?.toUpperCase()}
+                          </div>
+                        )}
+                        {/* Online dot */}
+                        <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#04080f] ${
+                          u.isOnline ? "bg-emerald-400 animate-pulse" : "bg-yellow-400"
+                        }`} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-white text-sm truncate">{u.name}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full border flex-shrink-0 ${ROLE_COLORS[u.role] ?? "bg-white/10 text-white border-white/10"}`}>
+                            {u.role?.replace("_"," ")}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-xs font-medium ${
+                            u.isOnline ? "text-emerald-400" : "text-yellow-400"
+                          }`}>
+                            {u.isOnline ? "🟢 Online now" : `🟡 ${minsAgo}m ago`}
+                          </span>
+                        </div>
+                        {/* All open tabs */}
+                        {u.tabs?.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {u.tabs.map((tab: string) => {
+                              const label = tab.replace(/^\//,"").replace(/-/g," ").replace(/\//g, " › ") || "dashboard";
+                              const isActive = tab === u.tabs[u.tabs.length - 1];
+                              return (
+                                <span key={tab} className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                                  isActive
+                                    ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-300"
+                                    : "bg-white/5 border-white/10 text-muted-foreground"
+                                }`}>
+                                  {isActive ? "🟢" : "🟡"} {label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Summary bar */}
+          {liveUsers.length > 0 && (
+            <div className="glass-card p-4 flex items-center gap-6 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-sm text-white font-medium">{liveUsers.filter(u => u.isOnline).length} Online now</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                <span className="text-sm text-muted-foreground">{liveUsers.filter(u => !u.isOnline).length} Recently active</span>
+              </div>
+              <div className="ml-auto text-xs text-muted-foreground">
+                Total active: {liveUsers.length} / {users.length} users
+              </div>
             </div>
           )}
         </div>

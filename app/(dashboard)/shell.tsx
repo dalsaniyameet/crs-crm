@@ -38,16 +38,39 @@ function NavProgress() {
   );
 }
 
-function UserAvatar({ name = "A", imageUrl }: { name?: string; imageUrl?: string }) {
-  if (imageUrl) return (
-    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-white/10">
-      <Image src={imageUrl} alt={name} width={32} height={32} className="object-cover w-full h-full" />
-    </div>
-  );
+function getAvatarColor(name: string) {
+  const colors = [
+    ["#7c3aed","#a855f7"], ["#1d4ed8","#3b82f6"], ["#0f766e","#14b8a6"],
+    ["#b45309","#f59e0b"], ["#be123c","#f43f5e"], ["#15803d","#22c55e"],
+    ["#c2410c","#f97316"], ["#0e7490","#06b6d4"],
+  ];
+  const i = name.charCodeAt(0) % colors.length;
+  return `linear-gradient(135deg,${colors[i][0]},${colors[i][1]})`;
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(" ").filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name[0]?.toUpperCase() || "?";
+}
+
+function UserAvatar({ name = "A", imageUrl, size = 32 }: { name?: string; imageUrl?: string; size?: number }) {
+  const [imgError, setImgError] = useState(false);
+  const showImage = imageUrl && !imgError;
+  const px = `${size}px`;
   return (
-    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-      style={{ background: "linear-gradient(135deg,#ca8a04,#eab308)" }}>
-      {name[0].toUpperCase()}
+    <div className="rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center relative"
+      style={{ width: px, height: px, border: "2px solid rgba(255,255,255,0.12)", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+      {showImage ? (
+        <Image src={imageUrl!} alt={name} width={size} height={size}
+          className="object-cover w-full h-full"
+          onError={() => setImgError(true)} />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center font-bold text-white select-none"
+          style={{ background: getAvatarColor(name), fontSize: size <= 28 ? "10px" : size <= 36 ? "12px" : "14px", letterSpacing: "0.05em" }}>
+          {getInitials(name)}
+        </div>
+      )}
     </div>
   );
 }
@@ -105,6 +128,67 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const clerkName = user?.fullName || user?.firstName || "";
   const userEmail = user?.primaryEmailAddress?.emailAddress || "";
   const [dbAvatar, setDbAvatar] = useState("");
+
+  // ── Heartbeat: ping server with ALL open tabs so admin can see everything ──
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+
+    // Track all open tabs in localStorage
+    const TAB_KEY = "crs_open_tabs";
+    const tabId   = `${pathname}_${Date.now()}`;
+
+    // Read existing tabs, add current page
+    function getOpenTabs(): string[] {
+      try {
+        const stored = JSON.parse(localStorage.getItem(TAB_KEY) || "[]");
+        const pages  = Array.isArray(stored) ? stored : [];
+        // Add current page if not already there
+        if (!pages.includes(pathname)) pages.push(pathname);
+        return [...new Set(pages)];
+      } catch { return [pathname]; }
+    }
+
+    function saveOpenTabs(tabs: string[]) {
+      try { localStorage.setItem(TAB_KEY, JSON.stringify(tabs)); } catch {}
+    }
+
+    const currentTabs = getOpenTabs();
+    saveOpenTabs(currentTabs);
+
+    const ping = () => {
+      const allTabs = getOpenTabs();
+      fetch("/api/admin/active-users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          page:    pathname,
+          allTabs,
+          avatar:  user?.imageUrl || "",
+        }),
+      }).catch(() => {});
+    };
+
+    ping();
+    const interval = setInterval(ping, 30_000); // every 30s
+
+    // On tab close, remove this page from tabs
+    const handleUnload = () => {
+      try {
+        const tabs = getOpenTabs().filter(t => t !== pathname);
+        saveOpenTabs(tabs);
+        // Send sync beacon
+        navigator.sendBeacon("/api/admin/active-users",
+          JSON.stringify({ page: pathname, allTabs: tabs, closedTab: pathname, avatar: user?.imageUrl || "" })
+        );
+      } catch {}
+    };
+    window.addEventListener("beforeunload", handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("beforeunload", handleUnload);
+    };
+  }, [isLoaded, user, pathname]);
 
   useEffect(() => {
     if (!userEmail) return;

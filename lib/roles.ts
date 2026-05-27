@@ -28,6 +28,7 @@ const ALL_NAV = [
   { href: "/team-chat",       label: "Team Chat",         icon: MessageCircle,   roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/ai-assistant",    label: "AI Assistant",      icon: Bot,             roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"], highlight: true },
   { href: "/admin-users",     label: "User Management",   icon: ShieldCheck,     roles: ["ADMIN"] },
+  { href: "/admin-panel",     label: "Admin Panel",       icon: LayoutDashboard, roles: ["ADMIN"] },
   { href: "/settings",        label: "Settings",          icon: Settings,        roles: ["ADMIN"] },
 ];
 

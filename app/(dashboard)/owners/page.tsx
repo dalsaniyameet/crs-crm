@@ -114,7 +114,7 @@ function LogReply({ ownerId, onSaved }: { ownerId: string; onSaved: (msg: OwnerM
     <div className="space-y-2 p-3 rounded-lg bg-white/5 border border-white/10">
       <p className="text-xs text-muted-foreground">Paste owner's reply from WhatsApp:</p>
       <textarea rows={3} value={text} onChange={e => setText(e.target.value)}
-        placeholder="Owner ka reply yahan paste karo..."
+        placeholder="Paste owner's reply from WhatsApp here..."
         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-estate-500/50 resize-none" />
       <div className="flex gap-2">
         <button onClick={() => setOpen(false)}
@@ -144,9 +144,95 @@ interface Client {
 }
 
 export default function OwnersPage() {
-  const [activeTab, setActiveTab]   = useState<"owners" | "clients">("owners");
+  const [activeTab, setActiveTab]   = useState<"owners" | "clients" | "store">("owners");
   const [owners, setOwners]         = useState<Owner[]>([]);
   const router = useRouter();
+
+  // ── Store state ──
+  interface StoreItem {
+    id: string; ownerId: string; title: string; propertyType?: string;
+    transactionType?: string; price?: number; area?: number; floor?: string;
+    locality?: string; address?: string; furnishing?: string; status: string;
+    imageUrl?: string; notes?: string; listedAt: string;
+    owner: { id: string; name: string; phone: string; locality?: string };
+  }
+  const [storeItems, setStoreItems]       = useState<StoreItem[]>([]);
+  const [storeLoading, setStoreLoading]   = useState(false);
+  const [showAddStore, setShowAddStore]   = useState(false);
+  const [savingStore, setSavingStore]     = useState(false);
+  const [storeSearch, setStoreSearch]     = useState("");
+  const [storeFilterType, setStoreFilterType]   = useState("ALL");
+  const [storeFilterTxn, setStoreFilterTxn]     = useState("ALL");
+  const [storeFilterStatus, setStoreFilterStatus] = useState("ALL");
+  const storeImgRef = useRef<HTMLInputElement>(null);
+  const [uploadingStoreImg, setUploadingStoreImg] = useState(false);
+  const STORE_EMPTY = { ownerId: "", title: "", propertyType: "", transactionType: "",
+    price: "", area: "", floor: "", locality: "", address: "", furnishing: "",
+    status: "AVAILABLE", imageUrl: "", notes: "", listedAt: new Date().toISOString().split("T")[0] };
+  const [storeForm, setStoreForm] = useState(STORE_EMPTY);
+
+  async function fetchStore() {
+    setStoreLoading(true);
+    try {
+      const res  = await fetch("/api/owners/store");
+      const data = await res.json();
+      setStoreItems(Array.isArray(data) ? data : []);
+    } catch { toast.error("Failed to load store"); }
+    setStoreLoading(false);
+  }
+
+  useEffect(() => { if (activeTab === "store") fetchStore(); }, [activeTab]);
+
+  async function uploadStoreImage(file: File) {
+    setUploadingStoreImg(true);
+    const fd = new FormData();
+    fd.append("file", file); fd.append("folder", "store");
+    const res  = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.url) { setStoreForm(f => ({ ...f, imageUrl: data.url })); toast.success("Image uploaded!"); }
+    else toast.error("Upload failed");
+    setUploadingStoreImg(false);
+  }
+
+  async function handleSaveStore(e: React.FormEvent) {
+    e.preventDefault();
+    if (!storeForm.ownerId || !storeForm.title) { toast.error("Owner aur Title required hai"); return; }
+    setSavingStore(true);
+    try {
+      const res  = await fetch("/api/owners/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...storeForm, price: storeForm.price ? Number(storeForm.price) : null, area: storeForm.area ? Number(storeForm.area) : null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setStoreItems(prev => [data, ...prev]);
+      setShowAddStore(false);
+      setStoreForm(STORE_EMPTY);
+      toast.success("Property added to store! ✅");
+    } catch (err: unknown) { toast.error((err as Error).message || "Failed"); }
+    setSavingStore(false);
+  }
+
+  async function deleteStoreItem(id: string) {
+    if (!confirm("Remove this property?")) return;
+    await fetch(`/api/owners/store?id=${id}`, { method: "DELETE" });
+    setStoreItems(prev => prev.filter(s => s.id !== id));
+    toast.success("Removed");
+  }
+
+  const filteredStore = storeItems.filter(s => {
+    const q = storeSearch.toLowerCase();
+    const textMatch = !q || s.title.toLowerCase().includes(q) ||
+      (s.locality || "").toLowerCase().includes(q) ||
+      s.owner.name.toLowerCase().includes(q) ||
+      s.owner.phone.includes(q);
+    if (!textMatch) return false;
+    if (storeFilterType !== "ALL" && s.propertyType !== storeFilterType) return false;
+    if (storeFilterTxn  !== "ALL" && s.transactionType !== storeFilterTxn) return false;
+    if (storeFilterStatus !== "ALL" && s.status !== storeFilterStatus) return false;
+    return true;
+  });
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState("");
   const [filterType, setFilterType] = useState("ALL");
@@ -384,9 +470,13 @@ export default function OwnersPage() {
   const [form, setForm] = useState(EMPTY);
 
   useEffect(() => {
-    fetch("/api/owners").then(r => r.json())
-      .then(d => { setOwners(Array.isArray(d) ? d : []); setLoading(false); })
-      .catch(() => setLoading(false));
+    Promise.all([
+      fetch("/api/owners").then(r => r.json()),
+      fetch("/api/leads?limit=500").then(r => r.json()),
+    ]).then(([ownersData, leadsData]) => {
+      setOwners(Array.isArray(ownersData) ? ownersData : []);
+      setClients(Array.isArray(leadsData.leads) ? leadsData.leads : []);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   async function handleScan(file: File) {
@@ -441,6 +531,29 @@ export default function OwnersPage() {
           // Add to list
           setOwners(prev => [{ ...savedOwner, properties: [] }, ...prev]);
           toast.success(`✅ ${ownerData.name} saved! Opening WhatsApp...`);
+
+          // Auto-create store entry if property data exists
+          if (data.propertyType || data.price || data.area) {
+            fetch("/api/owners/store", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ownerId:         savedOwner.id,
+                title:           data.propertyTitle || `${data.propertyType || "Property"} - ${data.locality || ownerData.locality || ownerData.name}`,
+                propertyType:    data.propertyType    || null,
+                transactionType: data.transactionType || null,
+                price:           data.price           ? Number(data.price) : null,
+                area:            data.area            ? Number(data.area)  : null,
+                floor:           data.floor           || null,
+                locality:        data.locality        || ownerData.locality || null,
+                address:         data.address         || ownerData.address  || null,
+                furnishing:      data.furnishing      || null,
+                status:          "AVAILABLE",
+                imageUrl:        data.imageUrl        || null,
+                notes:           data.amenities       || data.description   || null,
+              }),
+            }).catch(() => {});
+          }
           
           // Auto-open WhatsApp
           const clean = ownerData.phone.replace(/\D/g, "").slice(-10);
@@ -528,7 +641,31 @@ export default function OwnersPage() {
             body: JSON.stringify(ownerData),
           });
           const saved = await saveRes.json();
-          if (saveRes.ok) setOwners(prev => [{ ...saved, properties: [] }, ...prev]);
+          if (saveRes.ok) {
+            setOwners(prev => [{ ...saved, properties: [] }, ...prev]);
+            // Auto-create store entry
+            if (data.propertyType || data.price || data.area) {
+              fetch("/api/owners/store", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ownerId:         saved.id,
+                  title:           data.propertyTitle || `${data.propertyType || "Property"} - ${data.locality || data.ownerName}`,
+                  propertyType:    data.propertyType    || null,
+                  transactionType: data.transactionType || null,
+                  price:           data.price           ? Number(data.price) : null,
+                  area:            data.area            ? Number(data.area)  : null,
+                  floor:           data.floor           || null,
+                  locality:        data.locality        || null,
+                  address:         data.address         || null,
+                  furnishing:      data.furnishing      || null,
+                  status:          "AVAILABLE",
+                  imageUrl:        data.imageUrl        || null,
+                  notes:           data.amenities       || data.description  || null,
+                }),
+              }).catch(() => {});
+            }
+          }
         }
         setBatchResults(prev => prev.map((r, idx) => idx === i
           ? { ...r, status: "done", name: data.ownerName || "Unknown", phone: data.ownerPhone || "No phone" } : r));
@@ -607,6 +744,51 @@ export default function OwnersPage() {
       } else {
         setOwners(prev => [{ ...data, properties: [] }, ...prev]);
         toast.success("Owner saved!");
+
+        // Auto-create store entry from scanned card data
+        const sc = scanned;
+        if (sc && (sc.propertyType || sc.price || sc.area)) {
+          fetch("/api/owners/store", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ownerId:         data.id,
+              title:           sc.propertyTitle || `${sc.propertyType || "Property"} - ${sc.locality || form.locality || form.name}`,
+              propertyType:    sc.propertyType    || null,
+              transactionType: sc.transactionType || null,
+              price:           sc.price           ? Number(sc.price) : null,
+              area:            sc.area            ? Number(sc.area)  : null,
+              floor:           sc.floor           || null,
+              locality:        sc.locality        || form.locality   || null,
+              address:         sc.address         || form.address    || null,
+              furnishing:      sc.furnishing      || null,
+              status:          "AVAILABLE",
+              imageUrl:        sc.imageUrl        || null,
+              notes:           sc.amenities       || sc.description  || null,
+            }),
+          }).catch(() => {});
+        } else if (!sc && (form.propertyType || form.price || form.area)) {
+          // Manual entry with property details
+          fetch("/api/owners/store", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ownerId:         data.id,
+              title:           `${form.propertyType || "Property"} - ${form.locality || form.name}`,
+              propertyType:    form.propertyType    || null,
+              transactionType: form.transactionType || null,
+              price:           form.price           ? Number(form.price) : null,
+              area:            form.area            ? Number(form.area)  : null,
+              floor:           form.floor           || null,
+              locality:        form.locality        || null,
+              address:         form.address         || null,
+              furnishing:      form.furnishing      || null,
+              status:          "AVAILABLE",
+              imageUrl:        null,
+              notes:           form.notes           || null,
+            }),
+          }).catch(() => {});
+        }
       }
 
       // If scanned property card and user wants to save as property
@@ -861,7 +1043,7 @@ export default function OwnersPage() {
     setClientsLoading(false);
   }
 
-  useEffect(() => { if (activeTab === "clients") fetchClients(); }, [activeTab]);
+  useEffect(() => { if (activeTab === "clients" && clients.length === 0) fetchClients(); }, [activeTab]);
 
   async function handleAddClient(e: React.FormEvent) {
     e.preventDefault();
@@ -1214,6 +1396,15 @@ export default function OwnersPage() {
           <Users className="w-4 h-4" /> Clients
           <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/10">{clients.length}</span>
         </button>
+        <button onClick={() => setActiveTab("store")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === "store"
+              ? "bg-emerald-600/40 border border-emerald-500/50 text-emerald-300"
+              : "text-muted-foreground hover:text-white"
+          }`}>
+          <Building2 className="w-4 h-4" /> Property Store
+          <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/10">{storeItems.length}</span>
+        </button>
       </div>
 
       {/* ════ CLIENTS TAB ════ */}
@@ -1223,7 +1414,7 @@ export default function OwnersPage() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold text-white">Clients</h1>
-              <p className="text-sm text-muted-foreground mt-1">{filteredClients.length}/{clients.length} clients · Call, WA, Email seedha yahan se</p>
+              <p className="text-sm text-muted-foreground mt-1">{filteredClients.length}/{clients.length} clients · Call, WA, Email directly from here</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => clientImportRef.current?.click()} disabled={clientImporting}
@@ -1267,7 +1458,7 @@ export default function OwnersPage() {
             <div className="text-center py-16 text-muted-foreground">
               <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p className="text-sm">No clients yet.</p>
-              <p className="text-xs mt-1 opacity-60">Excel import karo ya manually add karo</p>
+              <p className="text-xs mt-1 opacity-60">Import from Excel or add manually</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1478,6 +1669,332 @@ export default function OwnersPage() {
                         className="flex-1 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 text-sm font-medium hover:bg-blue-500/30 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
                         {savingClient ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
                         {savingClient ? "Saving..." : "Add Client"}
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* ════ STORE TAB ════ */}
+      {activeTab === "store" && (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-white">Property Store 🏢</h1>
+              <p className="text-sm text-muted-foreground mt-1">{filteredStore.length}/{storeItems.length} properties · Date wise sorted</p>
+            </div>
+            <button onClick={() => { setStoreForm(STORE_EMPTY); setShowAddStore(true); }}
+              className="btn-primary flex items-center gap-2 text-sm">
+              <Plus className="w-4 h-4" /> Add Property
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="flex gap-2 flex-wrap items-center">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input value={storeSearch} onChange={e => setStoreSearch(e.target.value)}
+                placeholder="Search property, owner, locality..."
+                className="bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-emerald-500/50 w-56" />
+            </div>
+            <select value={storeFilterTxn} onChange={e => setStoreFilterTxn(e.target.value)}
+              className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground focus:outline-none">
+              <option value="ALL">All Types</option>
+              <option value="RENT">🔑 Rent</option>
+              <option value="SELL">💰 Sell</option>
+              <option value="LEASE">📜 Lease</option>
+            </select>
+            <select value={storeFilterType} onChange={e => setStoreFilterType(e.target.value)}
+              className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground focus:outline-none">
+              <option value="ALL">All Property Types</option>
+              {["OFFICE","SHOP","SHOWROOM","WAREHOUSE","APARTMENT","VILLA","PLOT","PENTHOUSE","STUDIO","COMMERCIAL_LAND","INDUSTRIAL"].map(t => (
+                <option key={t} value={t}>{TYPE_ICON[t]} {t.replace(/_/g," ")}</option>
+              ))}
+            </select>
+            <select value={storeFilterStatus} onChange={e => setStoreFilterStatus(e.target.value)}
+              className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground focus:outline-none">
+              <option value="ALL">All Status</option>
+              <option value="AVAILABLE">✅ Available</option>
+              <option value="RENTED">🔑 Rented</option>
+              <option value="SOLD">🏠 Sold</option>
+            </select>
+            {(storeSearch || storeFilterType !== "ALL" || storeFilterTxn !== "ALL" || storeFilterStatus !== "ALL") && (
+              <button onClick={() => { setStoreSearch(""); setStoreFilterType("ALL"); setStoreFilterTxn("ALL"); setStoreFilterStatus("ALL"); }}
+                className="px-2 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-xs text-red-400">✕ Clear</button>
+            )}
+          </div>
+
+          {/* Store Grid */}
+          {storeLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1,2,3].map(i => <div key={i} className="glass-card h-48 animate-pulse bg-white/5" />)}
+            </div>
+          ) : filteredStore.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>No properties in store yet.</p>
+              <p className="text-xs mt-1 opacity-60">Add owner's property here</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredStore.map(item => (
+                <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="glass-card overflow-hidden">
+                  {/* Property Image */}
+                  <div className="relative h-36 bg-white/5">
+                    {item.imageUrl ? (
+                      <Image src={item.imageUrl} alt={item.title} fill className="object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-4xl">
+                        {TYPE_ICON[item.propertyType || ""] || "🏢"}
+                      </div>
+                    )}
+                    {/* Status badge */}
+                    <div className={`absolute top-2 right-2 text-xs px-2 py-0.5 rounded-full font-medium ${
+                      item.status === "AVAILABLE" ? "bg-emerald-500/80 text-white" :
+                      item.status === "RENTED"    ? "bg-blue-500/80 text-white" :
+                      "bg-red-500/80 text-white"
+                    }`}>{item.status}</div>
+                    {/* Date badge */}
+                    <div className="absolute bottom-2 left-2 text-xs px-2 py-0.5 rounded-full bg-black/60 text-white">
+                      📅 {new Date(item.listedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                    </div>
+                  </div>
+
+                  <div className="p-3 space-y-2">
+                    {/* Title + Type */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-white text-sm truncate">{item.title}</p>
+                        {item.locality && <p className="text-xs text-muted-foreground">📍 {item.locality}</p>}
+                      </div>
+                      <button onClick={() => deleteStoreItem(item.id)}
+                        className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 flex-shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1">
+                      {item.propertyType && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gold-500/10 border border-gold-500/20 text-gold-400">
+                          {TYPE_ICON[item.propertyType]} {item.propertyType}
+                        </span>
+                      )}
+                      {item.transactionType && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TX_COLOR[item.transactionType] || "bg-white/5 border-white/10 text-muted-foreground"}`}>
+                          {item.transactionType}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Price + Area */}
+                    {(item.price || item.area) && (
+                      <div className="flex gap-3">
+                        {item.price && (
+                          <div className="text-center p-1.5 rounded-lg bg-white/5 flex-1">
+                            <div className="text-xs font-bold text-gold-400">{fmtPrice(item.price, item.transactionType || "")}</div>
+                            <div className="text-xs text-muted-foreground">Price</div>
+                          </div>
+                        )}
+                        {item.area && (
+                          <div className="text-center p-1.5 rounded-lg bg-white/5 flex-1">
+                            <div className="text-xs font-bold text-white">{item.area}</div>
+                            <div className="text-xs text-muted-foreground">Sq.ft</div>
+                          </div>
+                        )}
+                        {item.floor && (
+                          <div className="text-center p-1.5 rounded-lg bg-white/5 flex-1">
+                            <div className="text-xs font-bold text-white">{item.floor}</div>
+                            <div className="text-xs text-muted-foreground">Floor</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Owner */}
+                    <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-estate-500/20 flex items-center justify-center text-xs font-bold text-estate-400">
+                          {item.owner.name[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-white">{item.owner.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.owner.phone}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <a href={`tel:${item.owner.phone}`}
+                          className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all">
+                          <Phone className="w-3 h-3" />
+                        </a>
+                        <a href={`https://wa.me/91${item.owner.phone.replace(/\D/g,"").slice(-10)}`} target="_blank" rel="noreferrer"
+                          className="p-1.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all">
+                          <MessageSquare className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Add Property Modal */}
+          <AnimatePresence>
+            {showAddStore && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                onClick={e => e.target === e.currentTarget && setShowAddStore(false)}>
+                <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+                  className="glass-card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-lg font-bold text-white">🏢 Add to Property Store</h2>
+                    <button onClick={() => setShowAddStore(false)} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
+                  </div>
+                  <form onSubmit={handleSaveStore} className="space-y-3">
+                    {/* Owner select */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Owner *</label>
+                      <select required value={storeForm.ownerId} onChange={e => {
+                        const o = owners.find(x => x.id === e.target.value);
+                        setStoreForm(f => ({ ...f, ownerId: e.target.value, locality: o?.locality || f.locality }));
+                      }} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50">
+                        <option value="">Select owner...</option>
+                        {owners.map(o => (
+                          <option key={o.id} value={o.id} className="bg-[#0f1f35]">{o.name} · {o.phone}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Title */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Property Title *</label>
+                      <input required value={storeForm.title} onChange={e => setStoreForm(f => ({ ...f, title: e.target.value }))}
+                        placeholder="e.g. 2BHK Flat in Satellite"
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500/50" />
+                    </div>
+                    {/* Type + Transaction */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Property Type</label>
+                        <select value={storeForm.propertyType} onChange={e => setStoreForm(f => ({ ...f, propertyType: e.target.value }))}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50">
+                          <option value="">Select</option>
+                          {["OFFICE","SHOP","SHOWROOM","WAREHOUSE","APARTMENT","VILLA","PLOT","PENTHOUSE","STUDIO","COMMERCIAL_LAND","INDUSTRIAL"].map(t => (
+                            <option key={t} value={t} className="bg-[#0f1f35]">{t.replace(/_/g," ")}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Transaction</label>
+                        <select value={storeForm.transactionType} onChange={e => setStoreForm(f => ({ ...f, transactionType: e.target.value }))}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50">
+                          <option value="">Select</option>
+                          <option value="RENT">RENT</option>
+                          <option value="SELL">SELL</option>
+                          <option value="LEASE">LEASE</option>
+                        </select>
+                      </div>
+                    </div>
+                    {/* Price + Area + Floor */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Price (₹)</label>
+                        <input type="number" value={storeForm.price} onChange={e => setStoreForm(f => ({ ...f, price: e.target.value }))}
+                          placeholder="5000000"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500/50" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Area (sqft)</label>
+                        <input type="number" value={storeForm.area} onChange={e => setStoreForm(f => ({ ...f, area: e.target.value }))}
+                          placeholder="1200"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500/50" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Floor</label>
+                        <input value={storeForm.floor} onChange={e => setStoreForm(f => ({ ...f, floor: e.target.value }))}
+                          placeholder="3"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500/50" />
+                      </div>
+                    </div>
+                    {/* Locality + Date */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Locality</label>
+                        <input value={storeForm.locality} onChange={e => setStoreForm(f => ({ ...f, locality: e.target.value }))}
+                          placeholder="Satellite, Prahlad Nagar..."
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500/50" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Listed Date</label>
+                        <input type="date" value={storeForm.listedAt} onChange={e => setStoreForm(f => ({ ...f, listedAt: e.target.value }))}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50" />
+                      </div>
+                    </div>
+                    {/* Status + Furnishing */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+                        <select value={storeForm.status} onChange={e => setStoreForm(f => ({ ...f, status: e.target.value }))}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50">
+                          <option value="AVAILABLE">Available</option>
+                          <option value="RENTED">Rented</option>
+                          <option value="SOLD">Sold</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Furnishing</label>
+                        <select value={storeForm.furnishing} onChange={e => setStoreForm(f => ({ ...f, furnishing: e.target.value }))}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50">
+                          <option value="">Select</option>
+                          <option value="FURNISHED">Furnished</option>
+                          <option value="SEMI_FURNISHED">Semi Furnished</option>
+                          <option value="UNFURNISHED">Unfurnished</option>
+                        </select>
+                      </div>
+                    </div>
+                    {/* Image Upload */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">📸 Property Photo</label>
+                      {storeForm.imageUrl ? (
+                        <div className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
+                          <Image src={storeForm.imageUrl} alt="prop" width={60} height={60} className="rounded-lg object-cover flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs text-emerald-400">✅ Photo uploaded</p>
+                          </div>
+                          <button type="button" onClick={() => setStoreForm(f => ({ ...f, imageUrl: "" }))} className="text-red-400">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => storeImgRef.current?.click()} disabled={uploadingStoreImg}
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-white/5 border border-dashed border-white/20 text-xs text-muted-foreground hover:text-white hover:border-white/40 transition-all disabled:opacity-50">
+                          {uploadingStoreImg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                          {uploadingStoreImg ? "Uploading..." : "Upload property photo"}
+                        </button>
+                      )}
+                      <input ref={storeImgRef} type="file" accept="image/*" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadStoreImage(f); e.target.value = ""; }} />
+                    </div>
+                    {/* Notes */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+                      <textarea rows={2} value={storeForm.notes} onChange={e => setStoreForm(f => ({ ...f, notes: e.target.value }))}
+                        placeholder="Extra details..."
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500/50 resize-none" />
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <button type="button" onClick={() => setShowAddStore(false)}
+                        className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white">Cancel</button>
+                      <button type="submit" disabled={savingStore}
+                        className="flex-1 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-medium hover:bg-emerald-500/30 disabled:opacity-60 flex items-center justify-center gap-2">
+                        {savingStore ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                        {savingStore ? "Saving..." : "Save Property"}
                       </button>
                     </div>
                   </form>
@@ -1983,7 +2500,7 @@ export default function OwnersPage() {
                           </div>
                         ))}
                       </div>
-                      <p className="text-xs text-muted-foreground">⚠️ Ye owners already leads mein hain — inhe carefully follow up karo.</p>
+                      <p className="text-xs text-muted-foreground">⚠️ These owners are already in leads — follow up carefully.</p>
                     </div>
                   )}
 
@@ -2013,7 +2530,7 @@ export default function OwnersPage() {
               <div className="flex items-center justify-between mb-5">
                 <div>
                   <h2 className="text-lg font-bold text-white">📇 Scan Owner Cards</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">JPG · PNG · WEBP · PDF — 1 se 500 cards scan karo</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">JPG · PNG · WEBP · PDF — scan 1 to 500 cards</p>
                 </div>
                 {!batchRunning && (
                   <button onClick={() => { setShowScan(false); setBatchFiles([]); setBatchResults([]); }}
@@ -2624,7 +3141,7 @@ export default function OwnersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-white">📢 WhatsApp Blast</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">{selectedIds.size} owners ko message bhejoge</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{selectedIds.size} owners will receive this message</p>
               </div>
               {!blasting && (
                 <button onClick={() => setShowBlast(false)} className="text-muted-foreground hover:text-white">
@@ -2660,7 +3177,7 @@ export default function OwnersPage() {
                     📋 Copy Image Link
                   </button>
                   <div className="p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400">
-                    💡 WA mein message send karo → phir “+” se image attach karo gallery se
+                    💡 In WA send the message → then attach image via "+" from gallery
                   </div>
                 </div>
               ) : (
@@ -2706,7 +3223,7 @@ export default function OwnersPage() {
                     <Image src={blastImage} alt="card" width={40} height={40} className="rounded-lg object-cover flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-yellow-400 font-medium">📸 Attach your card in WA too!</p>
-                      <p className="text-xs text-muted-foreground">Message send karo → phir “+” se image attach karo</p>
+                      <p className="text-xs text-muted-foreground">Send message → then attach image via "+" button</p>
                     </div>
                     <button onClick={() => { navigator.clipboard.writeText(blastImage); toast.success("Copied!"); }}
                       className="text-xs text-yellow-400 border border-yellow-500/30 rounded px-2 py-1 flex-shrink-0">
