@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { Loader2, CheckCircle2, Phone, Building2, TrendingUp, Users, Calendar, ClipboardList, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -17,7 +18,10 @@ function toDateKey(d: Date) {
 }
 
 export default function EmployeeDailyReportPage() {
+  const { user, isLoaded } = useUser();
   const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [empName, setEmpName]       = useState("");
+  const [notFound, setNotFound]     = useState(false);
   const [form, setForm]             = useState(EMPTY);
   const [saving, setSaving]         = useState(false);
   const [submitted, setSubmitted]   = useState(false);
@@ -26,12 +30,37 @@ export default function EmployeeDailyReportPage() {
   const [pastReports, setPastReports] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState(toDateKey(new Date()));
 
+  // Fetch employee profile from API using Clerk session
   useEffect(() => {
-    const stored = localStorage.getItem("employeeProfile");
-    if (stored) {
-      try { setEmployeeId(JSON.parse(stored).id); } catch {}
-    }
-  }, []);
+    if (!isLoaded) return;
+    if (!user) { setLoading(false); return; }
+
+    fetch("/api/employee/profile")
+      .then(r => r.json())
+      .then(emp => {
+        if (emp?.id) {
+          setEmployeeId(emp.id);
+          setEmpName(emp.name || "");
+        } else {
+          // Try creating employee profile from user data
+          const email = user.primaryEmailAddress?.emailAddress || "";
+          const name  = user.fullName || user.firstName || email.split("@")[0] || "Employee";
+          fetch("/api/employee/profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email }),
+          })
+            .then(r => r.json())
+            .then(created => {
+              if (created?.id) { setEmployeeId(created.id); setEmpName(created.name || ""); }
+              else setNotFound(true);
+            })
+            .catch(() => setNotFound(true));
+        }
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [isLoaded, user]);
 
   useEffect(() => {
     if (!employeeId) { setLoading(false); return; }
@@ -118,10 +147,25 @@ export default function EmployeeDailyReportPage() {
   const today  = toDateKey(new Date());
   const isToday = selectedDate === today;
 
-  if (!employeeId) return (
+  if (!isLoaded || loading) return (
+    <div className="p-6 flex items-center justify-center py-16">
+      <Loader2 className="w-6 h-6 animate-spin text-estate-400" />
+    </div>
+  );
+
+  if (!user) return (
     <div className="p-6 text-center text-muted-foreground">
       <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
-      <p>Employee login required</p>
+      <p>Please sign in to submit daily report</p>
+    </div>
+  );
+
+  if (notFound || !employeeId) return (
+    <div className="p-6 text-center text-muted-foreground">
+      <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
+      <p className="font-semibold text-white mb-1">Employee profile not found</p>
+      <p className="text-sm">Contact admin to add you as an employee.</p>
+      <p className="text-xs mt-2 text-muted-foreground">{user.primaryEmailAddress?.emailAddress}</p>
     </div>
   );
 
