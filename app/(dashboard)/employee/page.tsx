@@ -9,8 +9,9 @@ import {
   Clock, CalendarDays, CheckCircle2, XCircle, AlertCircle,
   Plus, Loader2, TrendingUp, Users, X, LogIn, LogOut, Coffee,
   Camera, Mail, Briefcase, Shield, User, LogOut as SignOutIcon,
-  FileText, Upload, Trash2, ExternalLink, ScanLine, MessageCircle, Send,
+  FileText, Upload, Trash2, ExternalLink, ScanLine, MessageCircle, Send, ScanFace,
 } from "lucide-react";
+import FacePunch from "@/components/attendance/FacePunch";
 
 function LiveTimer({ since, breakSecs = 0, small = false }: { since: string; breakSecs: number; small?: boolean }) {
   const [secs, setSecs] = useState(0);
@@ -83,6 +84,8 @@ export default function EmployeePanelPage() {
   const [form, setForm]               = useState({ type: "CASUAL", fromDate: "", toDate: "", reason: "" });
   const [todayRecord, setTodayRecord] = useState<any>(null);
   const [breakState, setBreakState]   = useState<{ start: number; total: number }>({ start: 0, total: 0 });
+  const [showFacePunch, setShowFacePunch] = useState(false);
+  const [facePunchAction, setFacePunchAction] = useState<"IN" | "OUT">("IN");
   const [documents, setDocuments]     = useState<any[]>([]);
   const [docUploading, setDocUploading] = useState(false);
   const [docForm, setDocForm]         = useState({ name: "", type: "SALARY_SLIP", notes: "" });
@@ -327,6 +330,21 @@ export default function EmployeePanelPage() {
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-3xl mx-auto">
 
+      {/* Face Punch Modal */}
+      <AnimatePresence>
+        {showFacePunch && (
+          <FacePunch
+            employeeName={userName}
+            action={facePunchAction}
+            onClose={() => setShowFacePunch(false)}
+            onSuccess={() => {
+              setShowFacePunch(false);
+              handlePunch(facePunchAction);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Sticky Punch Status Banner ── */}
       <AnimatePresence>
         {todayRecord && (
@@ -486,14 +504,14 @@ export default function EmployeePanelPage() {
               </div>
             </div>
             {todayRecord ? (
-              <button onClick={() => handlePunch("OUT")} disabled={punching}
+              <button onClick={() => { setFacePunchAction("OUT"); setShowFacePunch(true); }} disabled={punching}
                 className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50">
-                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />} Punch Out
+                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <ScanFace className="w-3 h-3" />} Face Punch Out
               </button>
             ) : (
-              <button onClick={() => handlePunch("IN")} disabled={punching}
+              <button onClick={() => { setFacePunchAction("IN"); setShowFacePunch(true); }} disabled={punching}
                 className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
-                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />} Punch In
+                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <ScanFace className="w-3 h-3" />} Face Punch In
               </button>
             )}
           </div>
@@ -521,16 +539,26 @@ export default function EmployeePanelPage() {
                   <button onClick={toggleBreak} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border transition-all ${onBreak ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-white/5 text-muted-foreground border-white/10 hover:text-yellow-400"}`}>
                     <Coffee className="w-4 h-4" /> {onBreak ? "End Break" : "Start Break"}
                   </button>
-                  <button onClick={() => handlePunch("OUT")} disabled={punching} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50">
-                    {punching ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />} Punch Out
+                  <button onClick={() => { setFacePunchAction("OUT"); setShowFacePunch(true); }} disabled={punching} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50">
+                    <ScanFace className="w-4 h-4" /> Face Punch Out
                   </button>
                 </div>
+                {/* Manual punch out fallback */}
+                <button onClick={() => handlePunch("OUT")} disabled={punching} className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs text-muted-foreground border border-white/10 hover:text-red-400 hover:border-red-500/30 transition-all">
+                  {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />} Manual Punch Out (no camera)
+                </button>
               </div>
             ) : (
               <div className="text-center py-6 space-y-3">
                 <div className="text-muted-foreground text-sm">Not punched in today</div>
-                <button onClick={() => handlePunch("IN")} disabled={punching} className="flex items-center justify-center gap-2 mx-auto px-8 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-sm font-medium transition-all disabled:opacity-50">
-                  {punching ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />} Punch In
+                {/* Face Punch In */}
+                <button onClick={() => { setFacePunchAction("IN"); setShowFacePunch(true); }} disabled={punching}
+                  className="flex items-center justify-center gap-2 mx-auto px-8 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-sm font-medium transition-all disabled:opacity-50">
+                  <ScanFace className="w-5 h-5" /> Face Punch In
+                </button>
+                {/* Manual fallback */}
+                <button onClick={() => handlePunch("IN")} disabled={punching} className="flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-xl text-xs text-muted-foreground border border-white/10 hover:text-emerald-400 hover:border-emerald-500/30 transition-all">
+                  {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />} Manual Punch In (no camera)
                 </button>
                 <div className="text-xs text-muted-foreground">Mon–Sat 10:00 AM – 7:00 PM · Sunday 4:00–6:00 PM</div>
               </div>
