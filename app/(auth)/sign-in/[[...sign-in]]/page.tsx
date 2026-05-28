@@ -96,11 +96,10 @@ export default function SignInPage() {
 
       if (mode === "password") {
         try {
-          // First create sign in attempt
-          const result = await signIn!.create({
-            identifier: adminEmail,
-            password: adminPassword,
-          });
+          const result = await Promise.race([
+            signIn!.create({ identifier: adminEmail, password: adminPassword }),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 10000))
+          ]) as Awaited<ReturnType<typeof signIn.create>>;
           if (result.status === "complete") {
             await setActive!({ session: result.createdSessionId });
             router.push("/dashboard"); return;
@@ -128,10 +127,12 @@ export default function SignInPage() {
           const msg  = clerkErr?.errors?.[0]?.longMessage || clerkErr?.errors?.[0]?.message || "Login failed";
           console.error("Clerk password error:", code, msg, clerkErr?.errors);
           if (code === "strategy_for_user_invalid") { setAdminMode("oauth"); }
+          const isTimeout = (err as Error)?.message === "timeout";
           setError(
+            isTimeout                            ? "Request timed out. Check Clerk Dashboard — password strategy must be enabled & user must exist." :
             code === "form_password_incorrect"    ? "Incorrect password. Please try again." :
-            code === "form_identifier_not_found"  ? "Admin account not found. Check email." :
-            code === "strategy_for_user_invalid"  ? "Password login not enabled. Enable it in Clerk Dashboard → User & Authentication → Email, Phone, Username → Password ON." :
+            code === "form_identifier_not_found"  ? "Account not found in Clerk. Create user in Clerk Dashboard first." :
+            code === "strategy_for_user_invalid"  ? "Password login not enabled in Clerk Dashboard → User & Authentication → Password ON." :
             code === "session_exists"             ? "Already signed in. Refreshing..." :
             code === "form_param_nil"             ? "Please enter both email and password." :
             `Error [${code}]: ${msg}`
