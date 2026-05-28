@@ -2,14 +2,16 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
+async function getClerk() { return await clerkClient(); }
 async function isAdmin(userId: string) {
-  const u = await clerkClient.users.getUser(userId);
+  const clerk = await getClerk();
+  const u = await clerk.users.getUser(userId);
   return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
 }
 
 // GET â€” list docs for an employee
 export async function GET(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId || !(await isAdmin(userId)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest) {
 
 // POST â€” add a document record
 export async function POST(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId || !(await isAdmin(userId)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
 
 // DELETE â€” remove a document
 export async function DELETE(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId || !(await isAdmin(userId)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

@@ -7,14 +7,17 @@ async function getEmployeeProfile(email: string) {
   return prisma.employeeProfile.findUnique({ where: { email } });
 }
 
+async function getClerk() { return await clerkClient(); }
+
 async function isAdmin(userId: string) {
-  const u = await clerkClient.users.getUser(userId);
+  const clerk = await getClerk();
+  const u = await clerk.users.getUser(userId);
   return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
 }
 
 // GET â€” admin: all leaves | employee: own leaves
 export async function GET(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json([]);
 
   // Read role from DB first (no Clerk API call)
@@ -45,7 +48,7 @@ export async function GET(req: NextRequest) {
 
 // POST â€” employee applies for leave
 export async function POST(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   const body = await req.json();
   const { type, fromDate, toDate, reason, employeeEmail } = body;
 
@@ -54,7 +57,8 @@ export async function POST(req: NextRequest) {
 
   let emp;
   if (userId) {
-    const clerkUser = await clerkClient.users.getUser(userId).catch(() => null);
+    const clerk = await getClerk();
+    const clerkUser = await clerk.users.getUser(userId).catch(() => null);
     const email = clerkUser?.emailAddresses[0]?.emailAddress;
     if (email) emp = await getEmployeeProfile(email);
     // If no employeeProfile, auto-create a basic one from User table
