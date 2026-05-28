@@ -119,11 +119,15 @@ export default function SignInPage() {
       const clerkErr = err as { errors?: Array<{ message: string; code: string }> };
       const code = clerkErr?.errors?.[0]?.code || "";
       const msg  = clerkErr?.errors?.[0]?.message || "Login failed";
+      if (code === "strategy_for_user_invalid") {
+        setAdminMode("oauth");
+      }
       setError(
         code === "form_password_incorrect"    ? "Incorrect password." :
         code === "form_identifier_not_found"  ? "Admin account not found." :
-        code === "strategy_for_user_invalid"  ? "Use Google login instead of password." :
+        code === "strategy_for_user_invalid"  ? "This account uses Google/Microsoft login. Please use OAuth tab above." :
         code === "single_session_mode_enabled"? "Already signed in. Refresh the page." :
+        code === "session_exists"             ? "Already signed in. Refresh the page." :
         msg
       );
       setLoading(false);
