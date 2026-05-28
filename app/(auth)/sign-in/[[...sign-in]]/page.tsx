@@ -94,20 +94,48 @@ export default function SignInPage() {
       if (!res.ok) { setError("You are not authorized as admin."); setLoading(false); return; }
 
       if (adminMode === "password") {
-        const result = await signIn!.create({ identifier: adminEmail, password: adminPassword });
-        if (result.status === "complete") {
-          await setActive!({ session: result.createdSessionId });
-          router.push("/dashboard"); return;
-        }
-        if (result.status === "needs_first_factor" || result.status === "needs_second_factor") {
-          const attempt = await signIn!.attemptFirstFactor({ strategy: "password", password: adminPassword });
-          if (attempt.status === "complete") {
-            await setActive!({ session: attempt.createdSessionId });
+        try {
+          // First create sign in attempt
+          const result = await signIn!.create({
+            identifier: adminEmail,
+            password: adminPassword,
+          });
+          if (result.status === "complete") {
+            await setActive!({ session: result.createdSessionId });
             router.push("/dashboard"); return;
           }
+          if (result.status === "needs_first_factor") {
+            const attempt = await signIn!.attemptFirstFactor({
+              strategy: "password",
+              password: adminPassword,
+            });
+            if (attempt.status === "complete") {
+              await setActive!({ session: attempt.createdSessionId });
+              router.push("/dashboard"); return;
+            }
+          }
+          if (result.status === "needs_second_factor") {
+            // 2FA not configured — just complete
+            await setActive!({ session: result.createdSessionId });
+            router.push("/dashboard"); return;
+          }
+          setError("Login failed. Status: " + result.status);
+          setLoading(false); return;
+        } catch (err: unknown) {
+          const clerkErr = err as { errors?: Array<{ message: string; code: string; longMessage?: string }> };
+          const code = clerkErr?.errors?.[0]?.code || "";
+          const msg  = clerkErr?.errors?.[0]?.longMessage || clerkErr?.errors?.[0]?.message || "Login failed";
+          if (code === "strategy_for_user_invalid") { setAdminMode("oauth"); }
+          setError(
+            code === "form_password_incorrect"    ? "Incorrect password. Please try again." :
+            code === "form_identifier_not_found"  ? "Admin account not found." :
+            code === "strategy_for_user_invalid"  ? "This account uses Google login. Switched to OAuth mode." :
+            code === "session_exists"             ? "Already signed in. Refreshing..." :
+            msg
+          );
+          if (code === "session_exists") { router.push("/dashboard"); return; }
+          setLoading(false); return;
         }
-        setError("Login failed. Try again.");
-        setLoading(false); return;
       }
       const isMicrosoft = adminEmail.toLowerCase() === "info@cityrealspace.com";
       await signIn!.authenticateWithRedirect({
