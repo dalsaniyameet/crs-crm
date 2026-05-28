@@ -2,13 +2,15 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
+async function getClerk() { return await clerkClient(); }
 async function isAdmin(userId: string) {
-  const u = await clerkClient.users.getUser(userId);
+  const clerk = await getClerk();
+  const u = await clerk.users.getUser(userId);
   return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
 }
 
 export async function POST(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId || !(await isAdmin(userId)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

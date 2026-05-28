@@ -284,11 +284,11 @@ export default function AdminEmployeesPage() {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim() || !form.position.trim()) { toast.error("Name, email and position required"); return; }
     if (!form.password.trim() || form.password.trim().length < 8) { toast.error("Password min 8 characters"); return; }
-    if (form.dob && isNaN(new Date(form.dob).getTime())) { toast.error("Invalid date of birth"); return; }
     setSaving(true);
+    const dobValue = form.dob ? new Date(form.dob).toISOString().split("T")[0] : "2000-01-01";
     const res  = await fetch("/api/admin/employees", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, dob: form.dob || "2000-01-01" }),
+      body: JSON.stringify({ ...form, dob: dobValue }),
     });
     const data = await res.json().catch(() => ({ error: "Server error" }));
     if (res.ok) {
