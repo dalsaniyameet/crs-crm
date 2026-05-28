@@ -494,7 +494,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth"
           style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom, 8px))" }}
         >
-          <div key={pathname} style={{ animation: "pageEnter 120ms ease-out" }}>
+          <div>
             {children}
           </div>
         </main>

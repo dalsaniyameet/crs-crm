@@ -52,6 +52,25 @@ function FloatingLogo({ size, delay, initialX, initialY }: { size: number; delay
   );
 }
 
+// ── Floating Emoji ──
+function FloatingEmoji({ emoji, size, delay, initialX, initialY }: { emoji: string; size: number; delay: number; initialX: string; initialY: string }) {
+  return (
+    <motion.div
+      className="absolute flex items-center justify-center rounded-2xl"
+      style={{ width: size, height: size, left: initialX, top: initialY, background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.15)", backdropFilter: "blur(8px)", fontSize: size * 0.45 }}
+      animate={{
+        x: [0, -18, 12, -8, 0],
+        y: [0, 15, -20, 10, 0],
+        rotate: [0, -4, 3, -2, 0],
+        opacity: [0.5, 0.8, 0.6, 0.8, 0.5],
+      }}
+      transition={{ duration: 16, delay, repeat: Infinity, ease: "easeInOut" }}
+    >
+      {emoji}
+    </motion.div>
+  );
+}
+
 const stats = [
   { label: "Properties Listed", value: 100,  suffix: "+", icon: Building2,  color: "text-gold-400" },
   { label: "Deals Closed",      value: 250,  suffix: "+", icon: TrendingUp, color: "text-emerald-400" },
@@ -60,12 +79,12 @@ const stats = [
 ];
 
 const features = [
-  { title: "AI Lead Scoring",     desc: "Auto-score leads by budget, urgency & intent — never miss a hot lead",  icon: "🤖" },
-  { title: "Auto Property Match", desc: "Instantly match buyers to perfect properties using AI",                  icon: "🏠" },
-  { title: "WhatsApp Automation", desc: "Auto follow-ups, reminders & bulk campaigns on WhatsApp",               icon: "💬" },
-  { title: "Deal Pipeline",       desc: "Visual kanban pipeline from first enquiry to deal close",               icon: "📊" },
-  { title: "Commission Tracker",  desc: "Auto-calculate, track and generate commission invoices",                 icon: "💰" },
-  { title: "Smart Reports",       desc: "Real-time broker performance & revenue analytics",                      icon: "📈" },
+  { title: "AI Lead Scoring",     desc: "Auto-score leads by budget, urgency & intent — never miss a hot lead",  icon: "🤖", color: "rgba(234,179,8,0.08)",   border: "rgba(234,179,8,0.2)" },
+  { title: "Auto Property Match", desc: "Instantly match buyers to perfect properties using AI",                  icon: "🏠", color: "rgba(59,130,246,0.08)",  border: "rgba(59,130,246,0.2)" },
+  { title: "WhatsApp Automation", desc: "Auto follow-ups, reminders & bulk campaigns on WhatsApp",               icon: "💬", color: "rgba(34,197,94,0.08)",   border: "rgba(34,197,94,0.2)" },
+  { title: "Deal Pipeline",       desc: "Visual kanban pipeline from first enquiry to deal close",               icon: "📊", color: "rgba(168,85,247,0.08)",  border: "rgba(168,85,247,0.2)" },
+  { title: "Commission Tracker",  desc: "Auto-calculate, track and generate commission invoices",                 icon: "💰", color: "rgba(249,115,22,0.08)",  border: "rgba(249,115,22,0.2)" },
+  { title: "Smart Reports",       desc: "Real-time broker performance & revenue analytics",                      icon: "📈", color: "rgba(20,184,166,0.08)",  border: "rgba(20,184,166,0.2)" },
 ];
 
 const trusts = [
@@ -105,13 +124,21 @@ export default function HomePage() {
         }} />
       </div>
 
-      {/* ── Floating logos ── */}
+      {/* ── Floating logos + emojis ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <FloatingLogo size={80}  delay={0}   initialX="5%"  initialY="15%" />
         <FloatingLogo size={50}  delay={2}   initialX="88%" initialY="20%" />
         <FloatingLogo size={65}  delay={4}   initialX="75%" initialY="65%" />
         <FloatingLogo size={45}  delay={1.5} initialX="10%" initialY="70%" />
         <FloatingLogo size={35}  delay={3}   initialX="50%" initialY="85%" />
+        <FloatingEmoji emoji="🏢" size={56} delay={0.5}  initialX="20%" initialY="8%"  />
+        <FloatingEmoji emoji="🏠" size={48} delay={2.5}  initialX="65%" initialY="12%" />
+        <FloatingEmoji emoji="🔑" size={44} delay={1}    initialX="92%" initialY="45%" />
+        <FloatingEmoji emoji="💰" size={50} delay={3.5}  initialX="3%"  initialY="45%" />
+        <FloatingEmoji emoji="📊" size={46} delay={5}    initialX="30%" initialY="78%" />
+        <FloatingEmoji emoji="🏗️" size={52} delay={1.8}  initialX="78%" initialY="80%" />
+        <FloatingEmoji emoji="📍" size={40} delay={4.2}  initialX="55%" initialY="5%"  />
+        <FloatingEmoji emoji="🤝" size={48} delay={2.8}  initialX="42%" initialY="92%" />
       </div>
 
       {/* ── Navbar ── */}
@@ -364,10 +391,10 @@ export default function HomePage() {
           {features.map((f, i) => (
             <motion.div key={f.title}
               initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
-              whileHover={{ y: -4, borderColor: "rgba(234,179,8,0.25)" }}
+              whileHover={{ y: -4 }}
               className="p-6 rounded-2xl transition-all cursor-default"
-              style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div className="text-3xl mb-4">{f.icon}</div>
+              style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${f.border}` }}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-4" style={{ background: f.color, border: `1px solid ${f.border}` }}>{f.icon}</div>
               <h3 className="font-semibold text-white mb-2">{f.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
             </motion.div>

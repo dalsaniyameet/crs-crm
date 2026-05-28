@@ -190,8 +190,10 @@ export default function NotificationBell() {
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 15000);
-    return () => clearInterval(interval);
+    const interval = setInterval(loadNotifications, 60000);
+    const onVisible = () => { if (document.visibilityState === "visible") loadNotifications(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
   }, [loadNotifications]);
 
   const markAllRead = async () => {

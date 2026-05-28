@@ -788,6 +788,38 @@ model CallLog {
   @@map("call_logs")
 }
 
+// ─── WP INBOX ───────────────────────────────────────────────────────────────
+
+model WpNumber {
+  id        String   @id @default(cuid())
+  number    String   @unique  // e.g. "9876543210"
+  label     String?           // e.g. "Sales 1", "Owner Line"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  messages  WpInbox[]
+
+  @@map("wp_numbers")
+}
+
+model WpInbox {
+  id          String   @id @default(cuid())
+  wpNumberId  String                    // which of our 4 numbers received it
+  fromPhone   String                    // sender's phone
+  fromName    String?
+  message     String?
+  mediaUrl    String?
+  direction   String   @default("IN")   // IN = received, OUT = sent
+  isRead      Boolean  @default(false)
+  matchedLeadId    String?              // if sender is a known lead
+  matchedOwnerId   String?              // if sender is a known owner
+  createdAt   DateTime @default(now())
+
+  wpNumber    WpNumber @relation(fields: [wpNumberId], references: [id])
+
+  @@map("wp_inbox")
+}
+
 // ─── DAILY REPORT ────────────────────────────────────────────────────────────
 model DailyReport {
   id              String   @id @default(cuid())

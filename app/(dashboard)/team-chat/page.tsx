@@ -92,24 +92,35 @@ export default function TeamChatPage() {
 
   useEffect(() => { loadRooms(); }, [loadRooms]);
 
-  const loadMessages = useCallback(async (roomId: string) => {
-    setLoading(true);
+  const lastMsgId = useRef<string>("");
+
+  const loadMessages = useCallback(async (roomId: string, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await fetch(`/api/chat/rooms/${roomId}/messages`).then(r => r.json());
-      setMessages(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        const lastId = data[data.length - 1]?.id ?? "";
+        if (!silent || lastId !== lastMsgId.current) {
+          lastMsgId.current = lastId;
+          setMessages(data);
+        }
+      }
     } catch {}
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => {
     if (view === "chat" && activeRoom) {
+      lastMsgId.current = "";
       loadMessages(activeRoom.id);
-      pollRef.current = setInterval(() => loadMessages(activeRoom.id), 4000);
+      pollRef.current = setInterval(() => loadMessages(activeRoom.id, true), 5000);
     }
     return () => clearInterval(pollRef.current);
   }, [view, activeRoom, loadMessages]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    if (messages.length > 0) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
 
   const uploadFiles = async (rawFiles: FileList, setter: (f: UpFile[]) => void, loadingSetter: (b: boolean) => void) => {
     loadingSetter(true);

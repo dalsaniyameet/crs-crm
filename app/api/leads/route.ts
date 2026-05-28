@@ -5,6 +5,7 @@ import { scoreLeadAI } from "@/lib/openai";
 import { autoMatchProperties } from "@/lib/autoMatch";
 import { runLeadAutomation } from "@/lib/leadAutomation";
 import { notifyNewLead } from "@/lib/notify";
+import { notifyMatchingOwners } from "@/lib/notifyOwners";
 
 async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest) {
 
     autoMatchProperties(lead.id).catch(() => {});
     runLeadAutomation({ leadId: lead.id, newStatus: "NEW", oldStatus: "", triggeredBy: user.id }).catch(() => {});
+    if (lead.source === "WHATSAPP") notifyMatchingOwners(lead.id).catch(() => {});
 
     await notifyNewLead({
       id: lead.id, name: lead.name, phone: lead.phone, email: lead.email,

@@ -23,7 +23,18 @@ type Activity = {
   status?: string;
 };
 
-const ROLES = ["BROKER", "SALES_MANAGER", "MARKETING", "ADMIN"];
+const POSITIONS = [
+  "Senior Broker",
+  "Broker",
+  "Junior Broker",
+  "Sales Manager",
+  "Marketing Executive",
+  "Telecaller",
+  "Admin",
+  "Accountant",
+  "Office Boy",
+  "Other",
+];
 const ROLE_COLORS: Record<string, string> = {
   ADMIN:         "bg-red-500/20 text-red-400 border-red-500/30",
   BROKER:        "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -437,9 +448,8 @@ export default function AdminEmployeesPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
-                { label: "Full Name *",  key: "name",     ph: "Rahul Sharma",            type: "text"  },
-                { label: "Work Email *", key: "email",    ph: "rahul@cityrealspace.com", type: "email" },
-                { label: "Position *",   key: "position", ph: "Senior Broker",           type: "text"  },
+                { label: "Full Name *",  key: "name",  ph: "Rahul Sharma",            type: "text"  },
+                { label: "Work Email *", key: "email", ph: "rahul@cityrealspace.com", type: "email" },
               ].map(f => (
                 <div key={f.key}>
                   <label className="text-xs text-muted-foreground mb-1.5 block">{f.label}</label>
@@ -448,6 +458,28 @@ export default function AdminEmployeesPage() {
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/50" />
                 </div>
               ))}
+              {/* Position — dropdown + manual */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Position *</label>
+                <select
+                  value={["Senior Broker","Broker","Junior Broker","Sales Manager","Marketing Executive","Telecaller","Admin","Accountant","Office Boy"].includes(form.position) ? form.position : form.position ? "__other__" : ""}
+                  onChange={e => setForm(p => ({ ...p, position: e.target.value === "__other__" ? "" : e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/50">
+                  <option value="">Select position...</option>
+                  {["Senior Broker","Broker","Junior Broker","Sales Manager","Marketing Executive","Telecaller","Admin","Accountant","Office Boy"].map(p => (
+                    <option key={p} value={p} className="bg-[#0f1f35]">{p}</option>
+                  ))}
+                  <option value="__other__" className="bg-[#0f1f35]">✏️ Type manually...</option>
+                </select>
+                {(form.position !== "" && !["Senior Broker","Broker","Junior Broker","Sales Manager","Marketing Executive","Telecaller","Admin","Accountant","Office Boy"].includes(form.position)) && (
+                  <input
+                    value={form.position}
+                    onChange={e => setForm(p => ({ ...p, position: e.target.value }))}
+                    placeholder="Enter custom position..."
+                    autoFocus
+                    className="w-full mt-2 bg-white/5 border border-estate-500/40 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/70" />
+                )}
+              </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1.5 block">DOB</label>
                 <input type="date" value={form.dob} max={new Date().toISOString().split("T")[0]}

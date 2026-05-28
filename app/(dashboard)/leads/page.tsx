@@ -378,6 +378,74 @@ export default function LeadsPage() {
     finally { setPropLoading(false); }
   };
 
+  const getWAMsg = (lead: Lead) => {
+    const src = lead.source;
+    const req = lead.requirements ? `\n\n📋 *Requirement:* ${lead.requirements}` : "";
+    const bud = lead.budget ? `\n💰 *Budget:* ${fmtBudget(lead.budget)}` : "";
+
+    if (src === "MAGICBRICKS" || src === "HOUSING" || src === "ACRES99") {
+      const portal = src === "MAGICBRICKS" ? "MagicBricks" : src === "HOUSING" ? "Housing.com" : "99acres";
+      return `Hello ${lead.name}! 👋
+
+I'm *Meet* from *City Real Space*, Ahmedabad's trusted real estate brokerage.
+
+I saw your enquiry on *${portal}* and wanted to connect personally.${req}${bud}
+
+We have excellent properties matching your requirement. Can we schedule a quick call or site visit? 🏢
+
+📞 +91 9825031247
+🌐 cityrealspace.com
+📍 Prahlad Nagar, Ahmedabad`;
+    }
+    if (src === "FACEBOOK") {
+      return `Hello ${lead.name}! 👋
+
+Thank you for showing interest via *Facebook*!
+
+I'm *Meet* from *City Real Space* — we specialize in Commercial & Residential properties in Ahmedabad.${req}${bud}
+
+Let's connect and find the perfect property for you! 🏠
+
+📞 +91 9825031247
+🌐 cityrealspace.com`;
+    }
+    if (src === "WEBSITE") {
+      return `Hello ${lead.name}! 👋
+
+Thank you for visiting *CityRealSpace.com*!
+
+I'm *Meet*, your dedicated property consultant. I noticed your enquiry and would love to help you find the right property.${req}${bud}
+
+Shall we schedule a call or site visit? 📅
+
+📞 +91 9825031247
+🌐 cityrealspace.com`;
+    }
+    if (src === "REFERRAL") {
+      return `Hello ${lead.name}! 👋
+
+I'm *Meet* from *City Real Space*. A mutual contact referred you to us!
+
+We specialize in premium Commercial & Residential properties across Ahmedabad.${req}${bud}
+
+Looking forward to helping you! 🙏
+
+📞 +91 9825031247`;
+    }
+    // Default / WHATSAPP / WALK_IN / COLD_CALL
+    return `Hello ${lead.name}! 👋
+
+Good Day!
+
+I'm *Meet* from *City Real Space*
+( Property Broker — Ahmedabad )${req}${bud}
+
+We have genuine properties matching your requirement. Let's connect! 🤝
+
+📞 +91 9825031247
+🌐 cityrealspace.com
+📍 Prahlad Nagar Trade Centre, Satellite, Ahmedabad`;
+  };
   const hotCount  = leads.filter(l => l.score >= 80).length;
   const followUps = leads.filter(l => l.nextFollowUpAt && new Date(l.nextFollowUpAt) <= new Date()).length;
 
@@ -639,7 +707,7 @@ export default function LeadsPage() {
                   className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all">
                   <Phone className="w-3.5 h-3.5" /> Call Now
                 </a>
-                <a href={`https://wa.me/91${lead.phone.replace(/\D/g,"").slice(-10)}`} target="_blank" rel="noreferrer"
+                <a href={`https://wa.me/91${lead.phone.replace(/\D/g,"").slice(-10)}?text=${encodeURIComponent(getWAMsg(lead))}`} target="_blank" rel="noreferrer"
                   className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-semibold hover:bg-green-500/30 transition-all">
                   <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
                 </a>
@@ -863,7 +931,7 @@ export default function LeadsPage() {
                         )}
 
                         <div className="flex gap-2 pt-1">
-                          <a href={`https://wa.me/91${detailLead.phone}`} target="_blank" rel="noreferrer"
+                          <a href={`https://wa.me/91${detailLead.phone?.replace(/\D/g,"").slice(-10)}?text=${encodeURIComponent(getWAMsg(detailLead))}`} target="_blank" rel="noreferrer"
                             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium hover:bg-green-500/30 transition-all">
                             <MessageSquare className="w-4 h-4" /> WhatsApp
                           </a>

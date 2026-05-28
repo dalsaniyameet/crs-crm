@@ -138,9 +138,9 @@ export default function EmployeePanelPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Refresh leaves every 15 sec to catch admin approve/reject
+  // Refresh leaves every 60 sec to catch admin approve/reject
   useEffect(() => {
-    const id = setInterval(() => fetchData(), 15000);
+    const id = setInterval(() => fetchData(), 60000);
     return () => clearInterval(id);
   }, [fetchData]);
 
