@@ -31,9 +31,8 @@ export async function GET() {
         take: 5,
       }),
       prisma.lead.findMany({
-        where: { score: { gte: 70 } },
-        orderBy: { score: "desc" },
-        take: 4,
+        orderBy: [{ score: "desc" }, { createdAt: "desc" }],
+        take: 6,
         select: { id: true, name: true, score: true, budget: true, source: true, requirements: true },
       }),
       prisma.siteVisit.findMany({
