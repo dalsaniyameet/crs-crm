@@ -40,7 +40,16 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     if (!(await checkAdmin(userId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseErr: any) {
+      console.error("[Employee POST] JSON parse error:", parseErr.message);
+      return NextResponse.json({ error: "Invalid JSON format", details: parseErr.message }, { status: 400 });
+    }
+    
+    console.log("[Employee POST] Received body:", JSON.stringify(body, null, 2));
+    
     const { name, email, dob, position, role, avatarUrl, password: customPassword, id: empId, isActive } = body;
     
     // Validate required fields with detailed error
@@ -139,8 +148,13 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(employee, { status: 201 });
   } catch (err: any) {
-    console.error("Add employee error:", err?.message);
-    return NextResponse.json({ error: err?.message || "Failed to add employee" }, { status: 500 });
+    const errorMsg = err?.message || String(err);
+    const errorStack = err?.stack || "N/A";
+    console.error("[Employee POST] Full error:", { message: errorMsg, stack: errorStack, error: err });
+    return NextResponse.json({ 
+      error: errorMsg || "Failed to add employee",
+      details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+    }, { status: 500 });
   }
 }
 
