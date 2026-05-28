@@ -286,11 +286,17 @@ export default function AdminEmployeesPage() {
     if (!form.password.trim() || form.password.trim().length < 8) { toast.error("Password min 8 characters"); return; }
     setSaving(true);
     const dobValue = form.dob ? new Date(form.dob).toISOString().split("T")[0] : "2000-01-01";
+    
+    const payload = { ...form, dob: dobValue };
+    console.log("[Employee Add] Sending payload:", payload);
+    
     const res  = await fetch("/api/admin/employees", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, dob: dobValue }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({ error: "Server error" }));
+    console.log("[Employee Add] Response:", res.status, data);
+    
     if (res.ok) {
       setEmployees(prev => [data, ...prev]);
       setForm(EMPTY); setShowForm(false);

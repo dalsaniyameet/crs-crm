@@ -42,8 +42,14 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { name, email, dob, position, role, avatarUrl, password: customPassword, id: empId, isActive } = body;
-    if (!name || !email || !position)
-      return NextResponse.json({ error: "name, email, position required" }, { status: 400 });
+    
+    // Validate required fields with detailed error
+    if (!name?.trim())
+      return NextResponse.json({ error: "Full Name is required" }, { status: 400 });
+    if (!email?.trim())
+      return NextResponse.json({ error: "Work Email is required" }, { status: 400 });
+    if (!position?.trim())
+      return NextResponse.json({ error: "Position is required" }, { status: 400 });
 
     const clerk = await getClerk();
 
