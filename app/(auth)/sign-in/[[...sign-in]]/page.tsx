@@ -96,50 +96,25 @@ export default function SignInPage() {
 
       if (mode === "password") {
         try {
-          const result = await Promise.race([
-            signIn!.create({ identifier: adminEmail, password: adminPassword }),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 10000))
-          ]) as Awaited<ReturnType<typeof signIn.create>>;
+          const tokenRes = await fetch("/api/auth/employee-signin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: adminEmail, password: adminPassword }),
+          });
+          const tokenData = await tokenRes.json();
+          if (!tokenRes.ok) { setError(tokenData.error || "Incorrect email or password."); setLoading(false); return; }
+
+          const result = await signIn!.create({ strategy: "ticket", ticket: tokenData.token });
           if (result.status === "complete") {
             await setActive!({ session: result.createdSessionId });
             router.push("/dashboard"); return;
           }
-          if (result.status === "needs_first_factor") {
-            const attempt = await signIn!.attemptFirstFactor({
-              strategy: "password",
-              password: adminPassword,
-            });
-            if (attempt.status === "complete") {
-              await setActive!({ session: attempt.createdSessionId });
-              router.push("/dashboard"); return;
-            }
-          }
-          if (result.status === "needs_second_factor") {
-            // 2FA not configured — just complete
-            await setActive!({ session: result.createdSessionId });
-            router.push("/dashboard"); return;
-          }
-          setError("Login failed. Status: " + result.status);
-          setLoading(false); return;
+          setError("Login failed. Try again.");
         } catch (err: unknown) {
-          const clerkErr = err as { errors?: Array<{ message: string; code: string; longMessage?: string }> };
-          const code = clerkErr?.errors?.[0]?.code || "";
-          const msg  = clerkErr?.errors?.[0]?.longMessage || clerkErr?.errors?.[0]?.message || "Login failed";
-          console.error("Clerk password error:", code, msg, clerkErr?.errors);
-          if (code === "strategy_for_user_invalid") { setAdminMode("oauth"); }
-          const isTimeout = (err as Error)?.message === "timeout";
-          setError(
-            isTimeout                            ? "Request timed out. Check Clerk Dashboard — password strategy must be enabled & user must exist." :
-            code === "form_password_incorrect"    ? "Incorrect password. Please try again." :
-            code === "form_identifier_not_found"  ? "Account not found in Clerk. Create user in Clerk Dashboard first." :
-            code === "strategy_for_user_invalid"  ? "Password login not enabled in Clerk Dashboard → User & Authentication → Password ON." :
-            code === "session_exists"             ? "Already signed in. Refreshing..." :
-            code === "form_param_nil"             ? "Please enter both email and password." :
-            `Error [${code}]: ${msg}`
-          );
-          if (code === "session_exists") { router.push("/dashboard"); return; }
-          setLoading(false); return;
+          const clerkErr = err as { errors?: Array<{ message: string; code: string }> };
+          setError(clerkErr?.errors?.[0]?.message || "Login failed. Try again.");
         }
+        setLoading(false); return;
       }
       // mode === "oauth" → Google
       await signIn!.authenticateWithRedirect({

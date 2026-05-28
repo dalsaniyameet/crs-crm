@@ -44,6 +44,11 @@ export async function POST(req: NextRequest) {
     if (!email || !password)
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });
 
+    // Block admin emails from employee login
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    if (adminEmails.includes(email.toLowerCase()))
+      return NextResponse.json({ error: "Use Admin tab to login." }, { status: 403 });
+
     // Find user
     const list = await clerkREST("GET", `/v1/users?email_address=${encodeURIComponent(email)}`);
     const users = list.data ?? list;
