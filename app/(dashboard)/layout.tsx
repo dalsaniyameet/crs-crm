@@ -122,8 +122,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const day = now.getUTCDay(); // 0=Sun
       const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
       if (day === 0) return false; // Sunday — no access
-      // Mon-Sat: 9:30 AM to 7:30 PM IST
-      return cur >= 9 * 60 + 30 && cur <= 19 * 60 + 30;
+      // Mon-Sat: 9:30 AM to 12:00 AM (midnight) IST
+      return cur >= 9 * 60 + 30 && cur <= 23 * 60 + 59;
     }
 
     // Check immediately

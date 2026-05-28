@@ -23,7 +23,7 @@ function isOfficeHoursNow() {
   const day = now.getUTCDay(); // 0=Sun
   const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
   if (day === 0) return false; // Sunday closed
-  return cur >= 9 * 60 + 30 && cur <= 19 * 60 + 30; // 9:30AM - 7:30PM
+  return cur >= 9 * 60 + 30 && cur <= 23 * 60 + 59; // 9:30AM - 12:00AM
 }
 
 export default function SignInPage() {
