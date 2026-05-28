@@ -172,27 +172,7 @@ export default function SignInPage() {
     if (!isLoaded) return;
     setError(""); setLoading(true);
 
-    // 1. Office hours check
-    if (!isOfficeHoursNow()) {
-      setError("Access denied: CRM is only available Mon–Sat 9:30 AM – 7:30 PM (IST).");
-      setLoading(false); return;
-    }
-
-    // 2. Location check
-    if (locStatus === "far") {
-      setError(`Access denied: You are ${distanceM}m away from office. Must be within ${OFFICE.radius}m.`);
-      setLoading(false); return;
-    }
-    if (locStatus === "denied") {
-      setError("Location access required. Please allow location permission and try again.");
-      setLoading(false); return;
-    }
-    if (locStatus === "checking") {
-      setError("Checking your location... please wait.");
-      setLoading(false); return;
-    }
-
-    // 3. Authenticate
+    // Authenticate
     try {
       const res = await fetch("/api/auth/employee-signin", {
         method: "POST",
