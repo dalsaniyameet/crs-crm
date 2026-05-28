@@ -100,13 +100,13 @@ export async function POST(req: NextRequest) {
         clerkUser = await clerk.users.updateUser(existingList[0].id, {
           password, firstName, lastName,
           publicMetadata: { role: role || "BROKER" },
-          skip_password_checks: true, skip_password_requirement: true,
+          skipPasswordChecks: true,
         } as any);
       } else {
         clerkUser = await clerk.users.createUser({
-          emailAddress: [email], password, firstName, lastName,
+          emailAddress: [email.trim()], password, firstName, lastName,
           publicMetadata: { role: role || "BROKER" },
-          skip_password_checks: true, skip_password_requirement: true,
+          skipPasswordChecks: true,
           ...(avatarUrl ? { profileImageUrl: avatarUrl } : {}),
         } as any);
       }
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
           if (retryList.length > 0) {
             clerkUser = await clerk.users.updateUser(retryList[0].id, {
               password, firstName, lastName, publicMetadata: { role: role || "BROKER" },
-              skip_password_checks: true, skip_password_requirement: true,
+              skipPasswordChecks: true,
             } as any);
           } else return NextResponse.json({ error: msg }, { status: 400 });
         } catch { return NextResponse.json({ error: msg }, { status: 400 }); }
