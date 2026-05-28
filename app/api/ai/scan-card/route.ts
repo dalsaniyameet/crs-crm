@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const base64Image = imageBuffer.toString("base64");
     const dataUrl     = `data:${mimeType};base64,${base64Image}`;
 
-    const imageUrlPromise = uploadCardImage(buffer);
+      const imageUrlPromise = uploadCardImage(buffer).catch((e) => { console.error("Cloudinary upload failed:", e.message); return ""; });
 
     const res = await groq.chat.completions.create({
       model: "meta-llama/llama-4-scout-17b-16e-instruct",
