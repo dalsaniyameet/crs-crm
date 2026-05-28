@@ -72,14 +72,21 @@ function cloudinaryUpload(
         try {
           const json = JSON.parse(Buffer.concat(chunks).toString());
           if (json.secure_url) resolve(json.secure_url);
-          else reject(new Error(json.error?.message || "No URL returned"));
-        } catch {
+          else {
+            console.error("[cloudinaryUpload] Error response:", json);
+            reject(new Error(json.error?.message || `Cloudinary error: ${JSON.stringify(json)}`));
+          }
+        } catch (parseErr) {
+          console.error("[cloudinaryUpload] Parse error:", parseErr);
           reject(new Error("Invalid JSON from Cloudinary"));
         }
       });
     });
 
-    reqHttp.on("error", reject);
+    reqHttp.on("error", (err) => {
+      console.error("[cloudinaryUpload] Request error:", err);
+      reject(err);
+    });
     reqHttp.write(body);
     reqHttp.end();
   });
@@ -116,7 +123,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(urls.length === 1 ? { url: urls[0].url, urls } : { urls });
 
   } catch (err: unknown) {
-    console.error("[upload]", err);
-    return NextResponse.json({ error: (err as Error).message || "Upload failed" }, { status: 500 });
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("[upload] Error:", errorMsg);
+    console.error("[upload] Stack:", err instanceof Error ? err.stack : "N/A");
+    return NextResponse.json({ 
+      error: errorMsg || "Upload failed",
+      details: process.env.NODE_ENV === 'development' ? String(err) : undefined
+    }, { status: 500 });
   }
 }

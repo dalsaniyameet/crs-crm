@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider afterSignInUrl="/dashboard" fallbackRedirectUrl="/dashboard">
+    <ClerkProvider fallbackRedirectUrl="/dashboard">
       <html lang="en" suppressHydrationWarning style={{ colorScheme: "dark" }}>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1" />

@@ -85,6 +85,11 @@ export async function GET() {
       headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=30" },
     });
   } catch (err: unknown) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    console.error("Dashboard API Error:", err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? String(err) : undefined 
+    }, { status: 500 });
   }
 }

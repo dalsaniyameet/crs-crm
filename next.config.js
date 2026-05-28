@@ -23,6 +23,16 @@ const nextConfig = {
       { protocol: "https", hostname: "*.cityrealspace.com" },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.cityrealspacecrm.com" }],
+        destination: "https://cityrealspacecrm.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
