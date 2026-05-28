@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       });
       const fmt = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
       sendAdminEmail(
-        `?? Punch Out: ${user.name} — ${updated.location.name}`,
+        `Punch Out: ${user.name} at ${updated.location.name}`,
         punchOutEmailHtml({
           employeeName: user.name,
           location:     updated.location.name,
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       });
       const fmt = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
       sendAdminEmail(
-        `?? Punch In: ${user.name} — ${location.name}`,
+        `Punch In: ${user.name} at ${location.name}`,
         punchInEmailHtml({
           employeeName: user.name,
           location:     location.name,

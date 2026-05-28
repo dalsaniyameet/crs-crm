@@ -86,11 +86,11 @@ export async function POST(req: NextRequest) {
   const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { name: true, phone: true } }).catch(() => null);
   if (lead && (notes || outcome)) {
     sendAdminEmail(
-      `?? Call Logged: ${lead.name} — ${outcome || type || "OUTGOING"}`,
+      `Call Logged: ${lead.name} - ${outcome || type || "OUTGOING"}`,
       newLeadMessageEmailHtml({
         leadName:  lead.name,
         leadPhone: lead.phone,
-        message:   `${outcome || type} ${duration ? `(${Math.floor(duration/60)}m ${duration%60}s)` : ""} ${notes ? `— ${notes}` : ""}`.trim(),
+        message:   `${outcome || type} ${duration ? `(${Math.floor(duration/60)}m ${duration%60}s)` : ""} ${notes ? `ï¿½ ${notes}` : ""}`.trim(),
         channel:   "Phone Call",
       })
     ).catch(() => {});
