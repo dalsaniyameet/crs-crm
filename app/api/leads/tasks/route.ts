@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -8,7 +8,7 @@ async function getUser(clerkId: string) {
 
 // GET /api/leads/tasks?leadId=xxx
 export async function GET(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const leadId = new URL(req.url).searchParams.get("leadId");
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/leads/tasks
 export async function POST(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const user = await getUser(userId);
@@ -65,9 +65,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(task, { status: 201 });
 }
 
-// PATCH /api/leads/tasks â€” mark complete / update
+// PATCH /api/leads/tasks — mark complete / update
 export async function PATCH(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, isCompleted, title, dueAt, priority, description } = await req.json();
@@ -86,3 +86,4 @@ export async function PATCH(req: NextRequest) {
   const task = await prisma.task.update({ where: { id }, data });
   return NextResponse.json(task);
 }
+

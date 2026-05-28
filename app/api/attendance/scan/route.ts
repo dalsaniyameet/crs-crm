@@ -1,12 +1,12 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { sendAdminEmail, punchInEmailHtml, punchOutEmailHtml } from "@/lib/email";
 
-// Employee scans location QR â†’ attendance marked for that employee
+// Employee scans location QR → attendance marked for that employee
 export async function POST(req: Request) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Please login first" }, { status: 401 });
 
     const user = await prisma.user.findUnique({ where: { clerkId: userId } });
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       });
       const fmt = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
       sendAdminEmail(
-        `🔴 Punch Out: ${user.name} — ${updated.location.name}`,
+        `?? Punch Out: ${user.name} � ${updated.location.name}`,
         punchOutEmailHtml({
           employeeName: user.name,
           location:     updated.location.name,
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       });
       const fmt = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
       sendAdminEmail(
-        `🟢 Punch In: ${user.name} — ${location.name}`,
+        `?? Punch In: ${user.name} � ${location.name}`,
         punchInEmailHtml({
           employeeName: user.name,
           location:     location.name,
@@ -130,3 +130,4 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const a    = Math.sin(dPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLam / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+

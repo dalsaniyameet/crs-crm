@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { sendAdminEmail, newLeadMessageEmailHtml } from "@/lib/email";
@@ -9,7 +9,7 @@ async function getUser(clerkId: string) {
 
 // GET /api/leads/call-log?leadId=xxx
 export async function GET(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const leadId = new URL(req.url).searchParams.get("leadId");
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/leads/call-log
 export async function POST(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const user = await getUser(userId);
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   await prisma.activity.create({
     data: {
       type:        "CALL_LOGGED",
-      description: `Call logged â€” ${outcome || type || "OUTGOING"}${duration ? ` (${Math.floor(duration / 60)}m ${duration % 60}s)` : ""}${notes ? `: ${notes}` : ""}`,
+      description: `Call logged — ${outcome || type || "OUTGOING"}${duration ? ` (${Math.floor(duration / 60)}m ${duration % 60}s)` : ""}${notes ? `: ${notes}` : ""}`,
       leadId,
       userId: user.id,
     },
@@ -86,11 +86,11 @@ export async function POST(req: NextRequest) {
   const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { name: true, phone: true } }).catch(() => null);
   if (lead && (notes || outcome)) {
     sendAdminEmail(
-      `📞 Call Logged: ${lead.name} — ${outcome || type || "OUTGOING"}`,
+      `?? Call Logged: ${lead.name} � ${outcome || type || "OUTGOING"}`,
       newLeadMessageEmailHtml({
         leadName:  lead.name,
         leadPhone: lead.phone,
-        message:   `${outcome || type} ${duration ? `(${Math.floor(duration/60)}m ${duration%60}s)` : ""} ${notes ? `— ${notes}` : ""}`.trim(),
+        message:   `${outcome || type} ${duration ? `(${Math.floor(duration/60)}m ${duration%60}s)` : ""} ${notes ? `� ${notes}` : ""}`.trim(),
         channel:   "Phone Call",
       })
     ).catch(() => {});
@@ -98,3 +98,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(log, { status: 201 });
 }
+

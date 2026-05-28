@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import https from "https";
@@ -24,7 +24,7 @@ function clerkREST(method: string, path: string, body?: object): Promise<any> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { email, password } = await req.json();
@@ -71,3 +71,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err?.message || "Failed" }, { status: 500 });
   }
 }
+

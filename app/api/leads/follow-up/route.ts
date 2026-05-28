@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { sendWhatsApp } from "@/lib/whatsapp";
@@ -93,9 +93,9 @@ export async function POST(req: NextRequest) {
   });
 }
 
-// GET â€” check pending follow-ups count (for dashboard)
+// GET — check pending follow-ups count (for dashboard)
 export async function GET() {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ overdue: 0, upcoming: 0 });
   const now = new Date();
   const [overdue, upcoming] = await Promise.all([
@@ -109,3 +109,4 @@ export async function GET() {
 
   return NextResponse.json({ overdue, upcoming });
 }
+

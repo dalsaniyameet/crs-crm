@@ -1,10 +1,10 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 
 export async function GET() {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const leads = await prisma.lead.findMany({
@@ -20,7 +20,7 @@ export async function GET() {
     "Source":        l.source.replace(/_/g, " "),
     "Status":        l.status.replace(/_/g, " "),
     "AI Score":      l.score,
-    "Budget (â‚¹)":    l.budget ?? "",
+    "Budget (₹)":    l.budget ?? "",
     "Property Type": l.propertyType ?? "",
     "Transaction":   l.transactionType ?? "",
     "Requirements":  l.requirements ?? "",
@@ -47,3 +47,4 @@ export async function GET() {
     },
   });
 }
+
