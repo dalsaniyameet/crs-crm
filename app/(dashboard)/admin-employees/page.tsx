@@ -42,6 +42,7 @@ const ROLE_COLORS: Record<string, string> = {
   MARKETING:     "bg-purple-500/20 text-purple-400 border-purple-500/30",
 };
 
+const ROLES = ["BROKER", "ADMIN", "SALES_MANAGER", "MARKETING"];
 const EMPTY = { name: "", email: "", dob: "", position: "", role: "BROKER", avatarUrl: "", password: "" };
 
 function generatePassword(name: string) {

@@ -3,6 +3,8 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { notifyPunchIn, notifyPunchOut } from "@/lib/notify";
 
+async function getClerk() { return await clerkClient(); }
+
 // Office hours (IST): Monâ€“Sat 10:00â€“19:00, Sun 16:00â€“18:00
 const SCHEDULE = {
   weekday: { inHour: 10, inMin: 0, outHour: 19, outMin: 0 },  // Monâ€“Sat
@@ -50,7 +52,7 @@ function formatTime(h: number, m: number) {
 
 export async function GET(req: Request) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json([]);
 
     const url = new URL((req as any).url || "", "http://localhost");
@@ -58,8 +60,9 @@ export async function GET(req: Request) {
 
     // Admin fetching specific employee attendance
     if (employeeId) {
-      const clerkUser = await clerkClient.users.getUser(userId);
-      const isAdmin = (clerkUser.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
+      const clerk = await getClerk();
+      const u = await clerk.users.getUser(userId);
+      const isAdmin = (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
       if (!isAdmin) return NextResponse.json([]);
 
       const emp = await prisma.employeeProfile.findUnique({ where: { id: employeeId } });
@@ -97,7 +100,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const user = await prisma.user.findUnique({ where: { clerkId: userId } });
