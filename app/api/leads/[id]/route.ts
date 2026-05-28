@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -6,9 +6,8 @@ async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
 }
 
-// GET /api/leads/tasks?leadId=xxx
 export async function GET(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const leadId = new URL(req.url).searchParams.get("leadId");
@@ -23,9 +22,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(tasks);
 }
 
-// POST /api/leads/tasks
 export async function POST(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const user = await getUser(userId);
@@ -47,7 +45,6 @@ export async function POST(req: NextRequest) {
     include: { assignedTo: { select: { id: true, name: true, avatar: true } } },
   });
 
-  // Update lead nextFollowUpAt if this task is earlier
   const lead = await prisma.lead.findUnique({ where: { id: leadId } });
   if (lead && (!lead.nextFollowUpAt || new Date(dueAt) < lead.nextFollowUpAt)) {
     await prisma.lead.update({ where: { id: leadId }, data: { nextFollowUpAt: new Date(dueAt) } });
@@ -65,9 +62,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(task, { status: 201 });
 }
 
-// PATCH /api/leads/tasks â€” mark complete / update
 export async function PATCH(req: NextRequest) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, isCompleted, title, dueAt, priority, description } = await req.json();
