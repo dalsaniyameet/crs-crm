@@ -118,10 +118,13 @@ export default function SignInPage() {
     } catch (err: unknown) {
       const clerkErr = err as { errors?: Array<{ message: string; code: string }> };
       const code = clerkErr?.errors?.[0]?.code || "";
+      const msg  = clerkErr?.errors?.[0]?.message || "Login failed";
       setError(
-        code === "form_password_incorrect"   ? "Incorrect password." :
-        code === "form_identifier_not_found" ? "Admin account not found." :
-        clerkErr?.errors?.[0]?.message || "Login failed"
+        code === "form_password_incorrect"    ? "Incorrect password." :
+        code === "form_identifier_not_found"  ? "Admin account not found." :
+        code === "strategy_for_user_invalid"  ? "Use Google login instead of password." :
+        code === "single_session_mode_enabled"? "Already signed in. Refresh the page." :
+        msg
       );
       setLoading(false);
     }
