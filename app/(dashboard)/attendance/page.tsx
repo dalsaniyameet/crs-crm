@@ -281,6 +281,8 @@ export default function AttendancePage() {
                           {" · "}<LiveTimer since={todayRecord.punchIn} breakSecs={breakSecs} />
                           {" · "}<span className={getPunchStatus(todayRecord.punchIn).color}>{getPunchStatus(todayRecord.punchIn).label}</span>
                           {onBreak && <span className="ml-2 text-yellow-400 animate-pulse">☕ On Break</span>}
+                          {todayRecord.location?.name && <span className="ml-2 flex items-center gap-1 inline-flex"><MapPin className="w-3 h-3" />{todayRecord.location.name}</span>}
+                          {todayRecord.faceVerified && <span className="ml-2 text-purple-400">🤳 Face Verified</span>}
                         </div>
                       )}
                     {!isPunchedIn && (() => {
@@ -478,8 +480,13 @@ export default function AttendancePage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-white truncate">{r.name}</span>
                       <span className={`text-xs ${status.color}`}>{status.label}</span>
+                      {r.faceVerified && <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">🤳 Face</span>}
                     </div>
-                    <div className="text-xs text-muted-foreground">{r.location?.name}</div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="w-3 h-3 flex-shrink-0" />
+                      <span>{r.location?.name || "Office"}</span>
+                      {r.location?.address && <span className="truncate opacity-60">· {r.location.address}</span>}
+                    </div>
                   </div>
                   <div className="text-right text-xs flex-shrink-0 space-y-1">
                     <div className="text-white">
