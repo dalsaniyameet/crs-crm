@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 async function isAdmin(userId: string) {
   try {
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
+    const dbUser = await prisma.user.findFirst({ where: { clerkId: userId }, select: { role: true } });
     return (dbUser?.role as string)?.toUpperCase() === "ADMIN";
   } catch { return false; }
 }
@@ -39,20 +39,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     if (dbUser) {
       try { leads = await prisma.lead.findMany({ where: { assignedToId: dbUser.id }, orderBy: { createdAt: "desc" }, take: 20 }); } catch {}
       try {
-        deals = await (prisma.deal as any).findMany({
-          where: { OR: [{ brokerId: dbUser.id }, { assignedToId: dbUser.id }] },
+        deals = await prisma.deal.findMany({
+          where: { brokerId: dbUser.id },
           include: { lead: { select: { name: true } } },
           orderBy: { createdAt: "desc" }, take: 20,
         });
       } catch {}
       try {
         visits = await prisma.siteVisit.findMany({
-          where: { OR: [{ brokerId: dbUser.id }, { assignedToId: dbUser.id }] },
+          where: { brokerId: dbUser.id },
           include: { lead: { select: { name: true } }, property: { select: { title: true, locality: true } } },
           orderBy: { scheduledAt: "desc" }, take: 20,
         });
       } catch {}
-      try { activities = await (prisma as any).activity.findMany({ where: { userId: dbUser.id }, orderBy: { createdAt: "desc" }, take: 15 }); } catch {}
+      try { activities = await prisma.activity.findMany({ where: { userId: dbUser.id }, orderBy: { createdAt: "desc" }, take: 15 }); } catch {}
     }
     const stats = {
       totalLeads:  leads.length,
