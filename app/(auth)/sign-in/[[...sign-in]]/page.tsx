@@ -81,9 +81,10 @@ export default function SignInPage() {
   }, [tab]);
 
   // ── Admin Login ──
-  async function handleAdminLogin(e: React.FormEvent) {
+  async function handleAdminLogin(e: React.FormEvent, forceMode?: "oauth" | "password") {
     e.preventDefault();
     if (!isLoaded) return;
+    const mode = forceMode ?? adminMode;
     setError(""); setLoading(true);
     try {
       const res = await fetch("/api/auth/check-admin", {
@@ -93,7 +94,7 @@ export default function SignInPage() {
       });
       if (!res.ok) { setError("You are not authorized as admin."); setLoading(false); return; }
 
-      if (adminMode === "password") {
+      if (mode === "password") {
         try {
           // First create sign in attempt
           const result = await signIn!.create({
@@ -125,21 +126,23 @@ export default function SignInPage() {
           const clerkErr = err as { errors?: Array<{ message: string; code: string; longMessage?: string }> };
           const code = clerkErr?.errors?.[0]?.code || "";
           const msg  = clerkErr?.errors?.[0]?.longMessage || clerkErr?.errors?.[0]?.message || "Login failed";
+          console.error("Clerk password error:", code, msg, clerkErr?.errors);
           if (code === "strategy_for_user_invalid") { setAdminMode("oauth"); }
           setError(
             code === "form_password_incorrect"    ? "Incorrect password. Please try again." :
-            code === "form_identifier_not_found"  ? "Admin account not found." :
-            code === "strategy_for_user_invalid"  ? "This account uses Google login. Switched to OAuth mode." :
+            code === "form_identifier_not_found"  ? "Admin account not found. Check email." :
+            code === "strategy_for_user_invalid"  ? "Password login not enabled. Enable it in Clerk Dashboard → User & Authentication → Email, Phone, Username → Password ON." :
             code === "session_exists"             ? "Already signed in. Refreshing..." :
-            msg
+            code === "form_param_nil"             ? "Please enter both email and password." :
+            `Error [${code}]: ${msg}`
           );
           if (code === "session_exists") { router.push("/dashboard"); return; }
           setLoading(false); return;
         }
       }
-      const isMicrosoft = adminEmail.toLowerCase() === "info@cityrealspace.com";
+      // mode === "oauth" → Google
       await signIn!.authenticateWithRedirect({
-        strategy: isMicrosoft ? "oauth_microsoft" : "oauth_google",
+        strategy: "oauth_google",
         redirectUrl: "/sso-callback",
         redirectUrlComplete: "/dashboard",
       });
@@ -330,9 +333,9 @@ export default function SignInPage() {
                   </button>
                 ) : (
                   <div className="space-y-2">
-                    {/* Google button — always shown */}
-                    <button type="submit" disabled={loading || !adminEmail}
-                      onClick={() => setAdminMode("oauth")}
+                    {/* Google button */}
+                    <button type="button" disabled={loading || !adminEmail}
+                      onClick={(e) => handleAdminLogin(e as unknown as React.FormEvent, "oauth")}
                       className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-white text-gray-800 font-semibold text-sm hover:bg-gray-100 transition-colors disabled:opacity-60">
                       {loading ? <Loader2 className="w-4 h-4 animate-spin text-gray-800" /> : (
                         <svg className="w-5 h-5" viewBox="0 0 24 24">
