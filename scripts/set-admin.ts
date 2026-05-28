@@ -2,9 +2,15 @@
  * npx tsx scripts/set-admin.ts
  */
 import https from "https";
+require("dotenv").config({ path: ".env.local" });
 
-const SECRET_KEY = "sk_test_0lTWakNCjkZYuJLij3hZG2Dz0mdstkt7BsjqqTuKLc";
-const EMAIL      = "meetdalsaniya143@gmail.com";
+const SECRET_KEY = process.env.CLERK_SECRET_KEY || "";
+const EMAIL      = "info@cityrealspace.com";
+
+if (!SECRET_KEY) {
+  console.error("❌ CLERK_SECRET_KEY not found in .env.local");
+  process.exit(1);
+}
 
 function clerkRequest(method: string, path: string, body?: object): Promise<unknown> {
   return new Promise((resolve, reject) => {
