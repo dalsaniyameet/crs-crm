@@ -290,6 +290,13 @@ export default function HomePage() {
           <span>·</span>
           <span>Ahmedabad, Gujarat, India</span>
         </div>
+        {/* SEO keyword footer — visible to Google, subtle to users */}
+        <p style={{ fontSize: 11, color: "#1e293b", marginTop: 16, maxWidth: 700, margin: "16px auto 0", lineHeight: 1.8 }}>
+          Real Estate CRM Ahmedabad · Property Broker Software Gujarat · AI Lead Management ·
+          WhatsApp Automation Real Estate · Deal Pipeline Software · Commission Tracker Broker ·
+          Best CRM for Real Estate Agents India · Commercial Property Software Ahmedabad ·
+          Residential Property CRM · City Real Space CRM Platform
+        </p>
         <p style={{ fontSize: 11, color: "#334155", marginTop: 10 }}>© 2026 City Real Space. All rights reserved.</p>
       </footer>
     </div>
