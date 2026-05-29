@@ -542,7 +542,13 @@ We have genuine properties matching your requirement. Let's connect! 🤝
         <div className="flex-1">
           <span className="text-sm text-white font-medium">AI Engine: </span>
           <span className="text-sm text-muted-foreground">Auto-scoring leads & matching properties. </span>
-          <button className="text-sm text-estate-400 hover:text-estate-300 underline">View matches →</button>
+          <button
+            onClick={() => {
+              const lead = leads.find(l => l.score >= 60) || leads[0];
+              if (lead) { openDetail(lead.id); setDetailTab("overview"); }
+              else toast("No leads yet. Add leads with requirements to auto-match.");
+            }}
+            className="text-sm text-estate-400 hover:text-estate-300 underline">View matches →</button>
         </div>
         <div className="flex items-center gap-1 text-xs text-gold-400">
           <Zap className="w-3 h-3" /> Active
@@ -916,12 +922,27 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/50" />
                         </div>
 
-                        {detailLead.matchedProperties?.length > 0 && (
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs flex items-center gap-1">
                               <Zap className="w-3 h-3 text-gold-400" />
-                              <span className="text-gold-400 font-medium">AI Matched Properties ({detailLead.matchedProperties.length})</span>
+                              <span className="text-gold-400 font-medium">Matched Properties ({detailLead.matchedProperties?.length ?? 0})</span>
                             </div>
+                            <button
+                              onClick={async () => {
+                                const tid = toast.loading("Matching properties...");
+                                try {
+                                  await fetch(`/api/leads/${detailLead.id}/rematch`, { method: "POST" });
+                                  const updated = await fetch(`/api/leads/${detailLead.id}`).then(r => r.json());
+                                  setDetailLead(updated);
+                                  toast.success(`${updated.matchedProperties?.length ?? 0} properties matched!`, { id: tid });
+                                } catch { toast.error("Match failed", { id: tid }); }
+                              }}
+                              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-gold-500/15 border border-gold-500/25 text-gold-400 hover:bg-gold-500/25 transition-all">
+                              <RefreshCw className="w-3 h-3" /> Re-run
+                            </button>
+                          </div>
+                          {detailLead.matchedProperties?.length > 0 ? (
                             <div className="space-y-2">
                               {detailLead.matchedProperties.map((m: any) => (
                                 <button key={m.id} onClick={() => openProperty(m.property?.id)}
@@ -949,8 +970,10 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                                 </button>
                               ))}
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            <p className="text-xs text-muted-foreground py-2">No matches yet. Click Re-run to find properties.</p>
+                          )}
+                        </div>
 
                         {detailLead.activities?.length > 0 && (
                           <div>
