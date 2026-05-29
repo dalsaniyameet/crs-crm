@@ -43,10 +43,14 @@ const SOURCE_LABEL: Record<string, string> = {
   OTHER:           "Other 📋",
 };
 
-const fmtMoney = (n: number) =>
-  n >= 10000000 ? `₹${(n / 10000000).toFixed(1)}Cr`
-  : n >= 100000 ? `₹${(n / 100000).toFixed(1)}L`
-  : `₹${(n / 1000).toFixed(0)}K`;
+const fmtMoney = (n: number) => {
+  if (!n || n <= 0) return null;
+  // If stored as lakhs (e.g. 23.5 = 23.5L), values < 1000 are in lakhs
+  const val = n < 1000 ? n * 100000 : n;
+  return val >= 10000000 ? `₹${(val / 10000000).toFixed(1)}Cr`
+    : val >= 100000 ? `₹${(val / 100000).toFixed(1)}L`
+    : `₹${(val / 1000).toFixed(0)}K`;
+};
 
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse bg-white/10 rounded-lg ${className}`} />;
@@ -367,7 +371,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {todayVisits.map((v: { id: string; scheduledAt: string; lead?: { name: string }; property?: { title: string }; broker?: { name: string } }) => (
                 <Link key={v.id} href={`/visits?id=${v.id}`}
-                  className="flex items-center gap-3 p-2.5 rounded-xl transition-colors cursor-pointer"
+                  className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer"
                   style={{ background: "rgba(30,58,95,0.3)", border: "1px solid rgba(234,179,8,0.08)" }}>
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                     style={{ background: "linear-gradient(135deg,#1e3a5f,#0f1f35)" }}>
@@ -406,7 +410,7 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {hotLeads.map((lead: { id: string; name: string; score: number; budget?: number; source?: string; requirements?: string }) => (
                 <Link key={lead.id} href={`/leads?id=${lead.id}`}
-                  className="flex items-center gap-3 p-3 rounded-xl transition-colors cursor-pointer"
+                  className="flex items-center gap-3 p-3 rounded-xl cursor-pointer"
                   style={{ background: "rgba(30,58,95,0.25)", border: "1px solid rgba(234,179,8,0.06)" }}>
                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                     style={{ background: "linear-gradient(135deg,#1e3a5f,#0f1f35)" }}>
@@ -415,7 +419,7 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{lead.name}</div>
                     <div className="text-xs text-muted-foreground truncate">{lead.requirements || "—"}</div>
-                    {lead.budget && lead.budget > 0 && (
+                    {lead.budget && lead.budget > 0 && fmtMoney(lead.budget) && (
                       <span className="text-xs text-yellow-400 font-semibold">{fmtMoney(lead.budget)}</span>
                     )}
                   </div>
@@ -482,7 +486,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {todayFollowUps.map((t: { id: string; title: string; dueAt: string; priority: string; lead?: { id: string; name: string; phone: string } }) => (
                 <Link key={t.id} href={t.lead?.id ? `/leads?id=${t.lead.id}` : "/leads"}
-                  className="flex items-center gap-3 p-2.5 rounded-xl transition-colors cursor-pointer"
+                  className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer"
                   style={{ background: "rgba(30,58,95,0.3)", border: "1px solid rgba(168,85,247,0.1)" }}>
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                     t.priority === "HIGH" || t.priority === "URGENT" ? "bg-red-400" :

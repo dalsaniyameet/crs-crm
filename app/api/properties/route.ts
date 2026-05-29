@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { autoMatchProperties } from "@/lib/autoMatch";
+import { autoMatchLeadsForProperty } from "@/lib/autoMatch";
 import { notifyNewProperty } from "@/lib/notify";
 
 export async function GET(req: NextRequest) {
@@ -95,6 +95,9 @@ export async function POST(req: NextRequest) {
       transactionType: property.transactionType,
       listedBy: (property as any).listedBy?.name,
     }).catch(() => {});
+
+    // Auto-match existing leads against this new property
+    autoMatchLeadsForProperty(property.id).catch(() => {});
 
     return NextResponse.json(property, { status: 201 });
   } catch (err: any) {

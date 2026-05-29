@@ -53,12 +53,14 @@ async function sendViaSMTP(to: string[], subject: string, html: string) {
   console.log("[EMAIL] SMTP OK:", info.messageId, "→", to.join(", "));
 }
 
-// ── Main dispatcher ───────────────────────────────────────────────────────────
+// ── Main dispatcher — SMTP first, Resend fallback ───────────────────────────
 async function send(to: string[], subject: string, html: string) {
-  if (process.env.RESEND_API_KEY) {
+  if (process.env.EMAIL_PASS && process.env.EMAIL_PASS !== "YOUR_EMAIL_PASSWORD") {
+    await sendViaSMTP(to, subject, html);
+  } else if (process.env.RESEND_API_KEY) {
     await sendViaResend(to, subject, html);
   } else {
-    await sendViaSMTP(to, subject, html);
+    throw new Error("No email transport configured");
   }
 }
 

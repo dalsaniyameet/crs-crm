@@ -6,20 +6,57 @@ async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const leadId = new URL(req.url).searchParams.get("leadId");
-  if (!leadId) return NextResponse.json([], { status: 200 });
+  // If called as /api/leads/tasks?leadId=... (tasks sub-route won't reach here)
+  // This handles /api/leads/[id] — fetch full lead detail
+  const leadId = params.id;
 
-  const tasks = await prisma.task.findMany({
-    where:   { leadId },
-    include: { assignedTo: { select: { id: true, name: true, avatar: true } } },
-    orderBy: { dueAt: "asc" },
-  });
+  try {
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      include: {
+        assignedTo: { select: { id: true, name: true, avatar: true } },
+        callLogs: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          include: { user: { select: { name: true } } },
+        },
+        tasks: {
+          where: { isCompleted: false },
+          orderBy: { dueAt: "asc" },
+          include: { assignedTo: { select: { id: true, name: true } } },
+        },
+        activities: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: { id: true, description: true, createdAt: true, type: true },
+        },
+        matchedProperties: {
+          orderBy: { score: "desc" },
+          take: 5,
+          include: {
+            property: {
+              select: {
+                id: true, title: true, type: true,
+                locality: true, price: true, status: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
-  return NextResponse.json(tasks);
+    if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+    return NextResponse.json(lead);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -62,38 +99,45 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(task, { status: 201 });
 }
 
-export async function PATCH(req: NextRequest) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, isCompleted, title, dueAt, priority, description } = await req.json();
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-
-  const data: any = {};
-  if (isCompleted !== undefined) {
-    data.isCompleted = isCompleted;
-    if (isCompleted) data.completedAt = new Date();
-  }
-  if (title !== undefined)       data.title       = title;
-  if (dueAt !== undefined)       data.dueAt       = new Date(dueAt);
-  if (priority !== undefined)    data.priority    = priority;
-  if (description !== undefined) data.description = description;
-
-  const task = await prisma.task.update({ where: { id }, data });
-  return NextResponse.json(task);
-}
-
-export async function DELETE(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  // Extract lead id from URL path: /api/leads/[id]
-  const segments = new URL(req.url).pathname.split("/");
-  const leadId   = segments[segments.length - 1];
-  if (!leadId) return NextResponse.json({ error: "id required" }, { status: 400 });
+  const leadId = params.id;
+  const body = await req.json();
 
   try {
-    await prisma.lead.delete({ where: { id: leadId } });
+    const updated = await prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        ...(body.status        !== undefined && { status: body.status }),
+        ...(body.assignedToId  !== undefined && { assignedToId: body.assignedToId }),
+        ...(body.nextFollowUpAt !== undefined && { nextFollowUpAt: body.nextFollowUpAt ? new Date(body.nextFollowUpAt) : null }),
+        ...(body.notes         !== undefined && { notes: body.notes }),
+        ...(body.score         !== undefined && { score: body.score }),
+      },
+      include: {
+        assignedTo: { select: { id: true, name: true, avatar: true } },
+      },
+    });
+    return NextResponse.json(updated);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    await prisma.lead.delete({ where: { id: params.id } });
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Lead not found or delete failed" }, { status: 404 });
