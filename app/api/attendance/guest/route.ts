@@ -6,8 +6,9 @@ const BREAK_MINUTES = 45;
 
 export async function POST(req: Request) {
   try {
-    const { name, phone, locationId, action, bypass, faceImage } = await req.json();
+    const { name, phone, locationId, action, bypass, faceImage, backdated, punchInTime, punchOutTime } = await req.json();
     // action: "IN" | "OUT" | "BREAK_START" | "BREAK_END"
+    // backdated: true = admin adding past attendance manually
 
     if (!name?.trim() || !phone?.trim() || !locationId) {
       return NextResponse.json({ error: "Name, phone and location required" }, { status: 400 });
@@ -16,6 +17,53 @@ export async function POST(req: Request) {
     const location = await prisma.attendanceLocation.findUnique({ where: { id: locationId } });
     if (!location || !location.isActive) {
       return NextResponse.json({ error: "Invalid location" }, { status: 400 });
+    }
+
+    // ── BACKDATED ATTENDANCE (admin adding past records) ──
+    if (backdated && punchInTime) {
+      const pIn  = new Date(punchInTime);
+      const pOut = punchOutTime ? new Date(punchOutTime) : null;
+
+      // Check duplicate for that date
+      const dayStart = new Date(pIn); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd   = new Date(pIn); dayEnd.setHours(23, 59, 59, 999);
+      const duplicate = await prisma.guestAttendance.findFirst({
+        where: { phone: phone.trim(), punchIn: { gte: dayStart, lte: dayEnd } },
+      });
+      if (duplicate) {
+        return NextResponse.json({ error: "Attendance already exists for this date" }, { status: 400 });
+      }
+
+      let workHours: number | undefined;
+      let lateMinutes = 0;
+      let overtimeHours = 0;
+      if (pOut) {
+        const isSun = pIn.getDay() === 0;
+        const totalMs = pOut.getTime() - pIn.getTime();
+        const breakMs = BREAK_MINUTES * 60 * 1000;
+        const netMs   = totalMs > breakMs ? totalMs - breakMs : totalMs;
+        workHours     = netMs / (1000 * 60 * 60);
+        const expectedInMin = isSun ? 16 * 60 : 10 * 60;
+        const actualInMin   = pIn.getHours() * 60 + pIn.getMinutes();
+        lateMinutes   = Math.max(0, actualInMin - expectedInMin);
+        const expectedH = isSun ? 2 : 9;
+        overtimeHours = Math.max(0, workHours - expectedH);
+      }
+
+      const record = await prisma.guestAttendance.create({
+        data: {
+          name: name.trim(), phone: phone.trim(), locationId,
+          punchIn: pIn,
+          punchOut: pOut,
+          workHours,
+          lateMinutes,
+          overtimeHours,
+          approved: false, // admin must approve backdated records
+          createdAt: pIn,  // set createdAt to the backdated day so date queries work
+        },
+        include: { location: true },
+      });
+      return NextResponse.json({ type: "BACKDATED", record });
     }
 
     const today = new Date();
@@ -220,11 +268,17 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { id, approved, approvedBy } = await req.json();
+    const { id, approved, approvedBy, rejected, rejectReason } = await req.json();
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     const updated = await prisma.guestAttendance.update({
       where: { id },
-      data: { approved, approvedAt: approved ? new Date() : null, approvedBy: approvedBy || null },
+      data: {
+        approved: rejected ? false : approved,
+        approvedAt: (approved && !rejected) ? new Date() : null,
+        approvedBy: approvedBy || null,
+        // store reject reason in approvedBy field with prefix if rejected
+        ...(rejected ? { approvedBy: rejectReason ? `REJECTED: ${rejectReason}` : "REJECTED" } : {}),
+      },
       include: { location: true },
     });
     return NextResponse.json(updated);

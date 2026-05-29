@@ -597,14 +597,17 @@ export default function EmployeePanelPage() {
                   const diff = a.workHours ? a.workHours - expectedH : null;
                   return (
                     <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.punchOut ? (a.approved ? (a.lateMinutes > 0 ? "bg-red-400" : "bg-emerald-400") : "bg-yellow-400") : "bg-yellow-400 animate-pulse"}`} />
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.punchOut ? (a.approved ? (a.lateMinutes > 0 ? "bg-red-400" : "bg-emerald-400") : (a.approvedBy?.startsWith("REJECTED") ? "bg-red-400" : "bg-yellow-400")) : "bg-yellow-400 animate-pulse"}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium text-white">
                             {new Date(a.punchIn).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
                           </span>
-                          {!a.approved && a.punchOut && (
+                          {!a.approved && a.punchOut && !a.approvedBy?.startsWith("REJECTED") && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400">Pending Approval</span>
+                          )}
+                          {a.approvedBy?.startsWith("REJECTED") && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">✕ Rejected</span>
                           )}
                           {a.approved && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">✓ Approved</span>

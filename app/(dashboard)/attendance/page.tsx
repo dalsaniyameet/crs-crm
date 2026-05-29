@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   QrCode, MapPin, Clock, Users, Printer, RefreshCw,
   Coffee, LogIn, LogOut, Calendar, ChevronDown, ChevronUp, Gift, ScanFace,
+  PlusCircle, X, CheckCircle, XCircle, AlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import FacePunch from "@/components/attendance/FacePunch";
@@ -96,6 +97,14 @@ export default function AttendancePage() {
   const [breakTimers, setBreakTimers]   = useState<Record<string, { start: number; total: number }>>({}); 
   const [facePunch, setFacePunch]       = useState<{ emp: any; action: "IN" | "OUT" } | null>(null);
 
+  // Backdated attendance modal
+  const [backdateModal, setBackdateModal] = useState<{ emp: any } | null>(null);
+  const [backdateForm, setBackdateForm]   = useState({ date: "", punchIn: "10:00", punchOut: "19:00", hasOut: true });
+  const [backdating, setBackdating]       = useState(false);
+
+  // Approve/Reject modal for history records
+  const [approveModal, setApproveModal]   = useState<{ record: any; empId: string } | null>(null);
+
   const fetchAll = useCallback(async () => {
     try {
       const [locRes, recRes, empRes] = await Promise.all([
@@ -120,6 +129,60 @@ export default function AttendancePage() {
       if (role !== "ADMIN") router.replace("/employee");
     }
   }, [isLoaded, user, router]);
+
+  // Submit backdated attendance
+  const handleBackdate = async () => {
+    if (!backdateModal || !backdateForm.date || !locations[0]) return;
+    setBackdating(true);
+    const { emp } = backdateModal;
+    const punchInISO  = `${backdateForm.date}T${backdateForm.punchIn}:00`;
+    const punchOutISO = backdateForm.hasOut ? `${backdateForm.date}T${backdateForm.punchOut}:00` : null;
+    try {
+      const res = await fetch("/api/attendance/guest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: emp.name, phone: emp.email,
+          locationId: locations[0].id,
+          backdated: true,
+          punchInTime: punchInISO,
+          punchOutTime: punchOutISO,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Failed"); }
+      else {
+        toast.success(`Past attendance added for ${emp.name} ✅ — pending approval`);
+        setBackdateModal(null);
+        setEmpHistory(prev => { const n = { ...prev }; delete n[emp.id]; return n; });
+        setTimeout(() => loadEmpHistory(emp.id), 300);
+      }
+    } catch { toast.error("Network error"); }
+    setBackdating(false);
+  };
+
+  // Approve or reject a history record
+  const handleApproveRecord = async (recordId: string, empId: string, approve: boolean, reason?: string) => {
+    const adminName = user?.fullName || user?.firstName || "Admin";
+    const res = await fetch("/api/attendance/guest", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: recordId,
+        approved: approve,
+        rejected: !approve,
+        approvedBy: approve ? adminName : undefined,
+        rejectReason: reason,
+      }),
+    });
+    if (res.ok) {
+      toast.success(approve ? "Attendance approved ✓" : "Attendance rejected");
+      setApproveModal(null);
+      setEmpHistory(prev => { const n = { ...prev }; delete n[empId]; return n; });
+      setTimeout(() => loadEmpHistory(empId), 300);
+      fetchAll();
+    } else toast.error("Failed");
+  };
 
   // Load employee attendance history
   const loadEmpHistory = async (empId: string) => {
@@ -187,23 +250,23 @@ export default function AttendancePage() {
   );
 
   const isSunday = new Date().getDay() === 0;
-  const present  = records.filter(r => r.punchIn);
-  // Dedupe stillIn by phone — keep only latest active record per person
-  const stillInRaw = records.filter(r => r.punchIn && !r.punchOut);
-  const stillInMap = new Map<string, any>();
-  for (const r of stillInRaw) {
+
+  // Dedupe ALL records by phone — keep only latest per person
+  const allDeduped = new Map<string, any>();
+  for (const r of records) {
     const key = r.phone || r.name;
-    if (!stillInMap.has(key) || new Date(r.punchIn) > new Date(stillInMap.get(key).punchIn))
-      stillInMap.set(key, r);
+    if (!allDeduped.has(key) || new Date(r.punchIn) > new Date(allDeduped.get(key).punchIn))
+      allDeduped.set(key, r);
   }
-  const stillIn = Array.from(stillInMap.values());
+  const present = Array.from(allDeduped.values()).filter(r => r.punchIn);
+  const stillIn = present.filter(r => !r.punchOut);
 
   // Which employees are currently punched in today (match by phone OR name)
-  const punchedInKeys = new Set([...stillIn.map(r => r.phone), ...stillIn.map(r => r.name)]);
+  const punchedInKeys = new Set([...stillIn.map((r: any) => r.phone), ...stillIn.map((r: any) => r.name)]);
 
   // Helper: get today's record for an employee
   const getTodayRecord = (emp: any) =>
-    stillIn.find(r => r.phone === emp.email || r.phone === emp.phone || r.name === emp.name);
+    present.find((r: any) => r.phone === emp.email || r.phone === emp.phone || r.name === emp.name);
 
   // Helper: work diff vs expected
   const getWorkDiff = (punchIn: string, punchOut: string | null, breakSecs: number) => {
@@ -344,6 +407,10 @@ export default function AttendancePage() {
                           </button>
                         </>
                       )}
+                      <button onClick={() => setBackdateModal({ emp })}
+                        className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500/30 transition-colors">
+                        <PlusCircle className="w-3 h-3" /> Past
+                      </button>
                       <button onClick={() => loadEmpHistory(emp.id)}
                         className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-muted-foreground hover:text-white transition-colors">
                         {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -362,51 +429,44 @@ export default function AttendancePage() {
                           </div>
                           {history.length === 0 ? (
                             <div className="text-xs text-muted-foreground text-center py-3">No records found</div>
-                          ) : history.map((h: any) => (
-                            <div key={h.id} className="flex items-center gap-3 text-xs py-1.5 border-b border-white/3 last:border-0">
-                              <span className="text-muted-foreground w-20 flex-shrink-0">
-                                {new Date(h.punchIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                              </span>
-                              <span className="text-white">
-                                {new Date(h.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                                {h.punchOut && <> → {new Date(h.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</>}
-                              </span>
-                              {/* Method badge */}
-                              <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full border ${
-                                h.faceImageIn
-                                  ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
-                                  : "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                              }`}>
-                                {h.faceImageIn ? "🤳 Face" : "🖱️ Manual"}
-                              </span>
-                              {/* Face photo thumbnails */}
-                              {(h.faceImageIn || h.faceImageOut) && (
-                                <div className="flex gap-1 flex-shrink-0">
-                                  {h.faceImageIn && (
-                                    <a href={h.faceImageIn} target="_blank" rel="noreferrer">
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={h.faceImageIn} alt="In" className="w-7 h-7 rounded-full object-cover border border-purple-500/40" />
-                                    </a>
-                                  )}
-                                  {h.faceImageOut && (
-                                    <a href={h.faceImageOut} target="_blank" rel="noreferrer">
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={h.faceImageOut} alt="Out" className="w-7 h-7 rounded-full object-cover border border-red-500/40" />
-                                    </a>
-                                  )}
+                          ) : history.map((h: any) => {
+                            const isRejected = h.approvedBy?.startsWith("REJECTED");
+                            const isPending  = !h.approved && !isRejected && h.punchOut;
+                            const rejectReason = isRejected ? h.approvedBy.replace("REJECTED: ", "").replace("REJECTED", "") : "";
+                            return (
+                            <div key={h.id} className="flex items-start gap-2 text-xs py-2 border-b border-white/5 last:border-0">
+                              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-muted-foreground w-16 flex-shrink-0">
+                                    {new Date(h.punchIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                  </span>
+                                  <span className="text-white">
+                                    {new Date(h.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                    {h.punchOut && <> → {new Date(h.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</>}
+                                  </span>
+                                  <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-full border ${
+                                    h.faceImageIn ? "bg-purple-500/20 text-purple-400 border-purple-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                  }`}>{h.faceImageIn ? "🤳 Face" : "🖱️ Manual"}</span>
+                                  {/* Approval status */}
+                                  {h.approved && <span className="text-emerald-400 flex items-center gap-0.5"><CheckCircle className="w-3 h-3" /> Approved</span>}
+                                  {isRejected && <span className="text-red-400 flex items-center gap-0.5"><XCircle className="w-3 h-3" /> Rejected{rejectReason ? `: ${rejectReason}` : ""}</span>}
+                                  {isPending && <span className="text-yellow-400 flex items-center gap-0.5"><AlertCircle className="w-3 h-3" /> Pending</span>}
                                 </div>
-                              )}
-                              <span className={`ml-auto font-medium ${h.workHours ? "text-estate-400" : "text-emerald-400"}`}>
-                                {h.workHours ? `${h.workHours.toFixed(1)}h` : "In Office"}
-                              </span>
-                              {h.workHours && (() => {
-                                const diff = getWorkDiff(h.punchIn, h.punchOut, 0);
-                                const diffH = Math.abs(diff / 3600).toFixed(1);
-                                return <span className={diff >= 0 ? "text-emerald-400 text-xs" : "text-red-400 text-xs"}>{diff >= 0 ? `+${diffH}h` : `-${diffH}h`}</span>;
-                              })()}
-                              <span className={`text-xs ${getPunchStatus(h.punchIn).color}`}>{getPunchStatus(h.punchIn).label}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                <span className={`font-medium ${h.workHours ? "text-estate-400" : "text-emerald-400"}`}>
+                                  {h.workHours ? `${h.workHours.toFixed(1)}h` : "—"}
+                                </span>
+                                {/* Approve/Reject buttons for pending records */}
+                                {isPending && (
+                                  <button onClick={() => setApproveModal({ record: h, empId: emp.id })}
+                                    className="px-2 py-0.5 rounded bg-estate-500/20 text-estate-300 border border-estate-500/30 hover:bg-estate-500/30 transition-colors text-xs">
+                                    Review
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          ))}
+                          );})}
                         </div>
                       </motion.div>
                     )}
@@ -567,6 +627,191 @@ export default function AttendancePage() {
           />
         )}
       </AnimatePresence>
+
+      {/* ── Backdated Attendance Modal ── */}
+      <AnimatePresence>
+        {backdateModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+            onClick={() => setBackdateModal(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm rounded-2xl p-5 space-y-4"
+              style={{ background: "#0d0d14", border: "1px solid rgba(168,85,247,0.25)" }}
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-white flex items-center gap-2">
+                    <PlusCircle className="w-4 h-4 text-purple-400" /> Add Past Attendance
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{backdateModal.emp.name}</div>
+                </div>
+                <button onClick={() => setBackdateModal(null)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Date *</label>
+                  <input type="date" value={backdateForm.date}
+                    max={new Date().toISOString().split("T")[0]}
+                    onChange={e => setBackdateForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 [color-scheme:dark]" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Punch In Time *</label>
+                    <input type="time" value={backdateForm.punchIn}
+                      onChange={e => setBackdateForm(f => ({ ...f, punchIn: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 [color-scheme:dark]" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Punch Out Time
+                      <button type="button" onClick={() => setBackdateForm(f => ({ ...f, hasOut: !f.hasOut }))}
+                        className={`ml-2 text-xs px-1.5 py-0.5 rounded border transition-colors ${
+                          backdateForm.hasOut ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-white/5 text-muted-foreground border-white/10"
+                        }`}>{backdateForm.hasOut ? "On" : "Off"}</button>
+                    </label>
+                    <input type="time" value={backdateForm.punchOut} disabled={!backdateForm.hasOut}
+                      onChange={e => setBackdateForm(f => ({ ...f, punchOut: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 [color-scheme:dark] disabled:opacity-40" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-yellow-500/8 border border-yellow-500/20 text-xs text-yellow-400">
+                ⚠️ Backdated records require admin approval before counting in salary/reports.
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={handleBackdate} disabled={backdating || !backdateForm.date}
+                  className="flex-1 py-2.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 text-sm font-medium transition-colors disabled:opacity-50">
+                  {backdating ? "Saving..." : "Save & Pending Approval"}
+                </button>
+                <button onClick={() => setBackdateModal(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 text-muted-foreground border border-white/10 hover:text-white text-sm transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Approve/Reject Modal ── */}
+      <AnimatePresence>
+        {approveModal && (
+          <ApproveModal
+            record={approveModal.record}
+            empId={approveModal.empId}
+            onClose={() => setApproveModal(null)}
+            onApprove={(id, empId) => handleApproveRecord(id, empId, true)}
+            onReject={(id, empId, reason) => handleApproveRecord(id, empId, false, reason)}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+// ── Approve/Reject Modal Component ──
+function ApproveModal({ record, empId, onClose, onApprove, onReject }: {
+  record: any; empId: string;
+  onClose: () => void;
+  onApprove: (id: string, empId: string) => void;
+  onReject: (id: string, empId: string, reason: string) => void;
+}) {
+  const [rejectReason, setRejectReason] = useState("");
+  const [showReject, setShowReject]     = useState(false);
+  const punchInDate = new Date(record.punchIn);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+      onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="w-full max-w-sm rounded-2xl p-5 space-y-4"
+        style={{ background: "#0d0d14", border: "1px solid rgba(234,179,8,0.2)" }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold text-white">Review Attendance</div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+
+        {/* Record details */}
+        <div className="p-3 rounded-xl bg-white/5 border border-white/8 space-y-1.5 text-xs">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Date</span>
+            <span className="text-white font-medium">{punchInDate.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Punch In</span>
+            <span className="text-white">{punchInDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</span>
+          </div>
+          {record.punchOut && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Punch Out</span>
+              <span className="text-white">{new Date(record.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</span>
+            </div>
+          )}
+          {record.workHours && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Work Hours</span>
+              <span className="text-estate-400 font-medium">{record.workHours.toFixed(1)}h</span>
+            </div>
+          )}
+          {record.lateMinutes > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Late By</span>
+              <span className="text-red-400">{record.lateMinutes}m</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Method</span>
+            <span className={record.faceImageIn ? "text-purple-400" : "text-blue-400"}>
+              {record.faceImageIn ? "🤳 Face" : "🖱️ Manual"}
+            </span>
+          </div>
+        </div>
+
+        {showReject && (
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Rejection Reason (optional)</label>
+            <input value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+              placeholder="e.g. Wrong date entered"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50" />
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          {!showReject ? (
+            <>
+              <button onClick={() => onApprove(record.id, empId)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-sm font-medium transition-colors">
+                <CheckCircle className="w-4 h-4" /> Approve
+              </button>
+              <button onClick={() => setShowReject(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 text-sm font-medium transition-colors">
+                <XCircle className="w-4 h-4" /> Reject
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => onReject(record.id, empId, rejectReason)}
+                className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 text-sm font-medium transition-colors">
+                Confirm Reject
+              </button>
+              <button onClick={() => setShowReject(false)}
+                className="px-4 py-2.5 rounded-xl bg-white/5 text-muted-foreground border border-white/10 hover:text-white text-sm transition-colors">
+                Back
+              </button>
+            </>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
