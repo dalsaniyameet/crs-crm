@@ -16,8 +16,11 @@ const FROM    = `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityre
 async function sendViaResend(to: string[], subject: string, html: string) {
   const { Resend } = await import("resend");
   const resend = new Resend(process.env.RESEND_API_KEY);
+  const fromAddr = process.env.RESEND_DOMAIN_VERIFIED === "true"
+    ? `City Real Space CRM <info@cityrealspace.com>`
+    : "City Real Space CRM <onboarding@resend.dev>";
   const { error } = await resend.emails.send({
-    from: "City Real Space CRM <onboarding@resend.dev>",
+    from: fromAddr,
     to,
     subject,
     html,
