@@ -17,6 +17,7 @@ const isPublic = createRouteMatcher([
   "/api/google/callback",
   "/api/google/calendar",
   "/api/leads/follow-up",
+  "/api/admin/daily-summary",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

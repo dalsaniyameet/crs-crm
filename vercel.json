@@ -7,6 +7,10 @@
     {
       "path": "/api/attendance/auto-punchout?secret=crs-cron-2024",
       "schedule": "25 18 * * *"
+    },
+    {
+      "path": "/api/admin/daily-summary?secret=crs-daily-2024",
+      "schedule": "30 18 * * *"
     }
   ]
 }
