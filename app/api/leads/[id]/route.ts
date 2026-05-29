@@ -82,3 +82,20 @@ export async function PATCH(req: NextRequest) {
   const task = await prisma.task.update({ where: { id }, data });
   return NextResponse.json(task);
 }
+
+export async function DELETE(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Extract lead id from URL path: /api/leads/[id]
+  const segments = new URL(req.url).pathname.split("/");
+  const leadId   = segments[segments.length - 1];
+  if (!leadId) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  try {
+    await prisma.lead.delete({ where: { id: leadId } });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: "Lead not found or delete failed" }, { status: 404 });
+  }
+}

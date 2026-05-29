@@ -44,8 +44,12 @@ const scoreBg    = (s: number) => s >= 80 ? "bg-red-500/20 border-red-500/30" : 
 const scoreLabel = (s: number) => s >= 80 ? "🔥 HOT" : s >= 60 ? "🌡️ WARM" : "❄️ COLD";
 
 const fmtBudget = (b?: number) => {
-  if (!b) return "—";
-  return b >= 10000000 ? `₹${(b/10000000).toFixed(1)}Cr` : b >= 100000 ? `₹${(b/100000).toFixed(1)}L` : `₹${(b/1000).toFixed(0)}K`;
+  if (!b || b <= 0) return "—";
+  // If stored as lakhs (e.g. 23.5 = 23.5L), values < 1000 are in lakhs
+  const val = b < 1000 ? b * 100000 : b;
+  return val >= 10000000 ? `₹${(val/10000000).toFixed(1)}Cr`
+    : val >= 100000 ? `₹${(val/100000).toFixed(1)}L`
+    : `₹${(val/1000).toFixed(0)}K`;
 };
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
@@ -341,6 +345,25 @@ export default function LeadsPage() {
   };
 
   const toggleSelect = (id: string) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const selectAll  = () => setSelected(new Set(filtered.map(l => l.id)));
+  const clearAll   = () => setSelected(new Set());
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} lead(s)? This cannot be undone.`)) return;
+    setBulkSending(true);
+    try {
+      await Promise.all(
+        Array.from(selected).map(id =>
+          fetch(`/api/leads/${id}`, { method: "DELETE" })
+        )
+      );
+      toast.success(`${selected.size} lead(s) deleted`);
+      setSelected(new Set());
+      fetchLeads();
+    } catch { toast.error("Delete failed"); }
+    setBulkSending(false);
+  };
 
   const handleBulkMessage = async (type: "whatsapp" | "email" | "sms") => {
     if (selected.size === 0) return;
@@ -495,6 +518,18 @@ We have genuine properties matching your requirement. Let's connect! 🤝
               {s === "ALL" ? "All" : statusConfig[s as LeadStatus]?.label || s}
             </button>
           ))}
+          {/* Select All / Clear */}
+          <div className="ml-auto flex items-center gap-1.5">
+            <button onClick={selectAll}
+              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-estate-500/15 border border-estate-500/30 text-estate-400 hover:bg-estate-500/25 transition-all">
+              ☑ Select All ({filtered.length})
+            </button>
+            {selected.size > 0 && (
+              <button onClick={clearAll} className="px-2.5 py-1 rounded-lg text-xs text-muted-foreground border border-white/10 bg-white/5 hover:text-white transition-all">
+                ✕ Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -520,7 +555,7 @@ We have genuine properties matching your requirement. Let's connect! 🤝
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="flex items-center gap-3 p-3 rounded-xl bg-estate-900/60 border border-estate-500/30">
             <span className="text-sm text-white font-medium">{selected.size} leads selected</span>
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 ml-auto flex-wrap">
               <button onClick={() => handleBulkMessage("whatsapp")} disabled={bulkSending}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-medium hover:bg-green-500/30 transition-all disabled:opacity-50">
                 <MessageSquare className="w-3.5 h-3.5" /> WhatsApp All
@@ -533,8 +568,12 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-xs font-medium hover:bg-yellow-500/30 transition-all disabled:opacity-50">
                 <Phone className="w-3.5 h-3.5" /> SMS All
               </button>
+              <button onClick={handleBulkDelete} disabled={bulkSending}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-all disabled:opacity-50">
+                🗑 Delete ({selected.size})
+              </button>
               {bulkSending && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-              <button onClick={() => setSelected(new Set())} className="text-xs text-muted-foreground hover:text-white ml-1">✕ Clear</button>
+              <button onClick={clearAll} className="text-xs text-muted-foreground hover:text-white ml-1">✕ Clear</button>
             </div>
           </motion.div>
         )}
