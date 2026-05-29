@@ -141,6 +141,9 @@ model User {
   chatMessages  ChatMessage[]
   callLogs      CallLog[]
   notifPrefs    Json? // notification preferences
+  lastSeen      DateTime?
+  currentPage   String?
+  openTabs      String[] @default([])
 
   @@map("users")
 }

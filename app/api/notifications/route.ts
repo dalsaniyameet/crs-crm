@@ -16,8 +16,27 @@ export async function GET() {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ notifications: [], unreadCount: 0 });
 
-    const user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, notifPrefs: true } });
-    if (!user) return NextResponse.json({ notifications: [], unreadCount: 0 });
+    let user = await prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true, notifPrefs: true } });
+
+    // Auto-create user if missing (webhook may have been missed)
+    if (!user) {
+      try {
+        const res = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+          headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` },
+        });
+        const cu = await res.json();
+        const email = cu?.email_addresses?.[0]?.email_address ?? "";
+        const name  = [cu?.first_name, cu?.last_name].filter(Boolean).join(" ") || "User";
+        const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+        const role  = adminEmails.includes(email.toLowerCase()) ? "ADMIN" : "BROKER";
+        const created = await prisma.user.upsert({
+          where:  { clerkId: userId },
+          update: { email, name, role },
+          create: { clerkId: userId, email, name, role, avatar: cu?.image_url },
+        });
+        user = { id: created.id, notifPrefs: created.notifPrefs };
+      } catch { return NextResponse.json({ notifications: [], unreadCount: 0 }); }
+    }
 
     const notifications = await prisma.notification.findMany({
       where:   { userId: user.id },

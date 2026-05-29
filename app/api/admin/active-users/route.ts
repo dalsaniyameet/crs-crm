@@ -2,52 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-// In-memory store for active users
-// Format: { clerkId: { name, email, role, lastSeen, tabs: Set<string>, avatar } }
-const activeUsers = new Map<string, {
-  name: string; email: string; role: string;
-  lastSeen: number; tabs: string[]; avatar: string;
-}>();
+const ONLINE_MS   = 90_000;       // green dot < 90s
+const ACTIVE_MS   = 30 * 60_000;  // show in live < 30 min
+const ALL_DAY_MS  = 24 * 60 * 60_000;
 
-const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-
-// POST — heartbeat from client (sends all open tabs)
+// POST — heartbeat from any logged-in user
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ ok: false });
 
     const body = await req.json().catch(() => ({}));
-    const user = await prisma.user.findUnique({
+    const page: string = body.page || "/dashboard";
+
+    // Get current tabs from DB, merge
+    const existing = await prisma.user.findUnique({
       where: { clerkId: userId },
-      select: { name: true, email: true, role: true },
+      select: { openTabs: true },
     });
-    if (!user) return NextResponse.json({ ok: false });
 
-    const existing = activeUsers.get(userId);
-    const incomingTab: string = body.page || "/dashboard";
+    let tabs: string[] = existing?.openTabs ?? [];
 
-    // Merge tabs — keep existing ones that are still "alive" + add new
-    let tabs: string[] = existing?.tabs || [];
-    if (!tabs.includes(incomingTab)) tabs = [...tabs, incomingTab];
-
-    // If client sends closedTab, remove it
-    if (body.closedTab) {
-      tabs = tabs.filter(t => t !== body.closedTab);
-    }
-
-    // If client sends allTabs array, use that as source of truth
     if (Array.isArray(body.allTabs) && body.allTabs.length > 0) {
-      tabs = [...new Set(body.allTabs)];
+      tabs = [...new Set(body.allTabs as string[])];
+    } else {
+      if (!tabs.includes(page)) tabs = [...tabs, page];
+      if (body.closedTab) tabs = tabs.filter(t => t !== body.closedTab);
     }
 
-    activeUsers.set(userId, {
-      name:     user.name,
-      email:    user.email,
-      role:     user.role,
-      lastSeen: Date.now(),
-      tabs,
-      avatar:   body.avatar || existing?.avatar || "",
+    await prisma.user.update({
+      where:  { clerkId: userId },
+      data:   { lastSeen: new Date(), currentPage: page, openTabs: tabs },
     });
 
     return NextResponse.json({ ok: true });
@@ -56,40 +41,56 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET — admin fetches all active users
-export async function GET() {
+// GET — admin fetches live + today's activity
+export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
-    if (!userId) return NextResponse.json([]);
+    if (!userId) return NextResponse.json({ live: [], today: [] });
 
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
-      select: { role: true },
+    // Check admin — by DB or ADMIN_EMAILS
+    const me = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true, email: true } });
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    const isAdmin = me?.role === "ADMIN" || adminEmails.includes((me?.email || "").toLowerCase());
+    if (!isAdmin) return NextResponse.json({ live: [], today: [] });
+
+    const now      = new Date();
+    const ago30    = new Date(now.getTime() - ACTIVE_MS);
+    const startDay = new Date(now); startDay.setHours(0, 0, 0, 0);
+
+    const [liveUsers, todayUsers] = await Promise.all([
+      // Last 30 min — live panel
+      prisma.user.findMany({
+        where:  { lastSeen: { gte: ago30 } },
+        select: { id: true, clerkId: true, name: true, email: true, role: true, avatar: true, lastSeen: true, currentPage: true, openTabs: true },
+        orderBy: { lastSeen: "desc" },
+      }),
+      // All day — full day activity
+      prisma.user.findMany({
+        where:  { lastSeen: { gte: startDay } },
+        select: { id: true, clerkId: true, name: true, email: true, role: true, avatar: true, lastSeen: true, currentPage: true, openTabs: true },
+        orderBy: { lastSeen: "desc" },
+      }),
+    ]);
+
+    const format = (u: any) => ({
+      clerkId:     u.clerkId,
+      name:        u.name,
+      email:       u.email,
+      role:        u.role,
+      avatar:      u.avatar || "",
+      lastSeen:    u.lastSeen?.getTime() ?? 0,
+      currentPage: u.currentPage || "/dashboard",
+      tabs:        u.openTabs ?? [],
+      isOnline:    u.lastSeen ? (now.getTime() - u.lastSeen.getTime()) < ONLINE_MS : false,
+      minsAgo:     u.lastSeen ? Math.floor((now.getTime() - u.lastSeen.getTime()) / 60000) : 999,
     });
-    if (user?.role !== "ADMIN") return NextResponse.json([]);
 
-    const now = Date.now();
-    const result: any[] = [];
-
-    activeUsers.forEach((data, clerkId) => {
-      if (now - data.lastSeen < TIMEOUT_MS) {
-        result.push({
-          clerkId,
-          name:     data.name,
-          email:    data.email,
-          role:     data.role,
-          lastSeen: data.lastSeen,
-          tabs:     data.tabs,
-          avatar:   data.avatar,
-          isOnline: now - data.lastSeen < 90_000, // green if < 90s
-        });
-      } else {
-        activeUsers.delete(clerkId);
-      }
+    return NextResponse.json({
+      live:  liveUsers.map(format),
+      today: todayUsers.map(format),
     });
-
-    return NextResponse.json(result.sort((a, b) => b.lastSeen - a.lastSeen));
-  } catch {
-    return NextResponse.json([]);
+  } catch (err: any) {
+    console.error("active-users GET:", err.message);
+    return NextResponse.json({ live: [], today: [] });
   }
 }

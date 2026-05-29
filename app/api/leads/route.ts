@@ -7,8 +7,26 @@ import { runLeadAutomation } from "@/lib/leadAutomation";
 import { notifyNewLead } from "@/lib/notify";
 import { notifyMatchingOwners } from "@/lib/notifyOwners";
 
-async function getUser(clerkId: string) {
-  return prisma.user.findUnique({ where: { clerkId } });
+async function getOrCreateUser(clerkId: string) {
+  let user = await prisma.user.findUnique({ where: { clerkId } });
+  if (!user) {
+    // Auto-create user from Clerk if webhook missed
+    const clerkUser = await fetch(`https://api.clerk.com/v1/users/${clerkId}`, {
+      headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` },
+    }).then(r => r.json()).catch(() => null);
+
+    const email = clerkUser?.email_addresses?.[0]?.email_address ?? "";
+    const name  = [clerkUser?.first_name, clerkUser?.last_name].filter(Boolean).join(" ") || "User";
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    const role  = adminEmails.includes(email.toLowerCase()) ? "ADMIN" : "BROKER";
+
+    user = await prisma.user.upsert({
+      where:  { clerkId },
+      update: { email, name },
+      create: { clerkId, email, name, role, avatar: clerkUser?.image_url },
+    });
+  }
+  return user;
 }
 
 export async function GET(req: NextRequest) {
@@ -16,7 +34,7 @@ export async function GET(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = await getUser(userId);
+    const user = await getOrCreateUser(userId);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const { searchParams } = new URL(req.url);
@@ -73,7 +91,7 @@ export async function POST(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = await getUser(userId);
+    const user = await getOrCreateUser(userId);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const body = await req.json();

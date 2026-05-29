@@ -367,7 +367,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {todayVisits.map((v: { id: string; scheduledAt: string; lead?: { name: string }; property?: { title: string }; broker?: { name: string } }) => (
                 <Link key={v.id} href={`/visits?id=${v.id}`}
-                  className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                  className="flex items-center gap-3 p-2.5 rounded-xl transition-colors cursor-pointer"
                   style={{ background: "rgba(30,58,95,0.3)", border: "1px solid rgba(234,179,8,0.08)" }}>
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                     style={{ background: "linear-gradient(135deg,#1e3a5f,#0f1f35)" }}>
@@ -406,7 +406,7 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {hotLeads.map((lead: { id: string; name: string; score: number; budget?: number; source?: string; requirements?: string }) => (
                 <Link key={lead.id} href={`/leads?id=${lead.id}`}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                  className="flex items-center gap-3 p-3 rounded-xl transition-colors cursor-pointer"
                   style={{ background: "rgba(30,58,95,0.25)", border: "1px solid rgba(234,179,8,0.06)" }}>
                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                     style={{ background: "linear-gradient(135deg,#1e3a5f,#0f1f35)" }}>
@@ -415,10 +415,10 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{lead.name}</div>
                     <div className="text-xs text-muted-foreground truncate">{lead.requirements || "—"}</div>
-                    {lead.budget && <span className="text-xs text-yellow-400 font-semibold">{fmtMoney(lead.budget)}</span>}
+                    {lead.budget && lead.budget > 0 && <span className="text-xs text-yellow-400 font-semibold">{fmtMoney(lead.budget)}</span>}
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ${lead.score >= 85 ? "text-red-400 bg-red-500/15 border-red-500/25" : "text-orange-400 bg-orange-500/15 border-orange-500/25"}`}>
-                    {lead.score >= 85 ? "🔥 HOT" : "🌡️ WARM"}
+                  <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ${lead.score >= 80 ? "text-red-400 bg-red-500/15 border-red-500/25" : "text-orange-400 bg-orange-500/15 border-orange-500/25"}`}>
+                    {lead.score >= 80 ? "🔥 HOT" : "🌡️ WARM"}
                   </span>
                 </Link>
               ))}
@@ -441,7 +441,7 @@ export default function DashboardPage() {
           ) : brokerPerf.length > 0 ? (
             <div className="space-y-4">
               {brokerPerf.map((b: { name: string; deals: number; leads: number; revenue: string; pct: number }, i: number) => (
-                <div key={b.name} className="flex items-center gap-3">
+                <Link key={b.name} href="/reports" className="flex items-center gap-3 cursor-pointer">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                     style={{ background: "linear-gradient(135deg,#ca8a04,#eab308)" }}>
                     {b.name[0]}
@@ -457,11 +457,7 @@ export default function DashboardPage() {
                       style={{ background: b.pct >= 80 ? "#10b981" : b.pct >= 60 ? "#eab308" : "#3b82f6" }} />
                   </div>
                   <div className="text-sm font-bold text-yellow-400 flex-shrink-0">{b.revenue}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-10 text-muted-foreground text-sm">No broker data yet</div>
+                </Link>
           )}
         </div>
 
@@ -479,8 +475,8 @@ export default function DashboardPage() {
           ) : todayFollowUps.length > 0 ? (
             <div className="space-y-2">
               {todayFollowUps.map((t: { id: string; title: string; dueAt: string; priority: string; lead?: { id: string; name: string; phone: string } }) => (
-                <a key={t.id} href={`/leads`}
-                  className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-white/5"
+                <Link key={t.id} href={t.lead?.id ? `/leads?id=${t.lead.id}` : "/leads"}
+                  className="flex items-center gap-3 p-2.5 rounded-xl transition-colors cursor-pointer"
                   style={{ background: "rgba(30,58,95,0.3)", border: "1px solid rgba(168,85,247,0.1)" }}>
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                     t.priority === "HIGH" || t.priority === "URGENT" ? "bg-red-400" :
@@ -493,7 +489,7 @@ export default function DashboardPage() {
                   <div className="text-xs text-purple-400 flex-shrink-0 font-medium">
                     {new Date(t.dueAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                   </div>
-                </a>
+                </Link>
               ))}
             </div>
           ) : (

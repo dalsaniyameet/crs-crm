@@ -7,12 +7,29 @@ async function getClerk() {
 }
 
 async function checkAdmin(userId: string): Promise<boolean> {
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
+  // Check DB first
+  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true, email: true } });
   if (dbUser?.role?.toUpperCase() === "ADMIN") return true;
+
+  // Check Clerk metadata
   try {
     const clerk = await getClerk();
     const u = await clerk.users.getUser(userId);
-    return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
+    const clerkRole = (u.publicMetadata?.role as string)?.toUpperCase();
+    const email = u.emailAddresses?.[0]?.emailAddress || "";
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    const isAdmin = clerkRole === "ADMIN" || adminEmails.includes(email.toLowerCase());
+
+    // Auto-create/fix user in DB if missing
+    if (isAdmin) {
+      const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || "Admin";
+      await prisma.user.upsert({
+        where:  { clerkId: userId },
+        update: { role: "ADMIN", email, name },
+        create: { clerkId: userId, email, name, role: "ADMIN", avatar: u.imageUrl },
+      }).catch(() => {});
+    }
+    return isAdmin;
   } catch { return false; }
 }
 
