@@ -12,14 +12,20 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://crs-crm.vercel.app";
 
 function getTransporter() {
   if (!process.env.EMAIL_PASS || process.env.EMAIL_PASS === "YOUR_EMAIL_PASSWORD") return null;
+  const port   = parseInt(process.env.EMAIL_PORT || "587");
+  const secure = process.env.EMAIL_SECURE === "true" || port === 465;
   return nodemailer.createTransport({
     host:   process.env.EMAIL_HOST || "smtpout.secureserver.net",
-    port:   parseInt(process.env.EMAIL_PORT || "465"),
-    secure: process.env.EMAIL_SECURE !== "false",
+    port,
+    secure, // false for 587 (STARTTLS), true for 465 (SSL)
     auth: {
       user: process.env.EMAIL_USER || "info@cityrealspace.com",
       pass: process.env.EMAIL_PASS,
     },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15000,
+    greetingTimeout:   15000,
+    socketTimeout:     15000,
   });
 }
 

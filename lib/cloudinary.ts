@@ -52,4 +52,13 @@ export async function deleteCloudinaryAsset(publicId: string) {
   return cloudinary.uploader.destroy(publicId);
 }
 
+export async function uploadBase64ToCloudinary(base64: string, folder: string): Promise<string> {
+  const result = await cloudinary.uploader.upload(base64, {
+    folder: `cityreals/${folder}`,
+    resource_type: "image",
+    quality: "auto",
+  });
+  return result.secure_url;
+}
+
 export default cloudinary;

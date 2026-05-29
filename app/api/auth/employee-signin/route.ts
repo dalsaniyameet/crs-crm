@@ -40,13 +40,13 @@ function clerkREST(method: string, path: string, body?: object): Promise<any> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const { email, password, isAdmin } = await req.json();
     if (!email || !password)
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });
 
-    // Block admin emails from employee login
+    // Block admin emails from employee login (but allow admin password login)
     const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
-    if (adminEmails.includes(email.toLowerCase()))
+    if (!isAdmin && adminEmails.includes(email.toLowerCase()))
       return NextResponse.json({ error: "Use Admin tab to login." }, { status: 403 });
 
     // Find user

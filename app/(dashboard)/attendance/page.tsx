@@ -136,7 +136,7 @@ export default function AttendancePage() {
   };
 
   // Admin punch in/out for employee
-  const handleAdminPunch = async (emp: any, type: "IN" | "OUT") => {
+  const handleAdminPunch = async (emp: any, type: "IN" | "OUT", faceImage?: string) => {
     if (!locations[0]) { toast.error("No office location configured"); return; }
     setPunchingEmp(emp.id);
     try {
@@ -145,10 +145,11 @@ export default function AttendancePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name:       emp.name,
-          phone:      emp.email,   // for guest: email field stores phone
+          phone:      emp.email,
           locationId: locations[0].id,
           action:     type === "OUT" ? "OUT" : undefined,
           bypass:     true,
+          faceImage,
         }),
       });
       const data = await res.json();
@@ -529,8 +530,8 @@ export default function AttendancePage() {
           <FacePunch
             employeeName={facePunch.emp.name}
             action={facePunch.action}
-            onSuccess={() => {
-              handleAdminPunch(facePunch.emp, facePunch.action);
+            onSuccess={(faceImage) => {
+              handleAdminPunch(facePunch.emp, facePunch.action, faceImage);
               setFacePunch(null);
             }}
             onClose={() => setFacePunch(null)}

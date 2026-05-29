@@ -6,7 +6,7 @@ const BREAK_MINUTES = 45;
 
 export async function POST(req: Request) {
   try {
-    const { name, phone, locationId, action, bypass } = await req.json();
+    const { name, phone, locationId, action, bypass, faceImage } = await req.json();
     // action: "IN" | "OUT" | "BREAK_START" | "BREAK_END"
 
     if (!name?.trim() || !phone?.trim() || !locationId) {
@@ -40,8 +40,17 @@ export async function POST(req: Request) {
         if (!timeCheck.allowed) return NextResponse.json({ error: timeCheck.error }, { status: 400 });
       }
 
+      // Upload face image to Cloudinary if provided
+      let faceImageUrl: string | undefined;
+      if (faceImage) {
+        try {
+          const { uploadBase64ToCloudinary } = await import("@/lib/cloudinary");
+          faceImageUrl = await uploadBase64ToCloudinary(faceImage, "face-punch");
+        } catch { /* non-critical */ }
+      }
+
       const record = await prisma.guestAttendance.create({
-        data:    { name: name.trim(), phone: phone.trim(), locationId, punchIn: new Date() },
+        data:    { name: name.trim(), phone: phone.trim(), locationId, punchIn: new Date(), faceImageIn: faceImageUrl },
         include: { location: true },
       });
 
@@ -97,9 +106,18 @@ export async function POST(req: Request) {
       const expectedHours = isSun ? 2 : 9;
       const overtimeHours = Math.max(0, workHours - expectedHours);
 
+      // Upload face image for punch out
+      let faceImageOutUrl: string | undefined;
+      if (faceImage) {
+        try {
+          const { uploadBase64ToCloudinary } = await import("@/lib/cloudinary");
+          faceImageOutUrl = await uploadBase64ToCloudinary(faceImage, "face-punch");
+        } catch { /* non-critical */ }
+      }
+
       const updated = await prisma.guestAttendance.update({
         where:   { id: existing.id },
-        data:    { punchOut, workHours, lateMinutes, overtimeHours },
+        data:    { punchOut, workHours, lateMinutes, overtimeHours, ...(faceImageOutUrl ? { faceImageOut: faceImageOutUrl } : {}) },
         include: { location: true },
       });
 

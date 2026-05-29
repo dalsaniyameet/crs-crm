@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { scoreLeadAI } from "@/lib/openai";
 import { sendWhatsApp } from "@/lib/whatsapp";
-import { sendNewLeadEmail } from "@/lib/email";
+import { sendAdminEmail, newLeadEmailHtml } from "@/lib/email";
 
 const SOURCE_MAP: Record<string, string> = {
   whatsapp:    "WHATSAPP",
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     try { await sendWhatsApp(phone, welcomeMsg(name, source, requirements)); } catch {}
 
     // Email notification to admin
-    try { await sendNewLeadEmail({ name, phone, email, source, requirements, score: aiScore.score }); } catch {}
+    try { await sendAdminEmail(`New Lead: ${name} (Score: ${aiScore.score})`, newLeadEmailHtml({ name, phone, email, source, requirements, score: aiScore.score })); } catch {}
 
     // Auto follow-up tasks
     await prisma.task.createMany({

@@ -6,7 +6,7 @@ import { X, CheckCircle, AlertCircle, Loader2, ScanFace } from "lucide-react";
 type Props = {
   employeeName: string;
   action: "IN" | "OUT";
-  onSuccess: () => void;
+  onSuccess: (faceImage?: string) => void;
   onClose: () => void;
 };
 
@@ -90,6 +90,21 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
             if (stableFrames >= 3) {
               clearInterval(intervalRef.current!);
               setStatus("detected");
+
+              // Capture face image from video
+              let capturedImage: string | undefined;
+              try {
+                const snapCanvas = document.createElement("canvas");
+                snapCanvas.width  = videoRef.current!.videoWidth  || 640;
+                snapCanvas.height = videoRef.current!.videoHeight || 480;
+                const snapCtx = snapCanvas.getContext("2d");
+                if (snapCtx && videoRef.current) {
+                  snapCtx.scale(-1, 1);
+                  snapCtx.drawImage(videoRef.current, -snapCanvas.width, 0, snapCanvas.width, snapCanvas.height);
+                  capturedImage = snapCanvas.toDataURL("image/jpeg", 0.7);
+                }
+              } catch { /* ignore */ }
+
               let c = 3;
               setCountdown(c);
               const t = setInterval(() => {
@@ -100,7 +115,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                   stopCamera();
                   setStatus("success");
                   setMessage(`Punch ${action === "IN" ? "In" : "Out"} successful!`);
-                  setTimeout(onSuccess, 1200);
+                  setTimeout(() => onSuccess(capturedImage), 1200);
                 }
               }, 1000);
             }

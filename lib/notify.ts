@@ -20,7 +20,7 @@ import {
 // Get all admin user IDs from DB
 async function getAdminIds(): Promise<string[]> {
   const admins = await prisma.user.findMany({
-    where: { role: { in: ["ADMIN", "SALES_MANAGER"] }, isActive: true },
+    where: { role: { in: ["ADMIN" as any, "SALES_MANAGER" as any] }, isActive: true },
     select: { id: true },
   });
   return admins.map(a => a.id);

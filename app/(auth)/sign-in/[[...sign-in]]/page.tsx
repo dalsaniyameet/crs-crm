@@ -99,7 +99,7 @@ export default function SignInPage() {
           const tokenRes = await fetch("/api/auth/employee-signin", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: adminEmail, password: adminPassword }),
+            body: JSON.stringify({ email: adminEmail, password: adminPassword, isAdmin: true }),
           });
           const tokenData = await tokenRes.json();
           if (!tokenRes.ok) { setError(tokenData.error || "Incorrect email or password."); setLoading(false); return; }

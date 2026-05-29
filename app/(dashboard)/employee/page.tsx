@@ -222,12 +222,12 @@ export default function EmployeePanelPage() {
     setUploadingPhoto(false);
   };
 
-  const handlePunch = async (type: "IN" | "OUT") => {
+  const handlePunch = async (type: "IN" | "OUT", faceImage?: string) => {
     if (!locations[0]) { toast.error("No office location configured"); return; }
     setPunching(true);
     const res = await fetch("/api/attendance/guest", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: userName, phone: email || userName, locationId: locations[0].id, bypass: true, ...(type === "OUT" ? { action: "OUT" } : {}) }),
+      body: JSON.stringify({ name: userName, phone: email || userName, locationId: locations[0].id, bypass: true, faceImage, ...(type === "OUT" ? { action: "OUT" } : {}) }),
     });
     const data = await res.json();
     if (!res.ok) toast.error(data.error || "Failed");
@@ -341,9 +341,9 @@ export default function EmployeePanelPage() {
             employeeName={userName}
             action={facePunchAction}
             onClose={() => setShowFacePunch(false)}
-            onSuccess={() => {
+            onSuccess={(faceImage) => {
               setShowFacePunch(false);
-              handlePunch(facePunchAction);
+              handlePunch(facePunchAction, faceImage);
             }}
           />
         )}

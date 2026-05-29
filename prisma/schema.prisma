@@ -675,9 +675,11 @@ model GuestAttendance {
   workHours     Float?
   lateMinutes   Int       @default(0)
   overtimeHours Float     @default(0)
+  faceImageIn   String?   // face photo URL at punch in
+  faceImageOut  String?   // face photo URL at punch out
   approved      Boolean   @default(false)
   approvedAt    DateTime?
-  approvedBy    String? // admin userId
+  approvedBy    String?
   createdAt     DateTime  @default(now())
 
   location AttendanceLocation @relation(fields: [locationId], references: [id])
