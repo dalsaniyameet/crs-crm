@@ -63,6 +63,7 @@
     "react-hot-toast": "^2.4.1",
     "react-select": "^5.8.0",
     "recharts": "^2.12.2",
+    "resend": "^6.12.4",
     "svix": "^1.93.0",
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7",

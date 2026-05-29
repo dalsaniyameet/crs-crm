@@ -1,6 +1,7 @@
 /**
  * Email Notifications — City Real Space CRM
- * GoDaddy / Titan SMTP
+ * Primary: Resend API (works on Vercel)
+ * Fallback: GoDaddy SMTP (local dev)
  */
 
 import nodemailer from "nodemailer";
@@ -9,7 +10,23 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "meetdalsaniya143@gmail.com,in
   .split(",").map(e => e.trim()).filter(Boolean);
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://crs-crm.vercel.app";
+const FROM    = `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`;
 
+// ── Resend API (Vercel-friendly) ──────────────────────────────────────────────
+async function sendViaResend(to: string[], subject: string, html: string) {
+  const { Resend } = await import("resend");
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: "City Real Space CRM <onboarding@resend.dev>",
+    to,
+    subject,
+    html,
+  });
+  if (error) throw new Error(`Resend error: ${(error as any).message || JSON.stringify(error)}`);
+  console.log("[EMAIL] Resend OK →", to.join(", "));
+}
+
+// ── SMTP fallback (local dev / GoDaddy) ──────────────────────────────────────
 function getTransporter() {
   if (!process.env.EMAIL_PASS || process.env.EMAIL_PASS === "YOUR_EMAIL_PASSWORD") return null;
   const port   = parseInt(process.env.EMAIL_PORT || "587");
@@ -17,11 +34,8 @@ function getTransporter() {
   return nodemailer.createTransport({
     host:   process.env.EMAIL_HOST || "smtpout.secureserver.net",
     port,
-    secure, // false for 587 (STARTTLS), true for 465 (SSL)
-    auth: {
-      user: process.env.EMAIL_USER || "info@cityrealspace.com",
-      pass: process.env.EMAIL_PASS,
-    },
+    secure,
+    auth: { user: process.env.EMAIL_USER || "info@cityrealspace.com", pass: process.env.EMAIL_PASS },
     tls: { rejectUnauthorized: false },
     connectionTimeout: 15000,
     greetingTimeout:   15000,
@@ -29,6 +43,32 @@ function getTransporter() {
   });
 }
 
+async function sendViaSMTP(to: string[], subject: string, html: string) {
+  const t = getTransporter();
+  if (!t) throw new Error("SMTP not configured — EMAIL_PASS missing");
+  const info = await t.sendMail({ from: FROM, to: to.join(", "), subject, html });
+  console.log("[EMAIL] SMTP OK:", info.messageId, "→", to.join(", "));
+}
+
+// ── Main dispatcher ───────────────────────────────────────────────────────────
+async function send(to: string[], subject: string, html: string) {
+  if (process.env.RESEND_API_KEY) {
+    await sendViaResend(to, subject, html);
+  } else {
+    await sendViaSMTP(to, subject, html);
+  }
+}
+
+export async function sendAdminEmail(subject: string, html: string) {
+  await send(ADMIN_EMAILS, subject, html);
+}
+
+export async function sendEmployeeEmail(to: string, subject: string, html: string) {
+  if (!to) return;
+  await send([to], subject, html);
+}
+
+// ── HTML helpers ──────────────────────────────────────────────────────────────
 function baseTemplate(title: string, icon: string, color: string, rows: string, link: string, linkLabel: string) {
   return `
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f4f6fb;padding:20px;border-radius:10px">
@@ -51,41 +91,6 @@ function baseTemplate(title: string, icon: string, color: string, rows: string, 
 
 function row(label: string, value: string, bg = "#fff") {
   return `<tr style="background:${bg}"><td style="padding:8px 10px;color:#64748b;font-size:13px;width:140px">${label}</td><td style="padding:8px 10px;color:#1e293b;font-size:14px">${value}</td></tr>`;
-}
-
-export async function sendAdminEmail(subject: string, html: string) {
-  const t = getTransporter();
-  if (!t) {
-    console.error("[EMAIL] Transporter not configured — EMAIL_PASS missing or not set");
-    return;
-  }
-  try {
-    const info = await t.sendMail({
-      from: `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`,
-      to:   ADMIN_EMAILS.join(", "),
-      subject,
-      html,
-    });
-    console.log("[EMAIL] Sent OK:", info.messageId, "→", ADMIN_EMAILS.join(", "));
-  } catch (err: any) {
-    console.error("[EMAIL] Send failed:", err.message);
-  }
-}
-
-export async function sendEmployeeEmail(to: string, subject: string, html: string) {
-  const t = getTransporter();
-  if (!t || !to) return;
-  try {
-    await t.sendMail({
-      from: `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`,
-      to,
-      subject,
-      html,
-    });
-    console.log("[EMAIL] Employee email sent to:", to);
-  } catch (err: any) {
-    console.error("[EMAIL] Employee email failed:", err.message);
-  }
 }
 
 // ── 1. New Lead ───────────────────────────────────────────────────────────────
@@ -200,54 +205,13 @@ export function newCampaignEmailHtml(c: {
 }
 
 // ── 8. Punch In ───────────────────────────────────────────────────────────────
-export function punchInEmailHtml(e: {
-  employeeName: string; location: string; time: string;
-}) {
+export function punchInEmailHtml(e: { employeeName: string; location: string; time: string }) {
   const rows = [
     row("Employee",  `<strong>${e.employeeName}</strong>`),
     row("Location",  e.location, "#f8fafc"),
     row("Punch In",  `<strong style="color:#16a34a">${e.time}</strong>`),
   ].join("");
   return baseTemplate("Employee Punch In", "🟢", "#16a34a", rows, `${APP_URL}/attendance`, "View Attendance");
-}
-
-// ── 10. Employee Welcome (on login) ─────────────────────────────────────────
-export function employeeWelcomeEmailHtml(e: {
-  name: string; position: string; email: string;
-}) {
-  return `
-<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;padding:0;border-radius:12px;overflow:hidden">
-  <div style="background:linear-gradient(135deg,#1e3a5f 0%,#0f172a 100%);padding:32px 32px 24px;text-align:center">
-    <div style="font-size:48px;margin-bottom:12px">🏙️</div>
-    <h1 style="color:#f59e0b;font-size:22px;margin:0 0 6px;font-weight:700">Welcome to City Real Space CRM</h1>
-    <p style="color:#94a3b8;font-size:14px;margin:0">Ahmedabad's Most Intelligent Real Estate Platform</p>
-  </div>
-  <div style="background:#1e293b;padding:28px 32px">
-    <p style="color:#e2e8f0;font-size:16px;margin:0 0 20px">Hi <strong style="color:#f59e0b">${e.name}</strong> 👋,</p>
-    <p style="color:#94a3b8;font-size:14px;line-height:1.7;margin:0 0 20px">
-      You have successfully logged in to the <strong style="color:#fff">City Real Space CRM</strong>. 
-      Your account is active and ready to use.
-    </p>
-    <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:24px">
-      <table style="width:100%">
-        <tr><td style="color:#64748b;font-size:13px;padding:6px 0">Name</td><td style="color:#fff;font-size:13px;font-weight:600">${e.name}</td></tr>
-        <tr><td style="color:#64748b;font-size:13px;padding:6px 0">Position</td><td style="color:#f59e0b;font-size:13px;font-weight:600">${e.position}</td></tr>
-        <tr><td style="color:#64748b;font-size:13px;padding:6px 0">Email</td><td style="color:#94a3b8;font-size:13px">${e.email}</td></tr>
-      </table>
-    </div>
-    <div style="background:#0f2d1f;border:1px solid #166534;border-radius:8px;padding:14px;margin-bottom:24px">
-      <p style="color:#4ade80;font-size:13px;margin:0;font-weight:600">✅ Secure Login Detected</p>
-      <p style="color:#86efac;font-size:12px;margin:6px 0 0">If this wasn't you, contact your admin immediately at info@cityrealspace.com</p>
-    </div>
-    <div style="text-align:center">
-      <a href="${APP_URL}/employee" style="display:inline-block;padding:12px 28px;background:#f59e0b;color:#0f172a;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700">Open My Dashboard →</a>
-    </div>
-  </div>
-  <div style="background:#0f172a;padding:16px 32px;text-align:center;border-top:1px solid #1e293b">
-    <p style="color:#475569;font-size:11px;margin:0">City Real Space | Ahmedabad | cityrealspace.com</p>
-    <p style="color:#334155;font-size:11px;margin:4px 0 0">This is an automated security notification. Do not reply.</p>
-  </div>
-</div>`;
 }
 
 // ── 9. Punch Out ──────────────────────────────────────────────────────────────
@@ -264,6 +228,34 @@ export function punchOutEmailHtml(e: {
   return baseTemplate("Employee Punch Out", "🔴", "#dc2626", rows, `${APP_URL}/attendance`, "View Attendance");
 }
 
+// ── 10. Employee Welcome ──────────────────────────────────────────────────────
+export function employeeWelcomeEmailHtml(e: { name: string; position: string; email: string }) {
+  return `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;padding:0;border-radius:12px;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#1e3a5f 0%,#0f172a 100%);padding:32px 32px 24px;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">🏙️</div>
+    <h1 style="color:#f59e0b;font-size:22px;margin:0 0 6px;font-weight:700">Welcome to City Real Space CRM</h1>
+    <p style="color:#94a3b8;font-size:14px;margin:0">Ahmedabad's Most Intelligent Real Estate Platform</p>
+  </div>
+  <div style="background:#1e293b;padding:28px 32px">
+    <p style="color:#e2e8f0;font-size:16px;margin:0 0 20px">Hi <strong style="color:#f59e0b">${e.name}</strong> 👋,</p>
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:24px">
+      <table style="width:100%">
+        <tr><td style="color:#64748b;font-size:13px;padding:6px 0">Name</td><td style="color:#fff;font-size:13px;font-weight:600">${e.name}</td></tr>
+        <tr><td style="color:#64748b;font-size:13px;padding:6px 0">Position</td><td style="color:#f59e0b;font-size:13px;font-weight:600">${e.position}</td></tr>
+        <tr><td style="color:#64748b;font-size:13px;padding:6px 0">Email</td><td style="color:#94a3b8;font-size:13px">${e.email}</td></tr>
+      </table>
+    </div>
+    <div style="text-align:center">
+      <a href="${APP_URL}/employee" style="display:inline-block;padding:12px 28px;background:#f59e0b;color:#0f172a;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700">Open My Dashboard →</a>
+    </div>
+  </div>
+  <div style="background:#0f172a;padding:16px 32px;text-align:center;border-top:1px solid #1e293b">
+    <p style="color:#475569;font-size:11px;margin:0">City Real Space | Ahmedabad | cityrealspace.com</p>
+  </div>
+</div>`;
+}
+
 // ── 11. New Lead Message ──────────────────────────────────────────────────────
 export function newLeadMessageEmailHtml(m: {
   leadName: string; leadPhone: string; message: string; channel: string;
@@ -277,7 +269,7 @@ export function newLeadMessageEmailHtml(m: {
   return baseTemplate("New Message from Lead", "💬", "#16a34a", rows, `${APP_URL}/leads`, "View Lead");
 }
 
-// ── 12. Daily Report Submitted ────────────────────────────────────────────────
+// ── 12. Daily Report ─────────────────────────────────────────────────────────
 export function dailyReportEmailHtml(r: {
   employeeName: string; date: string;
   totalCalls: number; connectedCalls: number; newLeads: number;
@@ -311,21 +303,27 @@ export function empPunchInEmailHtml(e: { name: string; location: string; time: s
 }
 
 // ── Employee: Punch Out Summary ───────────────────────────────────────────────
-export function empPunchOutEmailHtml(e: { name: string; location: string; punchIn: string; punchOut: string; workHours: string; lateMinutes: number; overtimeHours: number }) {
+export function empPunchOutEmailHtml(e: {
+  name: string; location: string; punchIn: string; punchOut: string;
+  workHours: string; lateMinutes: number; overtimeHours: number;
+}) {
   const rows = [
     row("Name",       `<strong>${e.name}</strong>`),
     row("Location",   e.location, "#f8fafc"),
     row("Punch In",   e.punchIn),
     row("Punch Out",  `<strong>${e.punchOut}</strong>`, "#f8fafc"),
     row("Work Hours", `<strong style="color:#2563eb">${e.workHours} hrs</strong>`),
-    e.lateMinutes > 0   ? row("Late By",   `<span style="color:#dc2626">${e.lateMinutes} min</span>`, "#f8fafc") : "",
-    e.overtimeHours > 0 ? row("Overtime",  `<span style="color:#16a34a">+${e.overtimeHours.toFixed(1)} hrs</span>`) : "",
+    e.lateMinutes > 0   ? row("Late By",  `<span style="color:#dc2626">${e.lateMinutes} min</span>`, "#f8fafc") : "",
+    e.overtimeHours > 0 ? row("Overtime", `<span style="color:#16a34a">+${e.overtimeHours.toFixed(1)} hrs</span>`) : "",
   ].join("");
   return baseTemplate("Punch Out Summary", "🔴", "#2563eb", rows, `${APP_URL}/employee`, "View My Attendance");
 }
 
-// ── Employee: Leave Status Update ─────────────────────────────────────────────
-export function empLeaveStatusEmailHtml(e: { name: string; type: string; fromDate: string; toDate: string; days: number; status: "APPROVED" | "REJECTED"; adminNote?: string | null }) {
+// ── Employee: Leave Status ────────────────────────────────────────────────────
+export function empLeaveStatusEmailHtml(e: {
+  name: string; type: string; fromDate: string; toDate: string;
+  days: number; status: "APPROVED" | "REJECTED"; adminNote?: string | null;
+}) {
   const approved = e.status === "APPROVED";
   const rows = [
     row("Employee",   `<strong>${e.name}</strong>`),
