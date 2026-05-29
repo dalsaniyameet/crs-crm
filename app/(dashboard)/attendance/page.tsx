@@ -283,7 +283,9 @@ export default function AttendancePage() {
                           {" · "}<span className={getPunchStatus(todayRecord.punchIn).color}>{getPunchStatus(todayRecord.punchIn).label}</span>
                           {onBreak && <span className="ml-2 text-yellow-400 animate-pulse">☕ On Break</span>}
                           {todayRecord.location?.name && <span className="ml-2 flex items-center gap-1 inline-flex"><MapPin className="w-3 h-3" />{todayRecord.location.name}</span>}
-                          {todayRecord.faceVerified && <span className="ml-2 text-purple-400">🤳 Face Verified</span>}
+                          {todayRecord.faceImageIn
+                            ? <span className="ml-2 text-purple-400">🤳 Face Verified</span>
+                            : <span className="ml-2 text-blue-400">🖱️ Manual</span>}
                         </div>
                       )}
                     {!isPunchedIn && (() => {
@@ -369,6 +371,31 @@ export default function AttendancePage() {
                                 {new Date(h.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                                 {h.punchOut && <> → {new Date(h.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</>}
                               </span>
+                              {/* Method badge */}
+                              <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full border ${
+                                h.faceImageIn
+                                  ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                                  : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                              }`}>
+                                {h.faceImageIn ? "🤳 Face" : "🖱️ Manual"}
+                              </span>
+                              {/* Face photo thumbnails */}
+                              {(h.faceImageIn || h.faceImageOut) && (
+                                <div className="flex gap-1 flex-shrink-0">
+                                  {h.faceImageIn && (
+                                    <a href={h.faceImageIn} target="_blank" rel="noreferrer">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={h.faceImageIn} alt="In" className="w-7 h-7 rounded-full object-cover border border-purple-500/40" />
+                                    </a>
+                                  )}
+                                  {h.faceImageOut && (
+                                    <a href={h.faceImageOut} target="_blank" rel="noreferrer">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={h.faceImageOut} alt="Out" className="w-7 h-7 rounded-full object-cover border border-red-500/40" />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
                               <span className={`ml-auto font-medium ${h.workHours ? "text-estate-400" : "text-emerald-400"}`}>
                                 {h.workHours ? `${h.workHours.toFixed(1)}h` : "In Office"}
                               </span>
@@ -481,7 +508,9 @@ export default function AttendancePage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-white truncate">{r.name}</span>
                       <span className={`text-xs ${status.color}`}>{status.label}</span>
-                      {r.faceVerified && <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">🤳 Face</span>}
+                      {r.faceImageIn
+                        ? <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">🤳 Face</span>
+                        : <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">🖱️ Manual</span>}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <MapPin className="w-3 h-3 flex-shrink-0" />

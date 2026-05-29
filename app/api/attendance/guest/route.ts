@@ -189,14 +189,15 @@ export async function GET(req: Request) {
       return NextResponse.json(records);
     }
 
-    // by phone = full history for one person
+    // by phone = full history for one person (last 30 days)
     const phone = searchParams.get("phone");
     if (phone) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const records = await prisma.guestAttendance.findMany({
-        where:   { phone },
+        where:   { phone, punchIn: { gte: thirtyDaysAgo } },
         include: { location: true },
         orderBy: { punchIn: "desc" },
-        take:    30,
+        take:    60,
       });
       return NextResponse.json(records);
     }
