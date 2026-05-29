@@ -69,8 +69,11 @@ function EmployeeCard({
 
   const empLeaves = leaves.filter(l => l.employeeId === emp.id);
   const empDocs   = documents.filter(d => d.employeeId === emp.id);
-  const empAtt    = attendance.filter(a => a.phone === emp.email);
-  const uniqueDays = new Set(empAtt.map(a => new Date(a.punchIn).toDateString())).size;
+  const empAtt    = attendance.filter(a =>
+    a.phone?.toLowerCase() === emp.email?.toLowerCase() ||
+    a.name?.toLowerCase()  === emp.name?.toLowerCase()
+  );
+  const uniqueDays = new Set(empAtt.filter(a => a.approved || !a.punchOut).map(a => new Date(a.punchIn).toDateString())).size;
 
   const pendingLeaves = empLeaves.filter(l => l.status === "PENDING").length;
   const pendingDocs   = empDocs.filter(d => d.status === "PENDING" && d.uploadedBy === "EMPLOYEE").length;
@@ -96,10 +99,13 @@ function EmployeeCard({
       label: `Uploaded ${d.name}`,
       time: d.createdAt, status: d.status,
     })),
-    ...latestPerDay.slice(0, 2).map(a => ({
+    ...latestPerDay.slice(0, 3).map(a => ({
       type: "attendance" as const,
-      label: `Punched in${a.punchOut ? ` · ${(a.workHours || 0).toFixed(1)}h worked` : " (in office)"}`,
-      time: a.punchIn, status: a.approved ? "APPROVED" : "PENDING",
+      label: a.punchOut
+        ? `Punched in · ${(a.workHours || 0).toFixed(1)}h worked`
+        : `Punched in (in office)`,
+      time: a.punchIn,
+      status: a.approved ? "APPROVED" : a.approvedBy?.startsWith("REJECTED") ? "REJECTED" : "PENDING",
     })),
   ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5);
 
