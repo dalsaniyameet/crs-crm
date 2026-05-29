@@ -458,6 +458,10 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-sm font-bold text-yellow-400 flex-shrink-0">{b.revenue}</div>
                 </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 text-muted-foreground text-sm">No broker data yet</div>
           )}
         </div>
 
