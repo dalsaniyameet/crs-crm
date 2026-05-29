@@ -6,13 +6,14 @@ export const revalidate = 60; // cache 60s
 
 export async function GET() {
   try {
-    // Check overdue follow-ups in background on every dashboard load
     checkOverdueFollowUps().catch(() => {});
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    // IST = UTC+5:30
+    const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    const y = nowIST.getUTCFullYear(), m = nowIST.getUTCMonth(), d = nowIST.getUTCDate();
+    // Today start/end in UTC (IST midnight = UTC 18:30 prev day)
+    const todayStart = new Date(Date.UTC(y, m, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
+    const todayEnd   = new Date(Date.UTC(y, m, d, 23, 59, 59) - 5.5 * 60 * 60 * 1000);
 
     const [
       totalLeads, hotLeads, dealsClosedCount,
@@ -36,8 +37,9 @@ export async function GET() {
         select: { id: true, name: true, score: true, budget: true, source: true, requirements: true },
       }),
       prisma.siteVisit.findMany({
-        where: { scheduledAt: { gte: today, lt: tomorrow } },
+        where: { scheduledAt: { gte: todayStart, lte: todayEnd } },
         take: 8,
+        orderBy: { scheduledAt: "asc" },
         select: {
           id: true, scheduledAt: true, status: true,
           lead:     { select: { name: true } },
@@ -46,8 +48,8 @@ export async function GET() {
         },
       }),
       prisma.task.findMany({
-        where: { dueAt: { gte: today, lt: tomorrow }, isCompleted: false },
-        take: 8,
+        where: { dueAt: { gte: todayStart, lte: todayEnd }, isCompleted: false },
+        take: 10,
         orderBy: { dueAt: "asc" },
         select: {
           id: true, title: true, dueAt: true, priority: true,
@@ -61,7 +63,7 @@ export async function GET() {
         const [leads, deals, commissions] = await Promise.all([
           prisma.lead.count({ where: { assignedToId: b.id } }),
           prisma.deal.count({ where: { brokerId: b.id } }),
-          prisma.commission.aggregate({ where: { brokerId: b.id, isPaid: true }, _sum: { amount: true } }),
+          prisma.commission.aggregate({ where: { brokerId: b.id }, _sum: { amount: true } }),
         ]);
         return { name: b.name, leads, deals, commission: commissions._sum.amount ?? 0 };
       })

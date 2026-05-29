@@ -415,7 +415,9 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{lead.name}</div>
                     <div className="text-xs text-muted-foreground truncate">{lead.requirements || "—"}</div>
-                    {lead.budget && lead.budget > 0 && <span className="text-xs text-yellow-400 font-semibold">{fmtMoney(lead.budget)}</span>}
+                    {lead.budget && lead.budget > 0 && (
+                      <span className="text-xs text-yellow-400 font-semibold">{fmtMoney(lead.budget)}</span>
+                    )}
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ${lead.score >= 80 ? "text-red-400 bg-red-500/15 border-red-500/25" : "text-orange-400 bg-orange-500/15 border-orange-500/25"}`}>
                     {lead.score >= 80 ? "🔥 HOT" : "🌡️ WARM"}
@@ -491,7 +493,7 @@ export default function DashboardPage() {
                     <div className="text-xs text-muted-foreground truncate">{t.lead?.name}</div>
                   </div>
                   <div className="text-xs text-purple-400 flex-shrink-0 font-medium">
-                    {new Date(t.dueAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(t.dueAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
                   </div>
                 </Link>
               ))}
