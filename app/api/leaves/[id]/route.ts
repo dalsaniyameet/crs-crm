@@ -1,115 +1,71 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-
-async function getEmployeeProfile(email: string) {
-  return prisma.employeeProfile.findUnique({ where: { email } });
-}
-
-async function getClerk() { return await clerkClient(); }
+import { sendEmployeeEmail, empLeaveStatusEmailHtml, leaveRequestEmailHtml, sendAdminEmail } from "@/lib/email";
 
 async function isAdmin(userId: string) {
-  const clerk = await getClerk();
-  const u = await clerk.users.getUser(userId);
-  return (u.publicMetadata?.role as string)?.toUpperCase() === "ADMIN";
+  const u = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
+  return u?.role?.toUpperCase() === "ADMIN";
 }
 
-// GET â€” admin: all leaves | employee: own leaves
-export async function GET(req: NextRequest) {
+// PATCH — admin approves/rejects leave
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const { userId } = await auth();
-  if (!userId) return NextResponse.json([]);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdmin(userId))) return NextResponse.json({ error: "Admin only" }, { status: 403 });
 
-  // Read role from DB first (no Clerk API call)
-  const dbUser = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true, email: true } });
-  const role  = (dbUser?.role as string)?.toUpperCase();
-  const admin = role === "ADMIN";
+  const { status, adminNote } = await req.json();
+  if (!["APPROVED", "REJECTED"].includes(status))
+    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
 
-  if (admin) {
-    const leaves = await prisma.leaveRequest.findMany({
-      include: { employee: { select: { id: true, name: true, email: true, position: true, avatarUrl: true } } },
-      orderBy: { createdAt: "desc" },
-    });
-    return NextResponse.json(leaves);
-  }
-
-  // Employee: own leaves
-  const emailParam = new URL(req.url).searchParams.get("email");
-  const empEmail = dbUser?.email || emailParam || "";
-  const emp = empEmail ? await getEmployeeProfile(empEmail) : null;
-  if (!emp) return NextResponse.json([]);
-
-  const leaves = await prisma.leaveRequest.findMany({
-    where: { employeeId: emp.id },
-    orderBy: { createdAt: "desc" },
-  });
-  return NextResponse.json(leaves);
-}
-
-// POST â€” employee applies for leave
-export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  const body = await req.json();
-  const { type, fromDate, toDate, reason, employeeEmail } = body;
-
-  if (!fromDate || !toDate || !reason)
-    return NextResponse.json({ error: "fromDate, toDate, reason required" }, { status: 400 });
-
-  let emp;
-  if (userId) {
-    const clerk = await getClerk();
-    const clerkUser = await clerk.users.getUser(userId).catch(() => null);
-    const email = clerkUser?.emailAddresses[0]?.emailAddress;
-    if (email) emp = await getEmployeeProfile(email);
-    // If no employeeProfile, auto-create a basic one from User table
-    if (!emp && email) {
-      const dbUser = await prisma.user.findFirst({ where: { email } });
-      if (dbUser) {
-        emp = await prisma.employeeProfile.upsert({
-          where: { email },
-          update: {},
-          create: { name: dbUser.name || email.split("@")[0], email, position: dbUser.role || "BROKER", role: dbUser.role || "BROKER", dob: new Date("2000-01-01") },
-        });
-      }
-    }
-  }
-  // Fallback: identify by email sent from frontend
-  if (!emp && employeeEmail) {
-    emp = await getEmployeeProfile(employeeEmail);
-    if (!emp) {
-      const dbUser = await prisma.user.findFirst({ where: { email: employeeEmail } });
-      if (dbUser) {
-        emp = await prisma.employeeProfile.upsert({
-          where: { email: employeeEmail },
-          update: {},
-          create: { name: dbUser.name || employeeEmail.split("@")[0], email: employeeEmail, position: dbUser.role || "BROKER", role: dbUser.role || "BROKER", dob: new Date("2000-01-01") },
-        });
-      }
-    }
-  }
-  if (!emp) return NextResponse.json({ error: "Employee not found. Contact admin." }, { status: 404 });
-
-  const from = new Date(fromDate);
-  const to = new Date(toDate);
-  const days = type === "HALF_DAY" ? 0.5 : Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-
-  const leave = await prisma.leaveRequest.create({
-    data: { employeeId: emp.id, type: type || "CASUAL", fromDate: from, toDate: to, days, reason },
+  const leave = await prisma.leaveRequest.update({
+    where: { id: params.id },
+    data: { status, adminNote: adminNote || null },
+    include: { employee: true },
   });
 
-  // Notify all admins
+  // Notify employee — DB notification
   try {
-    const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
-    await Promise.all(admins.map(admin =>
-      prisma.notification.create({
+    const empUser = await prisma.user.findFirst({ where: { email: leave.employee.email } });
+    if (empUser) {
+      await prisma.notification.create({
         data: {
-          userId:  admin.id,
+          userId:  empUser.id,
           type:    "LEAVE_REQUEST",
-          title:   `Leave Request â€” ${emp.name}`,
-          message: `${emp.name} applied for ${(type || "CASUAL").replace("_"," ")} leave from ${from.toLocaleDateString("en-IN")} to ${to.toLocaleDateString("en-IN")} (${days} day${days !== 1 ? "s" : ""}). Reason: ${reason}`,
+          title:   status === "APPROVED" ? `✅ Leave Approved` : `❌ Leave Rejected`,
+          message: `Your ${leave.type.replace(/_/g, " ")} leave (${leave.days} day${leave.days !== 1 ? "s" : ""}) from ${new Date(leave.fromDate).toLocaleDateString("en-IN")} has been ${status.toLowerCase()}.${adminNote ? ` Note: ${adminNote}` : ""}`,
         },
-      })
-    ));
-  } catch { /* notifications are non-critical */ }
+      });
+    }
 
-  return NextResponse.json(leave, { status: 201 });
+    // Email to employee
+    sendEmployeeEmail(
+      leave.employee.email,
+      `${status === "APPROVED" ? "✅ Leave Approved" : "❌ Leave Rejected"} — ${leave.type.replace(/_/g, " ")}`,
+      empLeaveStatusEmailHtml({
+        name:      leave.employee.name,
+        type:      leave.type,
+        fromDate:  new Date(leave.fromDate).toLocaleDateString("en-IN"),
+        toDate:    new Date(leave.toDate).toLocaleDateString("en-IN"),
+        days:      leave.days,
+        status:    status as "APPROVED" | "REJECTED",
+        adminNote: adminNote || null,
+      })
+    ).catch(() => {});
+  } catch { /* non-critical */ }
+
+  return NextResponse.json(leave);
+}
+
+// DELETE — employee cancels pending leave
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const leave = await prisma.leaveRequest.findUnique({ where: { id: params.id } });
+  if (!leave) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (leave.status !== "PENDING") return NextResponse.json({ error: "Cannot cancel approved/rejected leave" }, { status: 400 });
+
+  await prisma.leaveRequest.delete({ where: { id: params.id } });
+  return NextResponse.json({ success: true });
 }

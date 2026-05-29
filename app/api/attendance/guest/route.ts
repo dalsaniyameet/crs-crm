@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendAdminEmail, punchInEmailHtml, punchOutEmailHtml } from "@/lib/email";
+import { sendAdminEmail, sendEmployeeEmail, punchInEmailHtml, punchOutEmailHtml, empPunchInEmailHtml, empPunchOutEmailHtml } from "@/lib/email";
 
 const BREAK_MINUTES = 45;
 
@@ -64,6 +64,15 @@ export async function POST(req: Request) {
           `Punch In: ${name.trim()} — ${timeStr}`,
           punchInEmailHtml({ employeeName: name.trim(), location: record.location.name, time: timeStr })
         ).catch(() => {});
+        // Send confirmation to employee
+        const empEmail = phone.trim().includes("@") ? phone.trim() : null;
+        if (empEmail) {
+          sendEmployeeEmail(
+            empEmail,
+            `✅ Punch In Confirmed — ${timeStr}`,
+            empPunchInEmailHtml({ name: name.trim(), location: record.location.name, time: timeStr })
+          ).catch(() => {});
+        }
       } catch { /* non-critical */ }
 
       return NextResponse.json({ type: "IN", record });
@@ -121,6 +130,20 @@ export async function POST(req: Request) {
             workHours:    workHours.toFixed(2),
           })
         ).catch(() => {});
+        // Send summary to employee
+        const empEmail2 = phone.trim().includes("@") ? phone.trim() : null;
+        if (empEmail2) {
+          sendEmployeeEmail(
+            empEmail2,
+            `🔴 Punch Out Summary — ${workHours.toFixed(1)}h worked`,
+            empPunchOutEmailHtml({
+              name: name.trim(), location: updated.location.name,
+              punchIn: punchInTime, punchOut: timeStr,
+              workHours: workHours.toFixed(2),
+              lateMinutes, overtimeHours,
+            })
+          ).catch(() => {});
+        }
       } catch { /* non-critical */ }
 
       return NextResponse.json({ type: "OUT", record: updated, breakDeducted: BREAK_MINUTES });

@@ -66,6 +66,22 @@ export async function sendAdminEmail(subject: string, html: string) {
   }
 }
 
+export async function sendEmployeeEmail(to: string, subject: string, html: string) {
+  const t = getTransporter();
+  if (!t || !to) return;
+  try {
+    await t.sendMail({
+      from: `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`,
+      to,
+      subject,
+      html,
+    });
+    console.log("[EMAIL] Employee email sent to:", to);
+  } catch (err: any) {
+    console.error("[EMAIL] Employee email failed:", err.message);
+  }
+}
+
 // ── 1. New Lead ───────────────────────────────────────────────────────────────
 export function newLeadEmailHtml(lead: {
   name: string; phone: string; email?: string | null;
@@ -275,4 +291,49 @@ export function dailyReportEmailHtml(r: {
     r.tomorrowPlan    ? row("Tomorrow Plan", r.tomorrowPlan, "#f8fafc")                  : "",
   ].join("");
   return baseTemplate("Daily Report Submitted", "📋", "#7c3aed", rows, `${APP_URL}/admin-employees/daily-reports`, "View Reports");
+}
+
+// ── Employee: Punch In Confirmation ──────────────────────────────────────────
+export function empPunchInEmailHtml(e: { name: string; location: string; time: string }) {
+  const rows = [
+    row("Name",      `<strong>${e.name}</strong>`),
+    row("Location",  e.location, "#f8fafc"),
+    row("Punch In",  `<strong style="color:#16a34a">${e.time}</strong>`),
+    row("Status",    "✅ Attendance recorded", "#f8fafc"),
+  ].join("");
+  return baseTemplate("Punch In Confirmed", "🟢", "#16a34a", rows, `${APP_URL}/employee`, "View My Attendance");
+}
+
+// ── Employee: Punch Out Summary ───────────────────────────────────────────────
+export function empPunchOutEmailHtml(e: { name: string; location: string; punchIn: string; punchOut: string; workHours: string; lateMinutes: number; overtimeHours: number }) {
+  const rows = [
+    row("Name",       `<strong>${e.name}</strong>`),
+    row("Location",   e.location, "#f8fafc"),
+    row("Punch In",   e.punchIn),
+    row("Punch Out",  `<strong>${e.punchOut}</strong>`, "#f8fafc"),
+    row("Work Hours", `<strong style="color:#2563eb">${e.workHours} hrs</strong>`),
+    e.lateMinutes > 0   ? row("Late By",   `<span style="color:#dc2626">${e.lateMinutes} min</span>`, "#f8fafc") : "",
+    e.overtimeHours > 0 ? row("Overtime",  `<span style="color:#16a34a">+${e.overtimeHours.toFixed(1)} hrs</span>`) : "",
+  ].join("");
+  return baseTemplate("Punch Out Summary", "🔴", "#2563eb", rows, `${APP_URL}/employee`, "View My Attendance");
+}
+
+// ── Employee: Leave Status Update ─────────────────────────────────────────────
+export function empLeaveStatusEmailHtml(e: { name: string; type: string; fromDate: string; toDate: string; days: number; status: "APPROVED" | "REJECTED"; adminNote?: string | null }) {
+  const approved = e.status === "APPROVED";
+  const rows = [
+    row("Employee",   `<strong>${e.name}</strong>`),
+    row("Leave Type", e.type.replace(/_/g, " "), "#f8fafc"),
+    row("From",       e.fromDate),
+    row("To",         e.toDate, "#f8fafc"),
+    row("Days",       `${e.days} day${e.days !== 1 ? "s" : ""}`),
+    row("Status",     `<strong style="color:${approved ? "#16a34a" : "#dc2626"}">${approved ? "✅ APPROVED" : "❌ REJECTED"}</strong>`, "#f8fafc"),
+    e.adminNote ? row("Admin Note", `<em>${e.adminNote}</em>`) : "",
+  ].join("");
+  return baseTemplate(
+    approved ? "Leave Approved" : "Leave Rejected",
+    approved ? "✅" : "❌",
+    approved ? "#16a34a" : "#dc2626",
+    rows, `${APP_URL}/employee`, "View My Leaves"
+  );
 }
