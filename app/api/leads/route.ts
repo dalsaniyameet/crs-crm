@@ -8,24 +8,42 @@ import { notifyNewLead } from "@/lib/notify";
 import { notifyMatchingOwners } from "@/lib/notifyOwners";
 
 async function getOrCreateUser(clerkId: string) {
+  const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+
   let user = await prisma.user.findUnique({ where: { clerkId } });
-  if (!user) {
-    // Auto-create user from Clerk if webhook missed
-    const clerkUser = await fetch(`https://api.clerk.com/v1/users/${clerkId}`, {
-      headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` },
-    }).then(r => r.json()).catch(() => null);
 
-    const email = clerkUser?.email_addresses?.[0]?.email_address ?? "";
-    const name  = [clerkUser?.first_name, clerkUser?.last_name].filter(Boolean).join(" ") || "User";
-    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
-    const role  = adminEmails.includes(email.toLowerCase()) ? "ADMIN" : "BROKER";
-
-    user = await prisma.user.upsert({
-      where:  { clerkId },
-      update: { email, name },
-      create: { clerkId, email, name, role, avatar: clerkUser?.image_url },
-    });
+  if (user) {
+    // Auto-fix role if in ADMIN_EMAILS
+    if (adminEmails.includes(user.email.toLowerCase()) && user.role !== "ADMIN") {
+      user = await prisma.user.update({ where: { clerkId }, data: { role: "ADMIN" } });
+    }
+    return user;
   }
+
+  // Fetch from Clerk
+  const clerkUser = await fetch(`https://api.clerk.com/v1/users/${clerkId}`, {
+    headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` },
+  }).then(r => r.json()).catch(() => null);
+
+  const email = clerkUser?.email_addresses?.[0]?.email_address ?? "";
+  const name  = [clerkUser?.first_name, clerkUser?.last_name].filter(Boolean).join(" ") || "User";
+  const role  = adminEmails.includes(email.toLowerCase()) ? "ADMIN" : "BROKER";
+
+  // Check if user exists by email (clerkId mismatch fix)
+  const byEmail = email ? await prisma.user.findUnique({ where: { email } }) : null;
+  if (byEmail) {
+    // Update clerkId and fix role
+    user = await prisma.user.update({
+      where: { email },
+      data:  { clerkId, role: adminEmails.includes(email.toLowerCase()) ? "ADMIN" : byEmail.role },
+    });
+    return user;
+  }
+
+  user = await prisma.user.create({
+    data: { clerkId, email, name, role, avatar: clerkUser?.image_url },
+  });
+
   return user;
 }
 
@@ -52,6 +70,7 @@ export async function GET(req: NextRequest) {
     if (user.role === "BROKER") {
       where.assignedToId = user.id;
     }
+    // ADMIN, SALES_MANAGER, MARKETING — see all leads
 
     const [leads, total] = await Promise.all([
       prisma.lead.findMany({
@@ -77,9 +96,7 @@ export async function GET(req: NextRequest) {
       prisma.lead.count({ where }),
     ]);
 
-    return NextResponse.json({ leads, total, page, pages: Math.ceil(total / limit) }, {
-      headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" },
-    });
+    return NextResponse.json({ leads, total, page, pages: Math.ceil(total / limit) });
   } catch (err: any) {
     console.error("Leads GET error:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
