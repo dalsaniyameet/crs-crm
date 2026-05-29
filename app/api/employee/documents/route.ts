@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-async function getClerk() { return await clerkClient(); }
+async function getAdminStatus(userId: string): Promise<{ email: string; isAdmin: boolean }> {
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { email: true, role: true },
+    });
+    return {
+      email: dbUser?.email || "",
+      isAdmin: dbUser?.role?.toUpperCase() === "ADMIN",
+    };
+  } catch {
+    return { email: "", isAdmin: false };
+  }
+}
 
 async function getEmpByEmail(email: string) {
   let emp = await prisma.employeeProfile.findUnique({ where: { email } });
@@ -10,27 +23,13 @@ async function getEmpByEmail(email: string) {
     const dbUser = await prisma.user.findFirst({ where: { email } });
     if (dbUser) {
       emp = await prisma.employeeProfile.upsert({
-        where: { email },
+        where:  { email },
         update: {},
         create: { name: dbUser.name || email.split("@")[0], email, position: dbUser.role || "BROKER", role: dbUser.role || "BROKER", dob: new Date("2000-01-01") },
       });
     }
   }
   return emp;
-}
-
-async function getAdminStatus(userId: string): Promise<{ email: string; isAdmin: boolean }> {
-  try {
-    const clerk = await getClerk();
-    const clerkUser = await clerk.users.getUser(userId);
-    const email = clerkUser.emailAddresses[0]?.emailAddress || "";
-    const roleFromClerk = (clerkUser.publicMetadata?.role as string)?.toUpperCase();
-    if (roleFromClerk === "ADMIN") return { email, isAdmin: true };
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
-    return { email, isAdmin: dbUser?.role?.toUpperCase() === "ADMIN" };
-  } catch {
-    return { email: "", isAdmin: false };
-  }
 }
 
 export async function GET(req: NextRequest) {

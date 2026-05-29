@@ -105,7 +105,7 @@ export default function EmployeePanelPage() {
 
   const email    = user?.primaryEmailAddress?.emailAddress || "";
   const userName = empProfile?.name || user?.fullName || user?.firstName || email.split("@")[0] || "Employee";
-  const role     = ((user?.publicMetadata?.role as string) || "BROKER").toUpperCase();
+  const role     = ((empProfile?.role || user?.publicMetadata?.role as string) || "BROKER").toUpperCase();
   const isAdmin  = role === "ADMIN";
 
   // Admin redirect — wait for isLoaded
@@ -136,7 +136,11 @@ export default function EmployeePanelPage() {
     setLoading(false);
   }, [email]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!email) { setLoading(false); return; }
+    fetchData();
+  }, [fetchData, email, isLoaded]);
 
   // Refresh leaves every 60 sec to catch admin approve/reject
   useEffect(() => {

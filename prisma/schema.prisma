@@ -116,44 +116,44 @@ enum NotificationType {
 // ─── MODELS ──────────────────────────────────────────────────────────────────
 
 model User {
-  id          String   @id @default(cuid())
-  clerkId     String   @unique
-  email       String   @unique
-  name        String
-  phone       String?
-  avatar      String?
-  role        Role     @default(BROKER)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String
+  phone     String?
+  avatar    String?
+  role      Role     @default(BROKER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  leads           Lead[]          @relation("AssignedBroker")
-  properties      Property[]      @relation("ListedBy")
-  deals           Deal[]          @relation("BrokerDeals")
-  visits          SiteVisit[]     @relation("BrokerVisits")
-  commissions     Commission[]
-  notifications   Notification[]
-  tasks           Task[]
-  campaigns       Campaign[]      @relation("CreatedBy")
-  activities      Activity[]
-  attendances     Attendance[]
-  chatRooms       ChatMember[]
-  chatMessages    ChatMessage[]
-  callLogs        CallLog[]
-  notifPrefs      Json?    // notification preferences
+  leads         Lead[]         @relation("AssignedBroker")
+  properties    Property[]     @relation("ListedBy")
+  deals         Deal[]         @relation("BrokerDeals")
+  visits        SiteVisit[]    @relation("BrokerVisits")
+  commissions   Commission[]
+  notifications Notification[]
+  tasks         Task[]
+  campaigns     Campaign[]     @relation("CreatedBy")
+  activities    Activity[]
+  attendances   Attendance[]
+  chatRooms     ChatMember[]
+  chatMessages  ChatMessage[]
+  callLogs      CallLog[]
+  notifPrefs    Json? // notification preferences
 
   @@map("users")
 }
 
 model Lead {
-  id              String      @id @default(cuid())
+  id              String            @id @default(cuid())
   name            String
   email           String?
   phone           String
   alternatePhone  String?
-  source          LeadSource  @default(WEBSITE)
-  status          LeadStatus  @default(NEW)
-  score           Int         @default(0)
+  source          LeadSource        @default(WEBSITE)
+  status          LeadStatus        @default(NEW)
+  score           Int               @default(0)
   budget          Float?
   budgetMax       Float?
   propertyType    PropertyType?
@@ -162,27 +162,27 @@ model Lead {
   preferredAreas  String[]
   requirements    String?
   notes           String?
-  isDuplicate     Boolean     @default(false)
+  isDuplicate     Boolean           @default(false)
   duplicateOfId   String?
-  dealProbability Float?      @default(0)
+  dealProbability Float?            @default(0)
   lastContactedAt DateTime?
   nextFollowUpAt  DateTime?
   lostReason      String?
   utmSource       String?
   utmMedium       String?
   utmCampaign     String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
-  assignedToId    String?
-  assignedTo      User?       @relation("AssignedBroker", fields: [assignedToId], references: [id])
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedBroker", fields: [assignedToId], references: [id])
 
-  deals           Deal[]
-  visits          SiteVisit[]
-  activities      Activity[]
-  tasks           Task[]
-  documents       Document[]
-  notifications   Notification[]
+  deals             Deal[]
+  visits            SiteVisit[]
+  activities        Activity[]
+  tasks             Task[]
+  documents         Document[]
+  notifications     Notification[]
   matchedProperties PropertyMatch[]
   callLogs          CallLog[]
 
@@ -231,177 +231,177 @@ model Property {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  listedById      String?
-  listedBy        User?            @relation("ListedBy", fields: [listedById], references: [id])
-  ownerId         String?
-  owner           PropertyOwner?   @relation("OwnerProperties", fields: [ownerId], references: [id])
+  listedById String?
+  listedBy   User?          @relation("ListedBy", fields: [listedById], references: [id])
+  ownerId    String?
+  owner      PropertyOwner? @relation("OwnerProperties", fields: [ownerId], references: [id])
 
-  commercial      CommercialDetail?
-  residential     ResidentialDetail?
-  deals           Deal[]
-  visits          SiteVisit[]
-  documents       Document[]
-  matchedLeads    PropertyMatch[]
+  commercial   CommercialDetail?
+  residential  ResidentialDetail?
+  deals        Deal[]
+  visits       SiteVisit[]
+  documents    Document[]
+  matchedLeads PropertyMatch[]
 
   @@map("properties")
 }
 
 model CommercialDetail {
-  id              String   @id @default(cuid())
-  propertyId      String   @unique
-  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  rentPerSqFt     Float?
-  camCharges      Float?
-  lockInPeriod    Int?
-  leaseTermMonths Int?
-  deposit         Float?
-  fitoutStatus    String?
-  parkingSlots    Int?
-  powerLoad       Float?
-  waterSupply     Boolean  @default(true)
-  liftAvailable   Boolean  @default(false)
-  securityDeposit Float?
+  id                String   @id @default(cuid())
+  propertyId        String   @unique
+  property          Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  rentPerSqFt       Float?
+  camCharges        Float?
+  lockInPeriod      Int?
+  leaseTermMonths   Int?
+  deposit           Float?
+  fitoutStatus      String?
+  parkingSlots      Int?
+  powerLoad         Float?
+  waterSupply       Boolean  @default(true)
+  liftAvailable     Boolean  @default(false)
+  securityDeposit   Float?
   maintenanceCharge Float?
 
   @@map("commercial_details")
 }
 
 model ResidentialDetail {
-  id              String           @id @default(cuid())
-  propertyId      String           @unique
-  property        Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  bhk             Int?
-  bathrooms       Int?
-  balconies       Int?
-  furnishing      FurnishingStatus @default(UNFURNISHED)
-  society         String?
-  possession      DateTime?
+  id                String           @id @default(cuid())
+  propertyId        String           @unique
+  property          Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  bhk               Int?
+  bathrooms         Int?
+  balconies         Int?
+  furnishing        FurnishingStatus @default(UNFURNISHED)
+  society           String?
+  possession        DateTime?
   maintenanceCharge Float?
-  loanEligible    Boolean          @default(true)
-  parkingType     String?
-  petFriendly     Boolean          @default(false)
-  gatedCommunity  Boolean          @default(false)
-  swimmingPool    Boolean          @default(false)
-  gym             Boolean          @default(false)
-  clubhouse       Boolean          @default(false)
+  loanEligible      Boolean          @default(true)
+  parkingType       String?
+  petFriendly       Boolean          @default(false)
+  gatedCommunity    Boolean          @default(false)
+  swimmingPool      Boolean          @default(false)
+  gym               Boolean          @default(false)
+  clubhouse         Boolean          @default(false)
 
   @@map("residential_details")
 }
 
 model PropertyMatch {
-  id          String   @id @default(cuid())
-  leadId      String
-  propertyId  String
-  score       Float
-  isNotified  Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  leadId     String
+  propertyId String
+  score      Float
+  isNotified Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
-  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([leadId, propertyId])
   @@map("property_matches")
 }
 
 model Deal {
-  id              String    @id @default(cuid())
-  title           String
-  stage           DealStage @default(ENQUIRY)
-  value           Float
-  commission      Float?
-  commissionRate  Float?
-  tokenAmount     Float?
-  tokenDate       DateTime?
-  agreementDate   DateTime?
+  id               String    @id @default(cuid())
+  title            String
+  stage            DealStage @default(ENQUIRY)
+  value            Float
+  commission       Float?
+  commissionRate   Float?
+  tokenAmount      Float?
+  tokenDate        DateTime?
+  agreementDate    DateTime?
   registrationDate DateTime?
-  closedAt        DateTime?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  closedAt         DateTime?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  leadId          String
-  lead            Lead      @relation(fields: [leadId], references: [id])
-  propertyId      String?
-  property        Property? @relation(fields: [propertyId], references: [id])
-  brokerId        String?
-  broker          User?     @relation("BrokerDeals", fields: [brokerId], references: [id])
+  leadId     String
+  lead       Lead      @relation(fields: [leadId], references: [id])
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+  brokerId   String?
+  broker     User?     @relation("BrokerDeals", fields: [brokerId], references: [id])
 
-  commissions     Commission[]
-  documents       Document[]
-  activities      Activity[]
+  commissions Commission[]
+  documents   Document[]
+  activities  Activity[]
 
   @@map("deals")
 }
 
 model Commission {
-  id          String   @id @default(cuid())
-  amount      Float
-  rate        Float?
-  isPaid      Boolean  @default(false)
-  paidAt      DateTime?
-  invoiceUrl  String?
-  notes       String?
-  createdAt   DateTime @default(now())
+  id         String    @id @default(cuid())
+  amount     Float
+  rate       Float?
+  isPaid     Boolean   @default(false)
+  paidAt     DateTime?
+  invoiceUrl String?
+  notes      String?
+  createdAt  DateTime  @default(now())
 
-  dealId      String
-  deal        Deal     @relation(fields: [dealId], references: [id])
-  brokerId    String
-  broker      User     @relation(fields: [brokerId], references: [id])
+  dealId   String
+  deal     Deal   @relation(fields: [dealId], references: [id])
+  brokerId String
+  broker   User   @relation(fields: [brokerId], references: [id])
 
   @@map("commissions")
 }
 
 model SiteVisit {
-  id              String      @id @default(cuid())
-  scheduledAt     DateTime
-  status          VisitStatus @default(SCHEDULED)
-  feedback        String?
-  rating          Int?
-  clientInterest  String?
-  notes           String?
-  reminderSent    Boolean     @default(false)
-  completedAt     DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id             String      @id @default(cuid())
+  scheduledAt    DateTime
+  status         VisitStatus @default(SCHEDULED)
+  feedback       String?
+  rating         Int?
+  clientInterest String?
+  notes          String?
+  reminderSent   Boolean     @default(false)
+  completedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
-  leadId          String
-  lead            Lead        @relation(fields: [leadId], references: [id])
-  propertyId      String?
-  property        Property?   @relation(fields: [propertyId], references: [id])
-  brokerId        String?
-  broker          User?       @relation("BrokerVisits", fields: [brokerId], references: [id])
+  leadId     String
+  lead       Lead      @relation(fields: [leadId], references: [id])
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+  brokerId   String?
+  broker     User?     @relation("BrokerVisits", fields: [brokerId], references: [id])
 
   @@map("site_visits")
 }
 
 model Document {
-  id          String   @id @default(cuid())
-  name        String
-  type        String
-  url         String
-  size        Int?
-  mimeType    String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  url       String
+  size      Int?
+  mimeType  String?
+  createdAt DateTime @default(now())
 
-  leadId      String?
-  lead        Lead?    @relation(fields: [leadId], references: [id])
-  propertyId  String?
-  property    Property? @relation(fields: [propertyId], references: [id])
-  dealId      String?
-  deal        Deal?    @relation(fields: [dealId], references: [id])
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id])
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+  dealId     String?
+  deal       Deal?     @relation(fields: [dealId], references: [id])
 
   @@map("documents")
 }
 
 model Task {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   description String?
   dueAt       DateTime
-  isCompleted Boolean  @default(false)
+  isCompleted Boolean   @default(false)
   completedAt DateTime?
-  priority    String   @default("MEDIUM")
-  createdAt   DateTime @default(now())
+  priority    String    @default("MEDIUM")
+  createdAt   DateTime  @default(now())
 
   assignedToId String?
   assignedTo   User?   @relation(fields: [assignedToId], references: [id])
@@ -418,161 +418,160 @@ model Activity {
   metadata    Json?
   createdAt   DateTime @default(now())
 
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id])
-  leadId      String?
-  lead        Lead?    @relation(fields: [leadId], references: [id])
-  dealId      String?
-  deal        Deal?    @relation(fields: [dealId], references: [id])
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id])
+  dealId String?
+  deal   Deal?   @relation(fields: [dealId], references: [id])
 
   @@map("activities")
 }
 
 model Notification {
-  id          String           @id @default(cuid())
-  type        NotificationType
-  title       String
-  message     String
-  isRead      Boolean          @default(false)
-  metadata    Json?
-  createdAt   DateTime         @default(now())
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
 
-  userId      String
-  user        User             @relation(fields: [userId], references: [id])
-  leadId      String?
-  lead        Lead?            @relation(fields: [leadId], references: [id])
+  userId String
+  user   User    @relation(fields: [userId], references: [id])
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id])
 
   @@map("notifications")
 }
 
 model Campaign {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   type        String
-  status      String   @default("DRAFT")
+  status      String    @default("DRAFT")
   subject     String?
   content     String
-  mediaUrl    String?  // image attached to WhatsApp message
+  mediaUrl    String? // image attached to WhatsApp message
   scheduledAt DateTime?
   sentAt      DateTime?
-  recipients  Int      @default(0)
-  opened      Int      @default(0)
-  clicked     Int      @default(0)
-  createdAt   DateTime @default(now())
+  recipients  Int       @default(0)
+  opened      Int       @default(0)
+  clicked     Int       @default(0)
+  createdAt   DateTime  @default(now())
 
   createdById String?
-  createdBy   User?    @relation("CreatedBy", fields: [createdById], references: [id])
+  createdBy   User?   @relation("CreatedBy", fields: [createdById], references: [id])
 
   @@map("campaigns")
 }
 
 model AILog {
-  id          String   @id @default(cuid())
-  type        String
-  prompt      String
-  response    String
-  tokens      Int?
-  model       String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  type      String
+  prompt    String
+  response  String
+  tokens    Int?
+  model     String?
+  createdAt DateTime @default(now())
 
   @@map("ai_logs")
 }
 
 model AttendanceLocation {
-  id          String   @id @default(cuid())
-  name        String
-  address     String
-  latitude    Float
-  longitude   Float
-  radius      Int      @default(100)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  
-  attendances Attendance[]
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  latitude  Float
+  longitude Float
+  radius    Int      @default(100)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  attendances      Attendance[]
   guestAttendances GuestAttendance[]
-  
+
   @@map("attendance_locations")
 }
 
 model Attendance {
-  id          String    @id @default(cuid())
-  userId      String
-  locationId  String
-  punchIn     DateTime
-  punchOut    DateTime?
-  workHours   Float?    @default(0)
-  notes       String?
-  createdAt   DateTime  @default(now())
-  
-  user        User      @relation(fields: [userId], references: [id])
-  location    AttendanceLocation @relation(fields: [locationId], references: [id])
-  
+  id         String    @id @default(cuid())
+  userId     String
+  locationId String
+  punchIn    DateTime
+  punchOut   DateTime?
+  workHours  Float?    @default(0)
+  notes      String?
+  createdAt  DateTime  @default(now())
+
+  user     User               @relation(fields: [userId], references: [id])
+  location AttendanceLocation @relation(fields: [locationId], references: [id])
+
   @@map("attendances")
 }
 
 // For employees without CRM login — scan office QR → punch in/out
 // Pre-registered employees by admin — must match to login
 model EmployeeProfile {
-  id          String   @id @default(cuid())
-  name        String
-  email       String   @unique
-  dob         DateTime
-  password    String?  // custom login password set by admin
-  position    String
-  avatarUrl   String?
-  role        Role     @default(BROKER)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  dob       DateTime
+  password  String? // custom login password set by admin
+  position  String
+  avatarUrl String?
+  role      Role     @default(BROKER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
-  leaves      LeaveRequest[]
-  documents   EmployeeDocument[]
-  salarySlips SalarySlip[]
+  leaves       LeaveRequest[]
+  documents    EmployeeDocument[]
+  salarySlips  SalarySlip[]
   dailyReports DailyReport[]
 
   @@map("employee_profiles")
 }
 
 model EmployeeDocument {
-  id          String   @id @default(cuid())
-  employeeId  String
-  employee    EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  name        String
-  type        String   @default("OTHER")
-  url         String
-  notes       String?
-  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  adminNote   String?
-  uploadedBy  String   @default("EMPLOYEE") // EMPLOYEE, ADMIN
-  createdAt   DateTime @default(now())
+  id         String          @id @default(cuid())
+  employeeId String
+  employee   EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name       String
+  type       String          @default("OTHER")
+  url        String
+  notes      String?
+  status     String          @default("PENDING") // PENDING, APPROVED, REJECTED
+  adminNote  String?
+  uploadedBy String          @default("EMPLOYEE") // EMPLOYEE, ADMIN
+  createdAt  DateTime        @default(now())
 
   @@map("employee_documents")
 }
 
 model SalarySlip {
-  id            String   @id @default(cuid())
+  id            String          @id @default(cuid())
   employeeId    String
   employee      EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  month         Int      // 1-12
+  month         Int // 1-12
   year          Int
   basicSalary   Float
   presentDays   Int
   absentDays    Int
-  halfDays      Int      @default(0)
-  overtimeHours Float    @default(0)
-  deductions    Float    @default(0)
-  bonus         Float    @default(0)
+  halfDays      Int             @default(0)
+  overtimeHours Float           @default(0)
+  deductions    Float           @default(0)
+  bonus         Float           @default(0)
   netSalary     Float
-  workingDays   Int      @default(26)
-  totalHours    Float    @default(0)
-  status        String   @default("DRAFT") // DRAFT, PAID
+  workingDays   Int             @default(26)
+  totalHours    Float           @default(0)
+  status        String          @default("DRAFT") // DRAFT, PAID
   paidAt        DateTime?
   notes         String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime        @default(now())
 
   @@unique([employeeId, month, year])
   @@map("salary_slips")
 }
-
 
 model PropertyOwner {
   id           String   @id @default(cuid())
@@ -583,15 +582,15 @@ model PropertyOwner {
   company      String?
   address      String?
   locality     String?
-  cardImageUrl String?  // scanned card photo
+  cardImageUrl String? // scanned card photo
   notes        String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  properties   Property[]     @relation("OwnerProperties")
-  messages     OwnerMessage[]
-  store        OwnerStore[]
+  properties Property[]     @relation("OwnerProperties")
+  messages   OwnerMessage[]
+  store      OwnerStore[]
 
   @@map("property_owners")
 }
@@ -600,12 +599,12 @@ model PropertyOwner {
 model OwnerMessage {
   id        String   @id @default(cuid())
   ownerId   String
-  direction String   // "OUT" = sent by us, "IN" = received from owner
+  direction String // "OUT" = sent by us, "IN" = received from owner
   message   String
-  mediaUrl  String?  // image/file from owner
+  mediaUrl  String? // image/file from owner
   createdAt DateTime @default(now())
 
-  owner     PropertyOwner @relation(fields: [ownerId], references: [id])
+  owner PropertyOwner @relation(fields: [ownerId], references: [id])
 
   @@map("owner_messages")
 }
@@ -615,8 +614,8 @@ model OwnerStore {
   id              String   @id @default(cuid())
   ownerId         String
   title           String
-  propertyType    String?  // OFFICE, SHOP, APARTMENT etc
-  transactionType String?  // RENT, SELL, LEASE
+  propertyType    String? // OFFICE, SHOP, APARTMENT etc
+  transactionType String? // RENT, SELL, LEASE
   price           Float?
   area            Float?
   floor           String?
@@ -624,13 +623,13 @@ model OwnerStore {
   address         String?
   furnishing      String?
   status          String   @default("AVAILABLE") // AVAILABLE, RENTED, SOLD
-  imageUrl        String?  // property photo
+  imageUrl        String? // property photo
   notes           String?
   listedAt        DateTime @default(now())
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  owner           PropertyOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner PropertyOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@map("owner_store")
 }
@@ -650,18 +649,18 @@ enum LeaveType {
 }
 
 model LeaveRequest {
-  id          String      @id @default(cuid())
-  employeeId  String
-  employee    EmployeeProfile @relation(fields: [employeeId], references: [id])
-  type        LeaveType   @default(CASUAL)
-  status      LeaveStatus @default(PENDING)
-  fromDate    DateTime
-  toDate      DateTime
-  days        Float       @default(1)
-  reason      String
-  adminNote   String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id         String          @id @default(cuid())
+  employeeId String
+  employee   EmployeeProfile @relation(fields: [employeeId], references: [id])
+  type       LeaveType       @default(CASUAL)
+  status     LeaveStatus     @default(PENDING)
+  fromDate   DateTime
+  toDate     DateTime
+  days       Float           @default(1)
+  reason     String
+  adminNote  String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 
   @@map("leave_requests")
 }
@@ -678,10 +677,10 @@ model GuestAttendance {
   overtimeHours Float     @default(0)
   approved      Boolean   @default(false)
   approvedAt    DateTime?
-  approvedBy    String?   // admin userId
+  approvedBy    String? // admin userId
   createdAt     DateTime  @default(now())
 
-  location    AttendanceLocation @relation(fields: [locationId], references: [id])
+  location AttendanceLocation @relation(fields: [locationId], references: [id])
 
   @@map("guest_attendances")
 }
@@ -707,47 +706,47 @@ enum AgreementStatus {
 }
 
 model Agreement {
-  id               String          @id @default(cuid())
-  title            String
-  type             AgreementType
-  status           AgreementStatus @default(DRAFT)
-  client           String
-  clientPhone      String
-  property         String
-  dealValue        Float
-  tokenAmount      Float?
-  broker           String
-  stampDuty        Float?
-  registrationFee  Float?
-  notes            String?
-  signedAt         DateTime?
-  expiryDate       DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id              String          @id @default(cuid())
+  title           String
+  type            AgreementType
+  status          AgreementStatus @default(DRAFT)
+  client          String
+  clientPhone     String
+  property        String
+  dealValue       Float
+  tokenAmount     Float?
+  broker          String
+  stampDuty       Float?
+  registrationFee Float?
+  notes           String?
+  signedAt        DateTime?
+  expiryDate      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   @@map("agreements")
 }
 
 model ChatRoom {
-  id          String   @id @default(cuid())
-  name        String?  // null = direct message
-  isGroup     Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String? // null = direct message
+  isGroup   Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  members     ChatMember[]
-  messages    ChatMessage[]
+  members  ChatMember[]
+  messages ChatMessage[]
 
   @@map("chat_rooms")
 }
 
 model ChatMember {
-  id        String   @id @default(cuid())
-  roomId    String
-  userId    String
-  lastRead  DateTime @default(now())
+  id       String   @id @default(cuid())
+  roomId   String
+  userId   String
+  lastRead DateTime @default(now())
 
-  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id])
 
   @@unique([roomId, userId])
   @@map("chat_members")
@@ -760,30 +759,30 @@ model ChatMessage {
   text      String?
   fileUrl   String?
   fileName  String?
-  fileType  String?  // image/pdf/doc etc
+  fileType  String? // image/pdf/doc etc
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  sender    User     @relation(fields: [senderId], references: [id])
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User     @relation(fields: [senderId], references: [id])
 
   @@map("chat_messages")
 }
 
 model CallLog {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   leadId       String
   userId       String
-  type         String   @default("OUTGOING")
-  duration     Int?     // seconds
+  type         String    @default("OUTGOING")
+  duration     Int? // seconds
   notes        String?
-  outcome      String?  // ANSWERED, NO_ANSWER, BUSY, CALLBACK_REQUESTED, INTERESTED, NOT_INTERESTED
+  outcome      String? // ANSWERED, NO_ANSWER, BUSY, CALLBACK_REQUESTED, INTERESTED, NOT_INTERESTED
   recordingUrl String?
   followUpAt   DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
-  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [userId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
 
   @@map("call_logs")
 }
@@ -792,65 +791,65 @@ model CallLog {
 
 model WpNumber {
   id        String   @id @default(cuid())
-  number    String   @unique  // e.g. "9876543210"
-  label     String?           // e.g. "Sales 1", "Owner Line"
+  number    String   @unique // e.g. "9876543210"
+  label     String? // e.g. "Sales 1", "Owner Line"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  messages  WpInbox[]
+  messages WpInbox[]
 
   @@map("wp_numbers")
 }
 
 model WpInbox {
-  id          String   @id @default(cuid())
-  wpNumberId  String                    // which of our 4 numbers received it
-  fromPhone   String                    // sender's phone
-  fromName    String?
-  message     String?
-  mediaUrl    String?
-  direction   String   @default("IN")   // IN = received, OUT = sent
-  isRead      Boolean  @default(false)
-  matchedLeadId    String?              // if sender is a known lead
-  matchedOwnerId   String?              // if sender is a known owner
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  wpNumberId     String // which of our 4 numbers received it
+  fromPhone      String // sender's phone
+  fromName       String?
+  message        String?
+  mediaUrl       String?
+  direction      String   @default("IN") // IN = received, OUT = sent
+  isRead         Boolean  @default(false)
+  matchedLeadId  String? // if sender is a known lead
+  matchedOwnerId String? // if sender is a known owner
+  createdAt      DateTime @default(now())
 
-  wpNumber    WpNumber @relation(fields: [wpNumberId], references: [id])
+  wpNumber WpNumber @relation(fields: [wpNumberId], references: [id])
 
   @@map("wp_inbox")
 }
 
 // ─── DAILY REPORT ────────────────────────────────────────────────────────────
 model DailyReport {
-  id              String   @id @default(cuid())
-  employeeId      String
-  employee        EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  date            DateTime // date of report (start of day)
+  id                String          @id @default(cuid())
+  employeeId        String
+  employee          EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date              DateTime // date of report (start of day)
   // Calls
-  totalCalls      Int      @default(0)
-  connectedCalls  Int      @default(0)
-  newLeads        Int      @default(0)
+  totalCalls        Int             @default(0)
+  connectedCalls    Int             @default(0)
+  newLeads          Int             @default(0)
   // Site Visits
-  siteVisits      Int      @default(0)
-  visitsFeedback  String?
+  siteVisits        Int             @default(0)
+  visitsFeedback    String?
   // Deals
-  dealsInProgress Int      @default(0)
-  dealsClosed     Int      @default(0)
-  dealValue       Float    @default(0)
+  dealsInProgress   Int             @default(0)
+  dealsClosed       Int             @default(0)
+  dealValue         Float           @default(0)
   // Properties
-  propertiesListed Int     @default(0)
-  propertiesVisited Int    @default(0)
+  propertiesListed  Int             @default(0)
+  propertiesVisited Int             @default(0)
   // Follow-ups
-  followUpsDone   Int      @default(0)
-  followUpsPending Int     @default(0)
+  followUpsDone     Int             @default(0)
+  followUpsPending  Int             @default(0)
   // General
-  highlights      String?  // key achievements of the day
-  challenges      String?  // problems faced
-  tomorrowPlan    String?  // plan for next day
-  status          String   @default("SUBMITTED") // SUBMITTED, REVIEWED
-  adminNote       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  highlights        String? // key achievements of the day
+  challenges        String? // problems faced
+  tomorrowPlan      String? // plan for next day
+  status            String          @default("SUBMITTED") // SUBMITTED, REVIEWED
+  adminNote         String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   @@unique([employeeId, date])
   @@map("daily_reports")
