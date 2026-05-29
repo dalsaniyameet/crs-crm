@@ -17,12 +17,37 @@ import {
   dailyReportEmailHtml,
 } from "@/lib/email";
 
-// Get all admin user IDs from DB
+// Get all admin user IDs from DB — fallback to ADMIN_EMAILS env
 async function getAdminIds(): Promise<string[]> {
-  const admins = await prisma.user.findMany({
+  // First try DB
+  let admins = await prisma.user.findMany({
     where: { role: { in: ["ADMIN" as any, "SALES_MANAGER" as any] }, isActive: true },
-    select: { id: true },
+    select: { id: true, email: true },
   });
+
+  // If no admins in DB, auto-create from ADMIN_EMAILS env
+  if (admins.length === 0) {
+    const adminEmails = (process.env.ADMIN_EMAILS || "")
+      .split(",").map(e => e.trim()).filter(Boolean);
+
+    for (const email of adminEmails) {
+      try {
+        // Try to find by email first
+        const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+        if (existing) {
+          await prisma.user.update({ where: { email }, data: { role: "ADMIN" } });
+          admins.push({ id: existing.id, email });
+        }
+      } catch {}
+    }
+
+    // Re-fetch after update
+    admins = await prisma.user.findMany({
+      where: { role: "ADMIN" as any, isActive: true },
+      select: { id: true, email: true },
+    });
+  }
+
   return admins.map(a => a.id);
 }
 

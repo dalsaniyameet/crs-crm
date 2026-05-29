@@ -4,8 +4,35 @@ import { prisma } from "@/lib/prisma";
 
 async function isAdmin(userId: string) {
   try {
-    const dbUser = await prisma.user.findFirst({ where: { clerkId: userId }, select: { role: true } });
-    return (dbUser?.role as string)?.toUpperCase() === "ADMIN";
+    const dbUser = await prisma.user.findFirst({ where: { clerkId: userId }, select: { role: true, email: true } });
+    if ((dbUser?.role as string)?.toUpperCase() === "ADMIN") return true;
+
+    // Fallback: check ADMIN_EMAILS env
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    if (dbUser?.email && adminEmails.includes(dbUser.email.toLowerCase())) {
+      // Auto-fix role in DB
+      await prisma.user.update({ where: { clerkId: userId }, data: { role: "ADMIN" } }).catch(() => {});
+      return true;
+    }
+
+    // If no DB user at all, fetch from Clerk
+    if (!dbUser) {
+      const res = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+        headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` },
+      });
+      const cu = await res.json();
+      const email = cu?.email_addresses?.[0]?.email_address ?? "";
+      if (adminEmails.includes(email.toLowerCase())) {
+        const name = [cu?.first_name, cu?.last_name].filter(Boolean).join(" ") || "Admin";
+        await prisma.user.upsert({
+          where:  { clerkId: userId },
+          update: { role: "ADMIN", email, name },
+          create: { clerkId: userId, email, name, role: "ADMIN", avatar: cu?.image_url },
+        }).catch(() => {});
+        return true;
+      }
+    }
+    return false;
   } catch { return false; }
 }
 
