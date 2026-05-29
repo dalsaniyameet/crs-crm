@@ -63,7 +63,7 @@ function TestNotificationButton() {
           : result === "ok"  ? <CheckCircle2 className="w-4 h-4" />
           : result === "err" ? <XCircle className="w-4 h-4" />
           : <FlaskConical className="w-4 h-4" />}
-        {loading ? "Testing..." : result === "ok" ? "Done! ✅" : result === "err" ? "Failed ❌" : "🚨 Test Alarm & Email"}
+        {loading ? "Sending..." : result === "ok" ? "Digest Sent! ✅" : result === "err" ? "Failed ❌" : "📊 Send CRM Digest Email"}
       </button>
       {result === "ok" && (
         <span className="text-xs text-emerald-400">Check the notification bell above &#8593;</span>
@@ -296,7 +296,7 @@ export default function SettingsPage() {
 
         {/* Test Notification Button */}
         <div className="mt-4 pt-4 border-t border-white/5">
-          <div className="text-xs text-muted-foreground mb-3">Test the notification system — alarm will ring and an email will be sent</div>
+          <div className="text-xs text-muted-foreground mb-3">Send a full CRM digest — pending notifications, leaves, attendance approvals, documents & today's activity to both admin emails</div>
           <TestNotificationButton />
         </div>
       </motion.div>
