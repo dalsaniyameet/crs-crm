@@ -3,7 +3,7 @@ import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { TrendingUp, Users, Zap, ArrowRight, Star, MapPin, Phone, Building2, Mail, Globe, Shield, Bot, BarChart3 } from "lucide-react";
+import { TrendingUp, Users, Zap, ArrowRight, Star, MapPin, Phone, Building2, Mail, Globe, Shield, Bot, BarChart3, Check } from "lucide-react";
 
 // ── Animated counter ──
 function Counter({ to, suffix = "+" }: { to: number; suffix?: string }) {
@@ -322,10 +322,20 @@ export default function HomePage() {
               Open CRM Dashboard <ArrowRight className="w-5 h-5" />
             </Link>
           </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1.15, duration: 0.5 }}>
+            <Link href="/demo"
+              className="flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-medium transition-all hover:scale-105"
+              style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)", color: "#eab308" }}>
+              <Zap className="w-5 h-5" /> Free Demo
+            </Link>
+          </motion.div>
           <motion.a
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 1.15, duration: 0.5 }}
+            transition={{ delay: 1.25, duration: 0.5 }}
             href="https://cityrealspace.com" target="_blank" rel="noreferrer"
             className="flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-medium transition-all hover:scale-105"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8" }}>
@@ -397,6 +407,79 @@ export default function HomePage() {
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-4" style={{ background: f.color, border: `1px solid ${f.border}` }}>{f.icon}</div>
               <h3 className="font-semibold text-white mb-2">{f.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Pricing ── */}
+      <section className="relative z-10 px-6 py-20 max-w-5xl mx-auto">
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-14">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs mb-4"
+            style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.15)", color: "#eab308" }}>
+            PRICING
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">Simple, Transparent Pricing</h2>
+          <p className="text-muted-foreground">No hidden fees. Cancel anytime.</p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            {
+              name: "Starter", price: "₹4,999", period: "/month",
+              desc: "Perfect for solo brokers",
+              color: "rgba(255,255,255,0.02)", border: "rgba(255,255,255,0.08)", accent: "#94a3b8",
+              features: ["Up to 100 leads", "5 properties", "WhatsApp automation", "Basic reports", "Email support"],
+              cta: "Get Started", popular: false,
+            },
+            {
+              name: "Professional", price: "₹12,999", period: "/month",
+              desc: "For growing brokerages",
+              color: "rgba(234,179,8,0.04)", border: "rgba(234,179,8,0.3)", accent: "#eab308",
+              features: ["Unlimited leads", "Unlimited properties", "AI lead scoring", "Deal pipeline", "Commission tracker", "Advanced analytics", "Priority support"],
+              cta: "Start Free Trial", popular: true,
+            },
+            {
+              name: "Enterprise", price: "Custom", period: "",
+              desc: "For large teams & agencies",
+              color: "rgba(255,255,255,0.02)", border: "rgba(255,255,255,0.08)", accent: "#94a3b8",
+              features: ["Everything in Pro", "Multi-branch support", "Custom integrations", "Dedicated manager", "SLA guarantee", "On-premise option"],
+              cta: "Contact Us", popular: false,
+            },
+          ].map((plan, i) => (
+            <motion.div key={plan.name}
+              initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+              className="relative p-7 rounded-3xl flex flex-col"
+              style={{ background: plan.color, border: `1px solid ${plan.border}`, boxShadow: plan.popular ? "0 0 40px rgba(234,179,8,0.1)" : "none" }}>
+              {plan.popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold"
+                  style={{ background: "linear-gradient(135deg,#ca8a04,#eab308)", color: "#050508" }}>
+                  Most Popular
+                </div>
+              )}
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
+                <p className="text-xs mb-4" style={{ color: "#64748b" }}>{plan.desc}</p>
+                <div className="flex items-end gap-1">
+                  <span className="text-4xl font-bold" style={{ color: plan.popular ? "#eab308" : "#fff" }}>{plan.price}</span>
+                  <span className="text-sm mb-1" style={{ color: "#64748b" }}>{plan.period}</span>
+                </div>
+              </div>
+              <ul className="space-y-2.5 flex-1 mb-7">
+                {plan.features.map(f => (
+                  <li key={f} className="flex items-center gap-2.5 text-sm" style={{ color: "#94a3b8" }}>
+                    <Check className="w-4 h-4 shrink-0" style={{ color: plan.popular ? "#eab308" : "#64748b" }} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href={plan.name === "Enterprise" ? "mailto:info@cityrealspace.com" : "/sign-in"}
+                className="w-full text-center py-3 rounded-2xl text-sm font-semibold transition-all hover:scale-105"
+                style={plan.popular
+                  ? { background: "linear-gradient(135deg,#ca8a04,#eab308)", color: "#050508", boxShadow: "0 0 20px rgba(234,179,8,0.3)" }
+                  : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8" }}>
+                {plan.cta}
+              </Link>
             </motion.div>
           ))}
         </div>
