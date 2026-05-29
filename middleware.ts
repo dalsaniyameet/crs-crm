@@ -19,6 +19,7 @@ const isPublic = createRouteMatcher([
   "/api/leads/follow-up",
   "/api/admin/daily-summary",
   "/api/admin/test-notify",
+  "/api/admin/fix-roles",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
