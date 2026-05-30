@@ -137,7 +137,7 @@ export default function LeadsPage() {
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useEffect(() => {
-    fetch("/api/brokers").then(r => r.json()).then(d => setBrokers(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch("/api/brokers?assign=1").then(r => r.json()).then(d => setBrokers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   const openDetail = async (id: string) => {
@@ -754,8 +754,34 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                 );
               })()}
 
-              {/* Assigned broker */}
-              {lead.assignedTo && (
+              {/* Assign broker — admin only inline */}
+              {isAdmin && (
+                <div className="relative">
+                  <select
+                    value={lead.assignedTo?.id || ""}
+                    onChange={async e => {
+                      const val = e.target.value;
+                      await fetch(`/api/leads/${lead.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ assignedToId: val || null }),
+                      });
+                      setLeads(prev => prev.map(l => l.id === lead.id ? {
+                        ...l,
+                        assignedTo: val ? brokers.find((b: any) => b.id === val) : undefined,
+                      } : l));
+                      toast.success(val ? "Lead assigned!" : "Unassigned");
+                    }}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-estate-500/50 appearance-none cursor-pointer">
+                    <option value="">— Assign Employee —</option>
+                    {brokers.map((b: any) => (
+                      <option key={b.id} value={b.id}>{b.name} ({b.role.replace("_"," ")})</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                </div>
+              )}
+              {!isAdmin && lead.assignedTo && (
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <div className="w-4 h-4 rounded-full bg-estate-500/30 flex items-center justify-center text-estate-400 font-bold text-xs flex-shrink-0">
                     {lead.assignedTo.name[0]}

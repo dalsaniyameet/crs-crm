@@ -6,9 +6,14 @@ export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Return ALL active users so everyone can chat with everyone (including admin)
+  const url = new URL(req.url);
+  const forAssign = url.searchParams.get("assign") === "1";
+
   const users = await prisma.user.findMany({
-    where:   { isActive: true },
+    where: {
+      isActive: true,
+      ...(forAssign ? { role: { in: ["BROKER", "SALES_MANAGER"] } } : {}),
+    },
     select:  { id: true, name: true, email: true, phone: true, avatar: true, role: true },
     orderBy: [{ role: "asc" }, { name: "asc" }],
   });
