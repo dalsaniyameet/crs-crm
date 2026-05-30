@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+import { useUser } from "@clerk/nextjs";
+
 type LeadStatus = "NEW" | "CONTACTED" | "SITE_VISIT_SCHEDULED" | "NEGOTIATION" | "DEAL_CLOSED" | "LOST";
 
 interface Lead {
@@ -69,6 +71,10 @@ const OUTCOME_CONFIG: Record<string, { label: string; color: string; icon: any }
 };
 
 export default function LeadsPage() {
+  const { user, isLoaded } = useUser();
+  const role = ((user?.publicMetadata?.role as string) || "BROKER").toUpperCase();
+  const isAdmin = role === "ADMIN" || role === "SALES_MANAGER";
+
   const [leads, setLeads]           = useState<Lead[]>([]);
   const [total, setTotal]           = useState(0);
   const [loading, setLoading]       = useState(true);
@@ -489,13 +495,17 @@ We have genuine properties matching your requirement. Let's connect! 🤝
           <button onClick={fetchLeads} className="p-2 rounded-lg bg-white/5 border border-white/10 text-muted-foreground hover:text-white transition-all">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <a href="/api/leads/export" download
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 text-xs font-medium transition-all">
-            <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Export</span>
-          </a>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-1.5 text-sm">
-            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Lead</span><span className="sm:hidden">Add</span>
-          </button>
+          {isAdmin && (
+            <a href="/api/leads/export" download
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 text-xs font-medium transition-all">
+              <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Export</span>
+            </a>
+          )}
+          {isAdmin && (
+            <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-1.5 text-sm">
+              <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Lead</span><span className="sm:hidden">Add</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -518,18 +528,20 @@ We have genuine properties matching your requirement. Let's connect! 🤝
               {s === "ALL" ? "All" : statusConfig[s as LeadStatus]?.label || s}
             </button>
           ))}
-          {/* Select All / Clear */}
-          <div className="ml-auto flex items-center gap-1.5">
-            <button onClick={selectAll}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-estate-500/15 border border-estate-500/30 text-estate-400 hover:bg-estate-500/25 transition-all">
-              ☑ Select All ({filtered.length})
-            </button>
-            {selected.size > 0 && (
-              <button onClick={clearAll} className="px-2.5 py-1 rounded-lg text-xs text-muted-foreground border border-white/10 bg-white/5 hover:text-white transition-all">
-                ✕ Clear
+          {/* Select All / Clear — admin only */}
+          {isAdmin && (
+            <div className="ml-auto flex items-center gap-1.5">
+              <button onClick={selectAll}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-estate-500/15 border border-estate-500/30 text-estate-400 hover:bg-estate-500/25 transition-all">
+                ☑ Select All ({filtered.length})
               </button>
-            )}
-          </div>
+              {selected.size > 0 && (
+                <button onClick={clearAll} className="px-2.5 py-1 rounded-lg text-xs text-muted-foreground border border-white/10 bg-white/5 hover:text-white transition-all">
+                  ✕ Clear
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -557,7 +569,7 @@ We have genuine properties matching your requirement. Let's connect! 🤝
 
       {/* Bulk Action Bar */}
       <AnimatePresence>
-        {selected.size > 0 && (
+        {isAdmin && selected.size > 0 && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="flex items-center gap-3 p-3 rounded-xl bg-estate-900/60 border border-estate-500/30">
             <span className="text-sm text-white font-medium">{selected.size} leads selected</span>
@@ -609,8 +621,10 @@ We have genuine properties matching your requirement. Let's connect! 🤝
 
               {/* Top row */}
               <div className="flex items-start gap-3">
-                <input type="checkbox" checked={selected.has(lead.id)} onChange={() => toggleSelect(lead.id)}
-                  className="w-3.5 h-3.5 rounded accent-estate-500 cursor-pointer mt-1 flex-shrink-0" />
+                {isAdmin && (
+                  <input type="checkbox" checked={selected.has(lead.id)} onChange={() => toggleSelect(lead.id)}
+                    className="w-3.5 h-3.5 rounded accent-estate-500 cursor-pointer mt-1 flex-shrink-0" />
+                )}
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-estate-600 to-estate-400 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
                   {lead.name[0]?.toUpperCase()}
                 </div>
@@ -852,8 +866,8 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                             <div className="relative">
                               <select value={detailLead.status}
                                 onChange={e => updateLead(detailLead.id, { status: e.target.value })}
-                                disabled={updatingLead}
-                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/50 appearance-none cursor-pointer">
+                                disabled={updatingLead || !isAdmin}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/50 appearance-none cursor-pointer disabled:opacity-60">
                                 {Object.entries(statusConfig).map(([k, v]) => (
                                   <option key={k} value={k}>{v.label}</option>
                                 ))}
@@ -861,21 +875,23 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                             </div>
                           </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground mb-1.5 block">Assign Broker</label>
-                            <div className="relative">
-                              <select value={detailLead.assignedToId || ""}
-                                onChange={e => updateLead(detailLead.id, { assignedToId: e.target.value || null })}
-                                disabled={updatingLead}
-                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/50 appearance-none cursor-pointer">
-                                <option value="">Unassigned</option>
-                                {brokers.map((b: any) => (
-                                  <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                              </select>
-                              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                          {isAdmin && (
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1.5 block">Assign Broker</label>
+                              <div className="relative">
+                                <select value={detailLead.assignedToId || ""}
+                                  onChange={e => updateLead(detailLead.id, { assignedToId: e.target.value || null })}
+                                  disabled={updatingLead}
+                                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-estate-500/50 appearance-none cursor-pointer">
+                                  <option value="">Unassigned</option>
+                                  {brokers.map((b: any) => (
+                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
