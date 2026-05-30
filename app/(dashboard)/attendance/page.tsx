@@ -376,16 +376,10 @@ export default function AttendancePage() {
                     {/* Actions */}
                     <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
                       {!isPunchedIn ? (
-                        <>
-                          <button onClick={() => setFacePunch({ emp, action: "IN" })}
-                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30 transition-colors">
-                            <ScanFace className="w-3 h-3" /> Face
-                          </button>
-                          <button onClick={() => handleAdminPunch(emp, "IN")} disabled={punchingEmp === emp.id}
-                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
-                            <LogIn className="w-3 h-3" /> Punch In
-                          </button>
-                        </>
+                        <button onClick={() => setFacePunch({ emp, action: "IN" })} disabled={punchingEmp === emp.id}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
+                          <ScanFace className="w-3.5 h-3.5" /> Face Punch In
+                        </button>
                       ) : (
                         <>
                           <button onClick={() => toggleBreak(emp.id)}
@@ -397,13 +391,9 @@ export default function AttendancePage() {
                             <Coffee className="w-3 h-3" />
                             {onBreak ? "End Break" : "Break"}
                           </button>
-                          <button onClick={() => setFacePunch({ emp, action: "OUT" })}
-                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30 transition-colors">
-                            <ScanFace className="w-3 h-3" /> Face
-                          </button>
-                          <button onClick={() => handleAdminPunch(emp, "OUT")} disabled={punchingEmp === emp.id}
-                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50">
-                            <LogOut className="w-3 h-3" /> Punch Out
+                          <button onClick={() => setFacePunch({ emp, action: "OUT" })} disabled={punchingEmp === emp.id}
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50">
+                            <ScanFace className="w-3.5 h-3.5" /> Face Punch Out
                           </button>
                         </>
                       )}
@@ -572,6 +562,21 @@ export default function AttendancePage() {
                         ? <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">🤳 Face</span>
                         : <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">🖱️ Manual</span>}
                     </div>
+                    {/* Face image thumbnails */}
+                    {(r.faceImageIn || r.faceImageOut) && (
+                      <div className="flex items-center gap-2 mt-1">
+                        {r.faceImageIn && (
+                          <a href={r.faceImageIn} target="_blank" rel="noreferrer" title="Punch In Face">
+                            <img src={r.faceImageIn} alt="in" className="w-8 h-8 rounded-full object-cover border-2 border-emerald-500/40 hover:border-emerald-400 transition-colors" />
+                          </a>
+                        )}
+                        {r.faceImageOut && (
+                          <a href={r.faceImageOut} target="_blank" rel="noreferrer" title="Punch Out Face">
+                            <img src={r.faceImageOut} alt="out" className="w-8 h-8 rounded-full object-cover border-2 border-red-500/40 hover:border-red-400 transition-colors" />
+                          </a>
+                        )}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <MapPin className="w-3 h-3 flex-shrink-0" />
                       <span>{r.location?.name || "Office"}</span>

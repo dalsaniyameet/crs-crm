@@ -40,12 +40,12 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: React.Rea
 };
 const inputCls = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50";
 
-// Employee sirf yeh types upload kar sakta hai — SALARY_SLIP, OFFER_LETTER, CONTRACT admin send karta hai
+// Employee can only upload these types — SALARY_SLIP, OFFER_LETTER, CONTRACT are sent by admin
 const DOC_TYPES = [
   "CV", "PAN_CARD", "AADHAR_CARD", "BANK_PASSBOOK", "EXPERIENCE_LETTER", "OTHER",
 ];
 
-// Admin-only document types (employee upload nahi kar sakta)
+// Admin-only document types (employee cannot upload these)
 const ADMIN_ONLY_TYPES = ["SALARY_SLIP", "OFFER_LETTER", "CONTRACT"];
 
 const DOC_LABELS: Record<string, { label: string; icon: string }> = {
@@ -329,7 +329,7 @@ export default function EmployeePanelPage() {
 
   const handleEditProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editForm.name.trim() && !editForm.dob) { toast.error("Kuch toh change karo"); return; }
+    if (!editForm.name.trim() && !editForm.dob) { toast.error("Please update at least one field"); return; }
     setEditSaving(true);
     try {
       const res = await fetch("/api/employee/profile", {
@@ -443,9 +443,9 @@ export default function EmployeePanelPage() {
               </button>
 
               {/* Punch out */}
-              <button onClick={() => handlePunch("OUT")} disabled={punching}
+              <button onClick={() => { setFacePunchAction("OUT"); setShowFacePunch(true); }} disabled={punching}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50 flex-shrink-0">
-                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
+                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <ScanFace className="w-3 h-3" />}
                 Out
               </button>
             </div>
@@ -637,22 +637,13 @@ export default function EmployeePanelPage() {
                     <ScanFace className="w-4 h-4" /> Face Punch Out
                   </button>
                 </div>
-                {/* Manual punch out fallback */}
-                <button onClick={() => handlePunch("OUT")} disabled={punching} className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs text-muted-foreground border border-white/10 hover:text-red-400 hover:border-red-500/30 transition-all">
-                  {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />} Manual Punch Out (no camera)
-                </button>
               </div>
             ) : (
               <div className="text-center py-6 space-y-3">
                 <div className="text-muted-foreground text-sm">Not punched in today</div>
-                {/* Face Punch In */}
                 <button onClick={() => { setFacePunchAction("IN"); setShowFacePunch(true); }} disabled={punching}
                   className="flex items-center justify-center gap-2 mx-auto px-8 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-sm font-medium transition-all disabled:opacity-50">
                   <ScanFace className="w-5 h-5" /> Face Punch In
-                </button>
-                {/* Manual fallback */}
-                <button onClick={() => handlePunch("IN")} disabled={punching} className="flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-xl text-xs text-muted-foreground border border-white/10 hover:text-emerald-400 hover:border-emerald-500/30 transition-all">
-                  {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />} Manual Punch In (no camera)
                 </button>
                 <div className="text-xs text-muted-foreground">Mon–Sat 10:00 AM – 7:00 PM · Sunday 11:00 AM – 4:00 PM</div>
               </div>
@@ -740,7 +731,7 @@ export default function EmployeePanelPage() {
           <div className="mb-4 p-3 rounded-xl bg-blue-500/8 border border-blue-500/20 flex items-start gap-2">
             <span className="text-blue-400 text-sm flex-shrink-0">ℹ️</span>
             <p className="text-xs text-blue-300">
-              <span className="font-semibold">Salary Slip, Offer Letter, Contract</span> — yeh documents admin aapko bhejega. Aap sirf CV, PAN, Aadhar, Bank Passbook, Experience Letter upload kar sakte ho.
+              <span className="font-semibold">Salary Slip, Offer Letter, Contract</span> — these documents will be sent by admin. You can only upload CV, PAN, Aadhar, Bank Passbook, Experience Letter.
             </p>
           </div>
           {showDocForm && (
