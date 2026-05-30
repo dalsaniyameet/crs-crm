@@ -191,37 +191,13 @@ export default function DashboardPage() {
 
       {/* Watermark Background Logo */}
       <style>{`
-        @keyframes wm-float  { 0%,100%{transform:translateY(0) rotate(-12deg) scale(1)} 50%{transform:translateY(-18px) rotate(-12deg) scale(1.04)} }
-        @keyframes wm-pulse  { 0%,100%{opacity:0.045} 50%{opacity:0.075} }
-        @keyframes wm-spin1  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes wm-spin2  { from{transform:rotate(0deg)} to{transform:rotate(-360deg)} }
-        @keyframes wm-glow   { 0%,100%{opacity:0.06} 50%{opacity:0.12} }
-        .wm-logo  { animation: wm-float 7s ease-in-out infinite, wm-pulse 7s ease-in-out infinite; }
-        .wm-ring1 { animation: wm-spin1 22s linear infinite; }
-        .wm-ring2 { animation: wm-spin2 16s linear infinite; }
-        .wm-ring3 { animation: wm-spin1 32s linear infinite; }
-        .wm-glow  { animation: wm-glow  5s ease-in-out infinite; }
+        @keyframes wm-float { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-52%) scale(1.03)} }
+        @keyframes wm-pulse { 0%,100%{opacity:0.07} 50%{opacity:0.13} }
+        .wm-logo { animation: wm-float 6s ease-in-out infinite, wm-pulse 6s ease-in-out infinite; }
       `}</style>
       <div className="pointer-events-none select-none fixed overflow-hidden" style={{ inset: 0, zIndex: 0 }}>
-        {/* Glow blob */}
-        <div className="wm-glow absolute" style={{ right: "5%", top: "18%", width: 520, height: 520, background: "radial-gradient(circle, rgba(234,179,8,0.1) 0%, transparent 70%)", borderRadius: "50%", filter: "blur(50px)" }} />
-        {/* Outer ring */}
-        <svg className="wm-ring1 absolute" style={{ right: "4%", top: "10%", width: 500, height: 500, opacity: 0.07 }} viewBox="0 0 500 500">
-          <circle cx="250" cy="250" r="240" fill="none" stroke="#eab308" strokeWidth="1.5" strokeDasharray="40 20" strokeLinecap="round" />
-          <circle cx="250" cy="250" r="240" fill="none" stroke="#0ea5e9" strokeWidth="1" strokeDasharray="15 45" strokeDashoffset="60" strokeLinecap="round" opacity="0.5" />
-        </svg>
-        {/* Middle ring */}
-        <svg className="wm-ring2 absolute" style={{ right: "7.5%", top: "16%", width: 380, height: 380, opacity: 0.055 }} viewBox="0 0 380 380">
-          <circle cx="190" cy="190" r="182" fill="none" stroke="#eab308" strokeWidth="1" strokeDasharray="25 35" strokeLinecap="round" />
-          <circle cx="190" cy="190" r="182" fill="none" stroke="#ec4899" strokeWidth="0.8" strokeDasharray="10 50" strokeDashoffset="-40" strokeLinecap="round" opacity="0.5" />
-        </svg>
-        {/* Inner ring */}
-        <svg className="wm-ring3 absolute" style={{ right: "12%", top: "22%", width: 240, height: 240, opacity: 0.045 }} viewBox="0 0 240 240">
-          <circle cx="120" cy="120" r="114" fill="none" stroke="#f59e0b" strokeWidth="1" strokeDasharray="8 16" strokeLinecap="round" />
-        </svg>
-        {/* Logo */}
-        <div className="wm-logo absolute" style={{ right: "9%", top: "19%", width: 190, height: 190, opacity: 0.06, borderRadius: 28, overflow: "hidden", background: "#fff", boxShadow: "0 0 80px rgba(234,179,8,0.12)" }}>
-          <img src="/logo.jpeg" alt="" style={{ width: "100%", height: "100%", objectFit: "contain", padding: 14 }} />
+        <div className="wm-logo absolute" style={{ left: "50%", top: "50%", width: 260, height: 260, borderRadius: 40, overflow: "hidden", background: "#fff", boxShadow: "0 0 120px rgba(234,179,8,0.08)" }}>
+          <img src="/logo.jpeg" alt="" style={{ width: "100%", height: "100%", objectFit: "contain", padding: 20 }} />
         </div>
       </div>
 
