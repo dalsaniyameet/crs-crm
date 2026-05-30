@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight, Zap, Globe, Shield, Bot, BarChart3,
-  Building2, TrendingUp, Users, Check, Phone, Mail, MapPin, PlayCircle,
+  Building2, TrendingUp, Users, Star, Check, Phone, Mail, MapPin, PlayCircle,
 } from "lucide-react";
 
 function Counter({ to, suffix = "+" }: { to: number; suffix?: string }) {

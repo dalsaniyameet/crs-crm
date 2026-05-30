@@ -9,6 +9,9 @@ async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
 }
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const { userId } = await auth();
