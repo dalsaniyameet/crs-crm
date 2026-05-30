@@ -129,6 +129,50 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const userEmail = user?.primaryEmailAddress?.emailAddress || "";
   const [dbAvatar, setDbAvatar] = useState("");
 
+  // ── Employee live location — har 30 sec update ──
+  useEffect(() => {
+    if (!isLoaded || !user || role === "ADMIN") return;
+    let watchId: number;
+    let interval: ReturnType<typeof setInterval>;
+
+    async function sendLocation(lat: number, lng: number) {
+      // Reverse geocode using nominatim (free)
+      let address = "";
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+          headers: { "Accept-Language": "en" },
+        });
+        const d = await r.json();
+        address = d.display_name?.split(",").slice(0, 3).join(",") || "";
+      } catch {}
+      fetch("/api/location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude: lat, longitude: lng, address }),
+      }).catch(() => {});
+    }
+
+    if (navigator.geolocation) {
+      // First immediate fetch
+      navigator.geolocation.getCurrentPosition(
+        p => sendLocation(p.coords.latitude, p.coords.longitude),
+        () => {}, { enableHighAccuracy: true }
+      );
+      // Then every 30 sec
+      interval = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(
+          p => sendLocation(p.coords.latitude, p.coords.longitude),
+          () => {}, { enableHighAccuracy: true, timeout: 10000 }
+        );
+      }, 30000);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [isLoaded, user, role]);
+
   // ── Heartbeat: ping server with ALL open tabs so admin can see everything ──
   useEffect(() => {
     if (!isLoaded || !user) return;

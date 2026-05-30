@@ -73,7 +73,8 @@ const OUTCOME_CONFIG: Record<string, { label: string; color: string; icon: any }
 export default function LeadsPage() {
   const { user, isLoaded } = useUser();
   const role = ((user?.publicMetadata?.role as string) || "BROKER").toUpperCase();
-  const isAdmin = role === "ADMIN" || role === "SALES_MANAGER";
+  const isAdmin = role === "ADMIN";
+  const canSeeAll = role === "ADMIN" || role === "SALES_MANAGER" || role === "MARKETING";
 
   const [leads, setLeads]           = useState<Lead[]>([]);
   const [total, setTotal]           = useState(0);
@@ -488,7 +489,10 @@ We have genuine properties matching your requirement. Let's connect! 🤝
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white">Lead Management</h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1">
-            {total} leads · <span className="text-red-400">{hotCount} hot</span> · <span className="text-yellow-400">{followUps} due</span>
+            {isAdmin
+              ? <>{total} leads · <span className="text-red-400">{hotCount} hot</span> · <span className="text-yellow-400">{followUps} due</span></>
+              : <>My Leads: {total} · <span className="text-red-400">{hotCount} hot</span> · <span className="text-yellow-400">{followUps} due</span></>
+            }
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

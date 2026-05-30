@@ -40,10 +40,13 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: React.Rea
 };
 const inputCls = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50";
 
+// Employee sirf yeh types upload kar sakta hai — SALARY_SLIP, OFFER_LETTER, CONTRACT admin send karta hai
 const DOC_TYPES = [
-  "CV", "PAN_CARD", "AADHAR_CARD", "BANK_PASSBOOK", "EXPERIENCE_LETTER",
-  "SALARY_SLIP", "OFFER_LETTER", "CONTRACT", "OTHER",
+  "CV", "PAN_CARD", "AADHAR_CARD", "BANK_PASSBOOK", "EXPERIENCE_LETTER", "OTHER",
 ];
+
+// Admin-only document types (employee upload nahi kar sakta)
+const ADMIN_ONLY_TYPES = ["SALARY_SLIP", "OFFER_LETTER", "CONTRACT"];
 
 const DOC_LABELS: Record<string, { label: string; icon: string }> = {
   CV:                 { label: "CV / Resume",        icon: "📋" },
@@ -732,6 +735,14 @@ export default function EmployeePanelPage() {
               <Upload className="w-3.5 h-3.5" /> Upload
             </button>
           </div>
+
+          {/* Admin-only docs info banner */}
+          <div className="mb-4 p-3 rounded-xl bg-blue-500/8 border border-blue-500/20 flex items-start gap-2">
+            <span className="text-blue-400 text-sm flex-shrink-0">ℹ️</span>
+            <p className="text-xs text-blue-300">
+              <span className="font-semibold">Salary Slip, Offer Letter, Contract</span> — yeh documents admin aapko bhejega. Aap sirf CV, PAN, Aadhar, Bank Passbook, Experience Letter upload kar sakte ho.
+            </p>
+          </div>
           {showDocForm && (
             <div className="mb-5 p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -797,6 +808,9 @@ export default function EmployeePanelPage() {
                       <span className="text-xs text-muted-foreground">
                         {DOC_LABELS[d.type]?.label || d.type.replace(/_/g, " ")} · {new Date(d.createdAt).toLocaleDateString("en-IN")}
                       </span>
+                      {ADMIN_ONLY_TYPES.includes(d.type) && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-estate-500/15 border border-estate-500/25 text-estate-300">📨 Admin sent</span>
+                      )}
                       {d.status === "PENDING" && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400">⏳ Pending Approval</span>
                       )}

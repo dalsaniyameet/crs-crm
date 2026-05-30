@@ -17,7 +17,8 @@ export async function GET() {
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const isBroker = user.role === "BROKER";
+    const isBroker = user.role === "BROKER" || user.role === "SALES_MANAGER";
+    const isAdmin   = user.role === "ADMIN" || user.role === "MARKETING";
 
     checkOverdueFollowUps().catch(() => {});
 
@@ -27,7 +28,7 @@ export async function GET() {
     const todayStart = new Date(Date.UTC(y, m, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
     const todayEnd   = new Date(Date.UTC(y, m, d, 23, 59, 59) - 5.5 * 60 * 60 * 1000);
 
-    // For broker: only their assigned leads
+    // Strict: broker/sales_manager sirf apne assigned leads
     const leadWhere = isBroker ? { assignedToId: user.id } : {};
 
     const [

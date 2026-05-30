@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Building2, GitBranch, Calendar,
   BarChart3, Megaphone, Bot, DollarSign, Settings,
   UserCheck, FileSignature, Home, UserSquare2, UsersRound, ShieldCheck,
-  FileText, IndianRupee, MessageCircle, CalendarDays, ClipboardList,
+  FileText, IndianRupee, MessageCircle, CalendarDays, ClipboardList, Phone, Navigation,
 } from "lucide-react";
 
 export type UserRole = "ADMIN" | "BROKER" | "SALES_MANAGER" | "MARKETING";
@@ -17,12 +17,14 @@ const ALL_NAV = [
   { href: "/visits",          label: "Site Visits",       icon: Calendar,        roles: ["ADMIN","BROKER","SALES_MANAGER"] },
   { href: "/calendar",        label: "Calendar",          icon: CalendarDays,    roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/agreements",      label: "Agreements",        icon: FileSignature,   roles: ["ADMIN"] },
-  { href: "/owners",          label: "Property Owners",   icon: UserSquare2,     roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
+  { href: "/owners",          label: "Property Owners",   icon: UserSquare2,     roles: ["ADMIN"] },
   { href: "/commissions",     label: "Commissions",       icon: DollarSign,      roles: ["ADMIN","SALES_MANAGER"] },
   { href: "/attendance",      label: "Attendance",        icon: UserCheck,       roles: ["ADMIN"] },
   { href: "/attendance/me",   label: "My Attendance",     icon: UserCheck,       roles: ["BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/admin-employees", label: "Employees",         icon: UsersRound,      roles: ["ADMIN"] },
-  { href: "/admin-employees/daily-reports", label: "Daily Reports", icon: ClipboardList, roles: ["ADMIN"] },
+  { href: "/admin-employees/daily-reports",    label: "Daily Reports",    icon: ClipboardList, roles: ["ADMIN"] },
+  { href: "/admin-employees/telecaller-stats", label: "Telecaller Stats",  icon: Phone,       roles: ["ADMIN"] },
+  { href: "/live-location",                    label: "Live Location",    icon: Navigation,  roles: ["ADMIN"] },
   { href: "/reports",         label: "Reports",           icon: BarChart3,       roles: ["ADMIN","SALES_MANAGER"] },
   { href: "/marketing",       label: "Marketing",         icon: Megaphone,       roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/team-chat",       label: "Team Chat",         icon: MessageCircle,   roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },

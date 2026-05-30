@@ -41,7 +41,10 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: React.Rea
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-function SalarySlipPrint({ slip, employee, onClose }: { slip: any; employee: any; onClose: () => void }) {
+function SalarySlipPrint({ slip, employee, onClose, onSendToEmployee, sending }: {
+  slip: any; employee: any; onClose: () => void;
+  onSendToEmployee?: () => void; sending?: boolean;
+}) {
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -95,6 +98,13 @@ function SalarySlipPrint({ slip, employee, onClose }: { slip: any; employee: any
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
               <Printer className="w-4 h-4" /> Print / Download PDF
             </button>
+            {onSendToEmployee && (
+              <button onClick={onSendToEmployee} disabled={sending}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Send to Employee
+              </button>
+            )}
             <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm hover:bg-gray-200">Close</button>
           </div>
         </div>
@@ -227,6 +237,7 @@ export default function EmployeeDetailPage() {
   const adminDocCamRef  = useRef<HTMLInputElement>(null);
   const [showSlipPreview, setShowSlipPreview] = useState(false);
   const [slipData, setSlipData]         = useState<any>(null);
+  const [sendingSlip, setSendingSlip]   = useState(false);
   const [salaryMode, setSalaryMode]     = useState<"auto"|"manual">("auto");
   const [basicSalary, setBasicSalary]   = useState(0);
   const [hra, setHra]                   = useState(0);
@@ -382,6 +393,36 @@ export default function EmployeeDetailPage() {
     if (res.ok) { toast.success("Password reset! ✅"); setNewPwd(""); }
     else toast.error("Failed to reset password");
     setResetting(false);
+  };
+
+  const handleSendSlip = async () => {
+    if (!slipData || !employee) return;
+    setSendingSlip(true);
+    try {
+      // Generate slip as text summary and save as document for employee
+      const name = `Salary Slip — ${MONTHS[slipData.month - 1]} ${slipData.year}`;
+      // Save as employee document (admin upload = auto approved)
+      const res = await fetch("/api/employee/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: params.id,
+          name,
+          type: "SALARY_SLIP",
+          url: `data:text/plain,Salary Slip ${MONTHS[slipData.month-1]} ${slipData.year} | Net: Rs.${slipData.net}`,
+          notes: `Net Salary: ₹${slipData.net?.toLocaleString("en-IN")} | Gross: ₹${slipData.gross?.toLocaleString("en-IN")} | Present: ${slipData.presentDays || "—"} days`,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDocuments(prev => [data, ...prev]);
+        toast.success(`✅ Salary slip sent to ${employee.name}!`);
+        setShowSlipPreview(false);
+      } else {
+        toast.error(data.error || "Failed to send");
+      }
+    } catch { toast.error("Network error"); }
+    setSendingSlip(false);
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1107,7 +1148,7 @@ export default function EmployeeDetailPage() {
         {/* Quick upload buttons */}
         {!showDocUpload && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {["CV", "PAN_CARD", "AADHAR_CARD", "BANK_PASSBOOK", "EXPERIENCE_LETTER"].map(type => {
+            {["CV", "PAN_CARD", "AADHAR_CARD", "BANK_PASSBOOK", "EXPERIENCE_LETTER", "OFFER_LETTER", "CONTRACT"].map(type => {
               const already = documents.some((d: any) => d.type === type && d.status === "APPROVED");
               return (
                 <button key={type} onClick={() => { setAdminDocForm({ name: DOC_LABELS[type].label, type, notes: "" }); setShowDocUpload(true); }}
@@ -1199,7 +1240,8 @@ export default function EmployeeDetailPage() {
 
       {/* Salary Slip Preview Modal */}
       {showSlipPreview && slipData && employee && (
-        <SalarySlipPrint slip={slipData} employee={employee} onClose={() => setShowSlipPreview(false)} />
+        <SalarySlipPrint slip={slipData} employee={employee} onClose={() => setShowSlipPreview(false)}
+          onSendToEmployee={handleSendSlip} sending={sendingSlip} />
       )}
     </div>
   );

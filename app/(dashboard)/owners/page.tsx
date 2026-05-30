@@ -25,6 +25,8 @@ interface Owner {
   cardImageUrl?: string;
   notes?: string;
   createdAt: string;
+  assignedToId?: string;
+  assignedTo?: { id: string; name: string };
   properties: Array<{ id: string; title: string; status: string; price: number; type: string; transactionType: string }>;
 }
 
@@ -125,6 +127,47 @@ function LogReply({ ownerId, onSaved }: { ownerId: string; onSaved: (msg: OwnerM
           {saving ? "Saving..." : "Save Reply"}
         </button>
       </div>
+      {/* Assign Owner to Employee Modal */}
+      <AnimatePresence>
+        {showAssign && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setShowAssign(false)}>
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+              className="glass-card w-full max-w-sm p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-bold text-white">👤 Assign to Employee</h2>
+                <button onClick={() => setShowAssign(false)} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Select Employee</label>
+                  <select value={assigningTo} onChange={e => setAssigningTo(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50">
+                    <option value="">-- Unassign --</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id} className="bg-[#0f1f35]">{emp.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400">
+                  🔒 Employee will only see this owner — no other owners visible to them
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setShowAssign(false)}
+                    className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white">Cancel</button>
+                  <button onClick={handleAssign} disabled={assigning}
+                    className="flex-1 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 text-sm font-medium hover:bg-blue-500/30 disabled:opacity-60 flex items-center justify-center gap-2">
+                    {assigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                    {assigning ? "Assigning..." : "Assign"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
@@ -150,6 +193,34 @@ export default function OwnersPage() {
   const [activeTab, setActiveTab]   = useState<"owners" | "clients" | "store">("owners");
   const [owners, setOwners]         = useState<Owner[]>([]);
   const router = useRouter();
+
+  // ── Assign to employee modal ──
+  const [showAssign, setShowAssign]       = useState(false);
+  const [assignOwnerId, setAssignOwnerId] = useState("");
+  const [employees, setEmployees]         = useState<any[]>([]);
+  const [assigningTo, setAssigningTo]     = useState("");
+  const [assigning, setAssigning]         = useState(false);
+
+  useEffect(() => {
+    fetch("/api/brokers").then(r => r.json()).then(d => setEmployees(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  async function handleAssign() {
+    if (!assignOwnerId) return;
+    setAssigning(true);
+    try {
+      const res = await fetch("/api/owners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _action: "assign", ownerId: assignOwnerId, employeeId: assigningTo || null }),
+      });
+      if (!res.ok) throw new Error();
+      setOwners(prev => prev.map(o => o.id === assignOwnerId ? { ...o, assignedToId: assigningTo || null } : o));
+      toast.success(assigningTo ? "Owner assigned to employee!" : "Assignment removed");
+      setShowAssign(false);
+    } catch { toast.error("Failed to assign"); }
+    setAssigning(false);
+  }
 
   // ── Store state ──
   interface StoreItem {
@@ -2219,6 +2290,15 @@ export default function OwnersPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  {owner.assignedTo && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/25 text-blue-400 mr-0.5">
+                      👤 {owner.assignedTo.name.split(" ")[0]}
+                    </span>
+                  )}
+                  <button onClick={() => { setAssignOwnerId(owner.id); setAssigningTo(owner.assignedToId || ""); setShowAssign(true); }}
+                    className="p-1.5 rounded-lg hover:bg-blue-500/10 text-muted-foreground hover:text-blue-400 transition-colors" title="Assign to Employee">
+                    <UserPlus className="w-3.5 h-3.5" />
+                  </button>
                   <button onClick={() => openEdit(owner)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors">
                     <Edit className="w-3.5 h-3.5" />
                   </button>

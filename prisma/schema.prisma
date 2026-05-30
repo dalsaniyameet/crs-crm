@@ -140,10 +140,15 @@ model User {
   chatRooms     ChatMember[]
   chatMessages  ChatMessage[]
   callLogs      CallLog[]
+  assignedOwners PropertyOwner[] @relation("AssignedOwners")
   notifPrefs    Json? // notification preferences
   lastSeen      DateTime?
   currentPage   String?
   openTabs      String[] @default([])
+  liveLatitude  Float?
+  liveLongitude Float?
+  liveAddress   String?
+  liveUpdatedAt DateTime?
 
   @@map("users")
 }
@@ -585,12 +590,14 @@ model PropertyOwner {
   company      String?
   address      String?
   locality     String?
-  cardImageUrl String? // scanned card photo
+  cardImageUrl String?
   notes        String?
   isActive     Boolean  @default(true)
+  assignedToId String?  // employee assigned by admin
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  assignedTo User?          @relation("AssignedOwners", fields: [assignedToId], references: [id])
   properties Property[]     @relation("OwnerProperties")
   messages   OwnerMessage[]
   store      OwnerStore[]
@@ -847,6 +854,8 @@ model DailyReport {
   // Follow-ups
   followUpsDone     Int             @default(0)
   followUpsPending  Int             @default(0)
+  // Call Details (JSON array of call entries)
+  callEntries       Json?   // [{name, phone, outcome, notes, location}]
   // General
   highlights        String? // key achievements of the day
   challenges        String? // problems faced

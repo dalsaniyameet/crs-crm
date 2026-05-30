@@ -182,6 +182,37 @@ export default function AdminDailyReportsPage() {
                         ))}
                       </div>
 
+                      {/* Call Entries Detail */}
+                      {Array.isArray(r.callEntries) && r.callEntries.length > 0 && (
+                        <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/15 space-y-2">
+                          <p className="text-xs font-semibold text-blue-400 mb-2">📞 Call Details ({r.callEntries.length})</p>
+                          {r.callEntries.map((c: any, i: number) => (
+                            <div key={i} className="flex items-start gap-3 p-2 rounded-lg bg-white/5 flex-wrap">
+                              <span className="text-xs text-muted-foreground w-5 flex-shrink-0">#{i+1}</span>
+                              <div className="flex-1 min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {c.name && <span className="text-xs font-semibold text-white">{c.name}</span>}
+                                  {c.phone && <a href={`tel:${c.phone}`} className="text-xs text-emerald-400 hover:text-emerald-300">{c.phone}</a>}
+                                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                                    c.outcome === "CONNECTED" ? "bg-emerald-500/20 text-emerald-400" :
+                                    c.outcome === "NO_ANSWER" ? "bg-red-500/20 text-red-400" :
+                                    c.outcome === "BUSY"      ? "bg-orange-500/20 text-orange-400" :
+                                                                "bg-yellow-500/20 text-yellow-400"
+                                  }`}>
+                                    {c.outcome === "CONNECTED" ? "✅ Connected" : c.outcome === "NO_ANSWER" ? "📵 No Answer" : c.outcome === "BUSY" ? "🔴 Busy" : "🔁 Callback"}
+                                  </span>
+                                </div>
+                                {c.location && (
+                                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.location + ", Ahmedabad")}`}
+                                    target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300">🗺️ {c.location}</a>
+                                )}
+                                {c.notes && <p className="text-xs text-muted-foreground">{c.notes}</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Text fields */}
                       {r.visitsFeedback && (
                         <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/15">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight, Zap, Globe, Shield, Bot, BarChart3,
-  Building2, TrendingUp, Users, Star, Check, Phone, Mail, MapPin, PlayCircle,
+  Building2, TrendingUp, Users, Check, Phone, Mail, MapPin, PlayCircle,
 } from "lucide-react";
 
 function Counter({ to, suffix = "+" }: { to: number; suffix?: string }) {
@@ -41,11 +41,7 @@ const FEATURES = [
   { icon: "📈", title: "Smart Reports",       desc: "Real-time broker performance & revenue analytics",     border: "#14b8a6" },
 ];
 
-const TESTIMONIALS = [
-  { name: "Nikhil Bhai", role: "Residential & Commercial Manager", text: "Expert in both residential & commercial property deals across Ahmedabad.", rating: 5, avatar: "N", tags: ["Residential", "Commercial", "Founder & Owner"] },
-  { name: "Amit Parmani", role: "Founder & Managing Director", text: "Visionary leader & founder of City Real Space with 25+ years of expertise in Gujarat real estate.", rating: 5, avatar: "A", tags: ["25+ Years of Trust", "Residential", "Commercial"] },
-  { name: "Meet Dalsaniya", role: "SEO & Digital Marketing", text: "Driving online visibility & digital growth through SEO, social media & performance marketing.", rating: 5, avatar: "M", tags: ["SEO", "Digital Marketing"] },
-];
+
 
 const STEPS = [
   { step: "01", title: "Add Your Leads", desc: "Import from Excel, web forms, or add manually. AI auto-scores each lead instantly.", color: "#eab308" },
@@ -77,8 +73,10 @@ export default function HomePage() {
 
       {/* Background glows */}
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(234,179,8,0.10) 0%, transparent 60%)" }} />
-        <div style={{ position: "absolute", inset: 0, opacity: 0.025, backgroundImage: "linear-gradient(rgba(234,179,8,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(234,179,8,0.6) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 90% 60% at 50% -5%, rgba(234,179,8,0.13) 0%, transparent 55%)" }} />
+        <div style={{ position: "absolute", top: "30%", left: "-10%", width: "50%", height: "50%", background: "radial-gradient(ellipse, rgba(99,102,241,0.06) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", top: "60%", right: "-10%", width: "50%", height: "50%", background: "radial-gradient(ellipse, rgba(16,185,129,0.05) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", inset: 0, opacity: 0.018, backgroundImage: "linear-gradient(rgba(234,179,8,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(234,179,8,0.8) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
       </div>
 
       {/* ── Navbar ── */}
@@ -306,43 +304,6 @@ export default function HomePage() {
               </div>
               <h3 style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 15, marginBottom: 8 }}>{f.title}</h3>
               <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>{f.desc}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Testimonials ── */}
-      <section style={{ position: "relative", zIndex: 10, padding: "60px 24px", maxWidth: 1000, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ display: "inline-block", padding: "4px 14px", borderRadius: 999, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", color: "#eab308", marginBottom: 14 }}>
-            TRUSTED BY BROKERS
-          </div>
-          <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 800, color: "#ffffff", marginBottom: 10 }}>What Ahmedabad Brokers Say</h2>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-          {TESTIMONIALS.map((t, i) => (
-            <motion.div key={t.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-              style={{ padding: "24px", borderRadius: 20, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(234,179,8,0.1)" }}>
-              <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
-                {Array.from({ length: t.rating }).map((_, j) => (
-                  <Star key={j} style={{ width: 14, height: 14, fill: "#eab308", color: "#eab308" }} />
-                ))}
-              </div>
-              <p style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.7, marginBottom: 20, fontStyle: "italic" }}>&ldquo;{t.text}&rdquo;</p>
-              {(t as any).tags && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
-                  {(t as any).tags.map((tag: string) => (
-                    <span key={tag} style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", color: "#eab308" }}>{tag}</span>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#ca8a04,#eab308)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#050508", flexShrink: 0 }}>{t.avatar}</div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f5f9" }}>{t.name}</div>
-                  <div style={{ fontSize: 12, color: "#64748b" }}>{t.role}</div>
-                </div>
-              </div>
             </motion.div>
           ))}
         </div>

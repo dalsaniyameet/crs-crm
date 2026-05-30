@@ -5,14 +5,35 @@ import { prisma } from "@/lib/prisma";
 const SECRET = process.env.CLERK_SECRET_KEY!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://crs-crm.vercel.app";
 
-// Get approximate location from IP using free ipapi.co
+// Get approximate location from IP — multiple fallback services
 async function getLocationFromIP(ip: string): Promise<string> {
+  if (!ip || ip === "Unknown" || ip === "::1" || ip.startsWith("127.") || ip.startsWith("192.168.")) {
+    return "Local / Office Network";
+  }
+  // Service 1: ip-api.com (free, no key needed)
   try {
-    const res = await fetch(`https://ipapi.co/${ip}/json/`, { signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,city,regionName,country`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    const d = await res.json();
+    if (d.status === "success" && d.city) return `${d.city}, ${d.regionName}, ${d.country}`;
+  } catch {}
+
+  // Service 2: ipapi.co
+  try {
+    const res = await fetch(`https://ipapi.co/${ip}/json/`, { signal: AbortSignal.timeout(4000) });
     const d = await res.json();
     if (d.city) return `${d.city}, ${d.region}, ${d.country_name}`;
   } catch {}
-  return "Unknown Location";
+
+  // Service 3: freeipapi.com
+  try {
+    const res = await fetch(`https://freeipapi.com/api/json/${ip}`, { signal: AbortSignal.timeout(4000) });
+    const d = await res.json();
+    if (d.cityName) return `${d.cityName}, ${d.regionName}, ${d.countryName}`;
+  } catch {}
+
+  return `Unknown Location (${ip})`;
 }
 
 

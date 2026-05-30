@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { notifyNewCommission } from "@/lib/notify";
@@ -7,7 +7,14 @@ export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  // Broker sirf apni commissions dekhe
+  const where = user.role === "BROKER" ? { brokerId: user.id } : {};
+
   const commissions = await prisma.commission.findMany({
+    where,
     include: {
       deal:   { select: { id: true, title: true, value: true } },
       broker: { select: { id: true, name: true } },

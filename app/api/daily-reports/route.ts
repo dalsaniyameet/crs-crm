@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       propertiesListed, propertiesVisited,
       followUpsDone, followUpsPending,
       highlights, challenges, tomorrowPlan,
+      callEntries,
     } = body;
 
     if (!employeeId || !date) return NextResponse.json({ error: "employeeId and date required" }, { status: 400 });
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
         propertiesListed: propertiesListed || 0, propertiesVisited: propertiesVisited || 0,
         followUpsDone: followUpsDone || 0, followUpsPending: followUpsPending || 0,
         highlights: highlights || null, challenges: challenges || null, tomorrowPlan: tomorrowPlan || null,
+        callEntries: callEntries || [],
         status: "SUBMITTED",
       },
       create: {
@@ -70,6 +72,7 @@ export async function POST(req: NextRequest) {
         propertiesListed: propertiesListed || 0, propertiesVisited: propertiesVisited || 0,
         followUpsDone: followUpsDone || 0, followUpsPending: followUpsPending || 0,
         highlights: highlights || null, challenges: challenges || null, tomorrowPlan: tomorrowPlan || null,
+        callEntries: callEntries || [],
         status: "SUBMITTED",
       },
       include: { employee: { select: { name: true } } },

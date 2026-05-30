@@ -5,10 +5,12 @@ import { sendWhatsApp } from "@/lib/whatsapp";
 
 // Map portal names to LeadSource enum
 const PORTAL_SOURCE: Record<string, string> = {
-  magicbricks: "MAGICBRICKS",
-  housing:     "WEBSITE",   // Housing.com maps to WEBSITE (add HOUSING to schema if needed)
-  "99acres":   "ACRES99",
-  "99acre":    "ACRES99",
+  magicbricks:  "MAGICBRICKS",
+  housing:      "HOUSING",
+  "housing.com":"HOUSING",
+  "99acres":    "ACRES99",
+  "99acre":     "ACRES99",
+  acres99:      "ACRES99",
 };
 
 // Instant WhatsApp message sent to lead right after inquiry

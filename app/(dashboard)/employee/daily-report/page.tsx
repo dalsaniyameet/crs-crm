@@ -13,6 +13,26 @@ const EMPTY = {
   highlights: "", challenges: "", tomorrowPlan: "",
 };
 
+interface CallEntry {
+  id: string;
+  name: string;
+  phone: string;
+  outcome: "CONNECTED" | "NO_ANSWER" | "BUSY" | "CALLBACK";
+  notes: string;
+  location: string;
+}
+
+const OUTCOME_LABELS: Record<string, { label: string; color: string }> = {
+  CONNECTED:  { label: "✅ Connected",   color: "text-emerald-400" },
+  NO_ANSWER:  { label: "📵 No Answer",   color: "text-red-400" },
+  BUSY:       { label: "🔴 Busy",        color: "text-orange-400" },
+  CALLBACK:   { label: "🔁 Callback",    color: "text-yellow-400" },
+};
+
+function newCall(): CallEntry {
+  return { id: Date.now().toString(), name: "", phone: "", outcome: "CONNECTED", notes: "", location: "" };
+}
+
 function toDateKey(d: Date) {
   return d.toISOString().split("T")[0];
 }
@@ -30,6 +50,7 @@ export default function EmployeeDailyReportPage() {
   const [pastReports, setPastReports] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState(toDateKey(new Date()));
   const [todayVisits, setTodayVisits]   = useState<any[]>([]);
+  const [callEntries, setCallEntries]   = useState<CallEntry[]>([newCall()]);
 
   // Fetch employee profile from API using Clerk session
   useEffect(() => {
@@ -93,6 +114,13 @@ export default function EmployeeDailyReportPage() {
     }
   }, [employeeId, selectedDate]);
 
+  // Auto-sync call counts from callEntries
+  useEffect(() => {
+    const total     = callEntries.filter(c => c.name || c.phone).length;
+    const connected = callEntries.filter(c => c.outcome === "CONNECTED" && (c.name || c.phone)).length;
+    setForm(p => ({ ...p, totalCalls: total ? String(total) : p.totalCalls, connectedCalls: connected ? String(connected) : p.connectedCalls }));
+  }, [callEntries]);
+
   async function loadReport(date: string) {
     setLoading(true);
     setSubmitted(false);
@@ -112,6 +140,10 @@ export default function EmployeeDailyReportPage() {
           followUpsDone: String(r.followUpsDone || ""), followUpsPending: String(r.followUpsPending || ""),
           highlights: r.highlights || "", challenges: r.challenges || "", tomorrowPlan: r.tomorrowPlan || "",
         });
+        if (Array.isArray(r.callEntries) && r.callEntries.length > 0)
+          setCallEntries(r.callEntries.map((c: any) => ({ ...c, id: c.id || Date.now().toString() + Math.random() })));
+        else
+          setCallEntries([newCall()]);
         setSubmitted(true);
       } else {
         setForm(EMPTY);
@@ -153,6 +185,7 @@ export default function EmployeeDailyReportPage() {
           highlights: form.highlights || null,
           challenges: form.challenges || null,
           tomorrowPlan: form.tomorrowPlan || null,
+          callEntries: callEntries.filter(c => c.name || c.phone),
         }),
       });
       const data = await res.json();
@@ -242,56 +275,6 @@ export default function EmployeeDailyReportPage() {
         </div>
       )}
 
-      {/* Today's Visits Auto-pulled */}
-      {todayVisits.length > 0 && selectedDate === today && (
-        <div className="glass-card p-4 border border-orange-500/20 bg-orange-500/5">
-          <h3 className="text-sm font-semibold text-orange-400 mb-3 flex items-center gap-2">
-            <Building2 className="w-4 h-4" /> Today's Visits ({todayVisits.length}) — Auto-pulled
-          </h3>
-          <div className="space-y-2">
-            {todayVisits.map(v => (
-              <div key={v.id} className="flex items-start gap-3 p-2.5 rounded-lg bg-white/5 border border-white/10">
-                <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                  v.status === "COMPLETED" ? "bg-emerald-400" :
-                  v.status === "CONFIRMED" ? "bg-blue-400" : "bg-yellow-400"
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-semibold text-white">{v.lead?.name}</span>
-                    <a href={`tel:${v.lead?.phone}`} className="text-xs text-emerald-400">{v.lead?.phone}</a>
-                    {v.lead?.budget && (
-                      <span className="text-xs text-yellow-400">
-                        ₹{v.lead.budget >= 100000 ? `${(v.lead.budget/100000).toFixed(1)}L` : v.lead.budget}
-                      </span>
-                    )}
-                  </div>
-                  {v.property && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      🏢 {v.property.title} — {v.property.locality}
-                      {v.property.ownerName && <span className="ml-2">👤 {v.property.ownerName}</span>}
-                      {v.property.ownerPhone && (
-                        <a href={`tel:${v.property.ownerPhone}`} className="ml-1 text-emerald-400">{v.property.ownerPhone}</a>
-                      )}
-                      {v.property.price && (
-                        <span className="ml-2 text-gold-400 font-semibold">
-                          ₹{v.property.price >= 100000 ? `${(v.property.price/100000).toFixed(1)}L` : v.property.price}
-                          {v.property.transactionType === "RENT" || v.property.transactionType === "LEASE" ? "/mo" : ""}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
-                  v.status === "COMPLETED" ? "bg-emerald-500/20 text-emerald-400" :
-                  v.status === "CONFIRMED" ? "bg-blue-500/20 text-blue-400" :
-                  "bg-yellow-500/20 text-yellow-400"
-                }`}>{v.status}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-6 h-6 animate-spin text-estate-400" />
@@ -301,21 +284,86 @@ export default function EmployeeDailyReportPage() {
 
           {/* Calls */}
           <div className="glass-card p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-blue-400" />
-              <h2 className="text-sm font-semibold text-white">📞 Calls</h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-blue-400" />
+                <h2 className="text-sm font-semibold text-white">📞 Calls</h2>
+              </div>
+              <button type="button" onClick={() => setCallEntries(p => [...p, newCall()])}
+                className="text-xs px-2 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition-all">
+                + Add Call
+              </button>
             </div>
+
+            {/* Call count summary — auto-synced */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Total Calls", key: "totalCalls", color: "text-white" },
-                { label: "Connected", key: "connectedCalls", color: "text-emerald-400" },
-                { label: "New Leads", key: "newLeads", color: "text-gold-400" },
+                { label: "Total Calls",  key: "totalCalls",     color: "text-white" },
+                { label: "Connected",    key: "connectedCalls", color: "text-emerald-400" },
+                { label: "New Leads",    key: "newLeads",       color: "text-gold-400" },
               ].map(f => (
                 <div key={f.key} className="text-center">
                   <label className="text-xs text-muted-foreground block mb-1">{f.label}</label>
                   <input type="number" min="0" value={(form as any)[f.key]}
                     onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
                     placeholder="0" className={`${numInp} ${f.color}`} />
+                </div>
+              ))}
+            </div>
+
+            {/* Call detail entries */}
+            <div className="space-y-2">
+              {callEntries.map((entry, i) => (
+                <div key={entry.id} className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground">Call #{i + 1}</span>
+                    {callEntries.length > 1 && (
+                      <button type="button" onClick={() => setCallEntries(p => p.filter(c => c.id !== entry.id))}
+                        className="text-xs text-red-400 hover:text-red-300">✕ Remove</button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Client Name</label>
+                      <input value={entry.name} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, name: e.target.value } : c))}
+                        placeholder="Rajesh Patel" className={inp} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Phone</label>
+                      <input value={entry.phone} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, phone: e.target.value } : c))}
+                        placeholder="9876543210" className={inp} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Outcome</label>
+                      <select value={entry.outcome} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, outcome: e.target.value as any } : c))}
+                        className={`${inp} ${OUTCOME_LABELS[entry.outcome]?.color}`}>
+                        {Object.entries(OUTCOME_LABELS).map(([k, v]) => (
+                          <option key={k} value={k} className="bg-[#0f1f35] text-white">{v.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Location / Area</label>
+                      <div className="relative">
+                        <input value={entry.location} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, location: e.target.value } : c))}
+                          placeholder="Prahlad Nagar, Ahmedabad" className={inp} />
+                        {entry.location && (
+                          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(entry.location + ", Ahmedabad")}`}
+                            target="_blank" rel="noreferrer"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-300" title="Open in Google Maps">
+                            🗺️
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+                    <input value={entry.notes} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, notes: e.target.value } : c))}
+                      placeholder="Interested in office space, budget 50K/mo..." className={inp} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -329,9 +377,9 @@ export default function EmployeeDailyReportPage() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Visits Done", key: "siteVisits", color: "text-orange-400" },
+                { label: "Visits Done",   key: "siteVisits",        color: "text-orange-400" },
                 { label: "Props Visited", key: "propertiesVisited", color: "text-white" },
-                { label: "Props Listed", key: "propertiesListed", color: "text-purple-400" },
+                { label: "Props Listed",  key: "propertiesListed",  color: "text-purple-400" },
               ].map(f => (
                 <div key={f.key} className="text-center">
                   <label className="text-xs text-muted-foreground block mb-1">{f.label}</label>
@@ -341,11 +389,62 @@ export default function EmployeeDailyReportPage() {
                 </div>
               ))}
             </div>
+
+            {/* Auto-pulled visits from system */}
+            {todayVisits.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-orange-400 font-semibold">⚡ Auto-pulled from today’s scheduled visits:</p>
+                {todayVisits.map(v => {
+                  const mapsQ = [v.property?.address, v.property?.locality, v.property?.city, "Ahmedabad"].filter(Boolean).join(", ");
+                  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQ)}`;
+                  const price = v.property?.price;
+                  const fmtP = price ? (price >= 100000 ? `₹${(price/100000).toFixed(1)}L` : `₹${price}`) + (v.property?.transactionType === "RENT" || v.property?.transactionType === "LEASE" ? "/mo" : "") : null;
+                  return (
+                    <div key={v.id} className="p-3 rounded-xl bg-orange-500/5 border border-orange-500/20 space-y-1.5">
+                      {/* Client row */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-white">👤 {v.lead?.name}</span>
+                        {v.lead?.phone && (
+                          <a href={`tel:${v.lead.phone}`} className="text-xs text-emerald-400 hover:text-emerald-300">📞 {v.lead.phone}</a>
+                        )}
+                        {v.lead?.budget && (
+                          <span className="text-xs text-yellow-400">💰 ₹{v.lead.budget >= 100000 ? `${(v.lead.budget/100000).toFixed(1)}L` : v.lead.budget}</span>
+                        )}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ml-auto ${
+                          v.status === "COMPLETED" ? "bg-emerald-500/20 text-emerald-400" :
+                          v.status === "CONFIRMED" ? "bg-blue-500/20 text-blue-400" : "bg-yellow-500/20 text-yellow-400"
+                        }`}>{v.status}</span>
+                      </div>
+                      {/* Property + Location row */}
+                      {v.property && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <a href={mapsUrl} target="_blank" rel="noreferrer"
+                            className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                            🗺️ {v.property.title} — {v.property.locality}
+                          </a>
+                          {fmtP && <span className="text-xs text-gold-400 font-semibold">{fmtP}</span>}
+                        </div>
+                      )}
+                      {/* Owner row */}
+                      {v.property?.ownerName && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-muted-foreground">🏢 Owner: <span className="text-white">{v.property.ownerName}</span></span>
+                          {v.property.ownerPhone && (
+                            <a href={`tel:${v.property.ownerPhone}`} className="text-xs text-emerald-400">📞 {v.property.ownerPhone}</a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">Visit Feedback</label>
+              <label className="text-xs text-muted-foreground block mb-1">Visit Feedback / Notes</label>
               <textarea rows={2} value={form.visitsFeedback}
                 onChange={e => setForm(p => ({ ...p, visitsFeedback: e.target.value }))}
-                placeholder="Client's reaction, feedback about the property..."
+                placeholder="Client reaction, property feedback, next steps..."
                 className={`${inp} resize-none`} />
             </div>
           </div>
@@ -358,10 +457,10 @@ export default function EmployeeDailyReportPage() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: "Deals Active", key: "dealsInProgress", color: "text-yellow-400" },
-                { label: "Deals Closed", key: "dealsClosed", color: "text-emerald-400" },
-                { label: "Follow-ups Done", key: "followUpsDone", color: "text-blue-400" },
-                { label: "Pending F/U", key: "followUpsPending", color: "text-red-400" },
+                { label: "Deals Active",    key: "dealsInProgress", color: "text-yellow-400" },
+                { label: "Deals Closed",    key: "dealsClosed",     color: "text-emerald-400" },
+                { label: "Follow-ups Done", key: "followUpsDone",   color: "text-blue-400" },
+                { label: "Pending F/U",     key: "followUpsPending",color: "text-red-400" },
               ].map(f => (
                 <div key={f.key} className="text-center">
                   <label className="text-xs text-muted-foreground block mb-1">{f.label}</label>
@@ -371,6 +470,54 @@ export default function EmployeeDailyReportPage() {
                 </div>
               ))}
             </div>
+
+            {/* Deal closed details */}
+            {parseInt(form.dealsClosed) > 0 && (
+              <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+                <p className="text-xs font-semibold text-emerald-400">✅ Deal Closed Details</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Client Name</label>
+                    <input value={form.highlights.includes("Client:") ? "" : ""}
+                      onChange={e => setForm(p => ({ ...p, highlights: `Client: ${e.target.value}\n` + p.highlights.replace(/^Client:.*\n?/, "") }))}
+                      placeholder="Rajesh Patel" className={inp} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Client Phone</label>
+                    <input placeholder="9876543210" className={inp} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Deal Amount (₹)</label>
+                    <input type="number" min="0" value={form.dealValue}
+                      onChange={e => setForm(p => ({ ...p, dealValue: e.target.value }))}
+                      placeholder="0" className={`${inp} text-emerald-400 font-bold`} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Property Location</label>
+                    <div className="relative">
+                      <input id="dealLocation" placeholder="Prahlad Nagar, Ahmedabad" className={inp}
+                        onChange={e => {
+                          const loc = e.target.value;
+                          (e.target as any)._loc = loc;
+                        }} />
+                      <button type="button" onClick={() => {
+                        const el = document.getElementById("dealLocation") as HTMLInputElement;
+                        if (el?.value) window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(el.value + ", Ahmedabad")}`, "_blank");
+                      }} className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-300" title="Open Maps">
+                        🗺️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Owner Name & Phone</label>
+                  <input placeholder="Owner: Suresh Patel · 9876543210" className={inp} />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Deal Value Closed Today (₹)</label>
               <input type="number" min="0" value={form.dealValue}

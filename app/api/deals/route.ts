@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { notifyNewDeal, notifyDealStageChange } from "@/lib/notify";
 
 export async function GET(req: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
     const { searchParams } = new URL(req.url);
     const stage    = searchParams.get("stage");
     const brokerId = searchParams.get("brokerId");
 
     const where: Record<string, unknown> = {};
-    if (stage)    where.stage    = stage;
-    if (brokerId) where.brokerId = brokerId;
+    if (stage) where.stage = stage;
+    // Broker sirf apne deals dekhe
+    if (user.role === "BROKER") where.brokerId = user.id;
+    else if (brokerId) where.brokerId = brokerId;
 
     const deals = await prisma.deal.findMany({
       where,
@@ -29,7 +37,20 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
     const body = await req.json();
+
+    // Broker sirf apne assigned lead ka deal bana sake
+    if (user.role === "BROKER" && body.leadId) {
+      const lead = await prisma.lead.findFirst({ where: { id: body.leadId, assignedToId: user.id } });
+      if (!lead) return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      body.brokerId = user.id; // auto-assign broker
+    }
+
     const deal = await prisma.deal.create({
       data: body,
       include: { lead: true, property: true, broker: true },
