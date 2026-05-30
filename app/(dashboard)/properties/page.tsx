@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+import { useUser } from "@clerk/nextjs";
+
 type PropStatus = "AVAILABLE" | "UNDER_NEGOTIATION" | "SOLD" | "RENTED" | "LEASED" | "OFF_MARKET";
 
 interface Property {
@@ -106,6 +108,9 @@ function PropCardImage({ photos, status, price, txType, isFeatured, isVerified }
 }
 
 export default function PropertiesPage() {
+  const { user } = useUser();
+  const isAdmin = ["ADMIN","SALES_MANAGER"].includes(((user?.publicMetadata?.role as string) || "BROKER").toUpperCase());
+
   const [properties, setProperties] = useState<Property[]>([]);
   const [total, setTotal]           = useState(0);
   const [loading, setLoading]       = useState(true);
@@ -501,22 +506,30 @@ export default function PropertiesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={importFromWebsite} disabled={importing}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 text-xs font-medium transition-all disabled:opacity-50">
-            {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{importing ? "Importing..." : "Sync Website"}</span>
-          </button>
-          <a href="/api/properties/export" download
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 text-xs font-medium transition-all">
-            <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Export</span>
-          </a>
-          <button onClick={() => setShowScanModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gold-500/20 border border-gold-500/30 text-gold-400 hover:bg-gold-500/30 text-xs font-medium transition-all">
-            <ScanLine className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Scan Card</span>
-          </button>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-1.5 text-sm">
-            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Property</span><span className="sm:hidden">Add</span>
-          </button>
+          {isAdmin && (
+            <button onClick={importFromWebsite} disabled={importing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 text-xs font-medium transition-all disabled:opacity-50">
+              {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{importing ? "Importing..." : "Sync Website"}</span>
+            </button>
+          )}
+          {isAdmin && (
+            <a href="/api/properties/export" download
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 text-xs font-medium transition-all">
+              <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Export</span>
+            </a>
+          )}
+          {isAdmin && (
+            <button onClick={() => setShowScanModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gold-500/20 border border-gold-500/30 text-gold-400 hover:bg-gold-500/30 text-xs font-medium transition-all">
+              <ScanLine className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Scan Card</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-1.5 text-sm">
+              <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Property</span><span className="sm:hidden">Add</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -625,7 +638,7 @@ export default function PropertiesPage() {
                         </a>
                       )}
                       <button onClick={() => openDetail(prop)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setEditProp(prop)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Edit className="w-3.5 h-3.5" /></button>
+                      {isAdmin && <button onClick={() => setEditProp(prop)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"><Edit className="w-3.5 h-3.5" /></button>}
                       <button className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-estate-400 transition-colors"><Share2 className="w-3.5 h-3.5" /></button>
                       <button className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-gold-400 transition-colors" title="AI Match"><Zap className="w-3.5 h-3.5" /></button>
                     </div>

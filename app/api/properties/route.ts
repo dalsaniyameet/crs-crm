@@ -64,6 +64,11 @@ export async function POST(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user || user.role === "BROKER") {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
     const body = await req.json();
     const { commercial, residential, ...propertyData } = body;
 

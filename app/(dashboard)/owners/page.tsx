@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import toast from "react-hot-toast";
+import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
 interface Owner {
@@ -144,6 +145,8 @@ interface Client {
 }
 
 export default function OwnersPage() {
+  const { user } = useUser();
+  const isAdmin = ["ADMIN","SALES_MANAGER"].includes(((user?.publicMetadata?.role as string) || "BROKER").toUpperCase());
   const [activeTab, setActiveTab]   = useState<"owners" | "clients" | "store">("owners");
   const [owners, setOwners]         = useState<Owner[]>([]);
   const router = useRouter();
@@ -2016,38 +2019,48 @@ export default function OwnersPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => router.push("/owners/import")}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 text-sm font-medium transition-all">
-            <FileSpreadsheet className="w-4 h-4" /> Import Excel
-          </button>
-          <button onClick={exportExcel}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 text-sm font-medium transition-all">
-            <Download className="w-4 h-4" /> Export Excel
-          </button>
-          <button onClick={() => { setSelectMode(!selectMode); setSelectedIds(new Set()); }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-              selectMode
-                ? "bg-purple-500/30 border-purple-500/50 text-purple-300"
-                : "bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20"
-            }`}>
-            <Users className="w-4 h-4" /> {selectMode ? "Cancel Select" : "Bulk WA"}
-          </button>
-          <div className="flex gap-1 bg-white/5 border border-white/10 rounded-lg p-1">
-            <button onClick={() => { setAutoScanMode(false); setShowScan(true); }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-all"
-              title="Scan & review before saving">
-              <ScanLine className="w-3.5 h-3.5" /> Scan
+          {isAdmin && (
+            <button onClick={() => router.push("/owners/import")}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 text-sm font-medium transition-all">
+              <FileSpreadsheet className="w-4 h-4" /> Import Excel
             </button>
-            <button onClick={() => { setAutoScanMode(true); setShowScan(true); }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-all bg-gold-500/20 text-gold-400 border border-gold-500/30 hover:bg-gold-500/30"
-              title="Scan & auto-save, then open WhatsApp">
-              <Sparkles className="w-3.5 h-3.5" /> Quick WA
+          )}
+          {isAdmin && (
+            <button onClick={exportExcel}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 text-sm font-medium transition-all">
+              <Download className="w-4 h-4" /> Export Excel
             </button>
-          </div>
-          <button onClick={() => { setEditOwner(null); setForm(EMPTY); setScanned(null); setShowAdd(true); }}
-            className="btn-primary flex items-center gap-2 text-sm">
-            <Plus className="w-4 h-4" /> Add Owner
-          </button>
+          )}
+          {isAdmin && (
+            <button onClick={() => { setSelectMode(!selectMode); setSelectedIds(new Set()); }}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                selectMode
+                  ? "bg-purple-500/30 border-purple-500/50 text-purple-300"
+                  : "bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20"
+              }`}>
+              <Users className="w-4 h-4" /> {selectMode ? "Cancel Select" : "Bulk WA"}
+            </button>
+          )}
+          {isAdmin && (
+            <div className="flex gap-1 bg-white/5 border border-white/10 rounded-lg p-1">
+              <button onClick={() => { setAutoScanMode(false); setShowScan(true); }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-all"
+                title="Scan & review before saving">
+                <ScanLine className="w-3.5 h-3.5" /> Scan
+              </button>
+              <button onClick={() => { setAutoScanMode(true); setShowScan(true); }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-all bg-gold-500/20 text-gold-400 border border-gold-500/30 hover:bg-gold-500/30"
+                title="Scan & auto-save, then open WhatsApp">
+                <Sparkles className="w-3.5 h-3.5" /> Quick WA
+              </button>
+            </div>
+          )}
+          {isAdmin && (
+            <button onClick={() => { setEditOwner(null); setForm(EMPTY); setScanned(null); setShowAdd(true); }}
+              className="btn-primary flex items-center gap-2 text-sm">
+              <Plus className="w-4 h-4" /> Add Owner
+            </button>
+          )}
         </div>
       </div>
 

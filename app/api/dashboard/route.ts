@@ -1,43 +1,64 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { checkOverdueFollowUps } from "@/lib/leadAutomation";
 
-export const revalidate = 60; // cache 60s
+export const revalidate = 60;
+
+async function getUser(clerkId: string) {
+  return prisma.user.findUnique({ where: { clerkId } });
+}
 
 export async function GET() {
   try {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const user = await getUser(userId);
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const isBroker = user.role === "BROKER";
+
     checkOverdueFollowUps().catch(() => {});
 
     // IST = UTC+5:30
     const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
     const y = nowIST.getUTCFullYear(), m = nowIST.getUTCMonth(), d = nowIST.getUTCDate();
-    // Today start/end in UTC (IST midnight = UTC 18:30 prev day)
     const todayStart = new Date(Date.UTC(y, m, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
     const todayEnd   = new Date(Date.UTC(y, m, d, 23, 59, 59) - 5.5 * 60 * 60 * 1000);
 
+    // For broker: only their assigned leads
+    const leadWhere = isBroker ? { assignedToId: user.id } : {};
+
     const [
       totalLeads, hotLeads, dealsClosedCount,
-      totalRevenue, activeProperties, leadsBySource, brokers,
+      totalRevenue, activeProperties, leadsBySource,
       recentLeads, todayVisits, todayFollowUps,
     ] = await Promise.all([
-      prisma.lead.count(),
-      prisma.lead.count({ where: { score: { gte: 80 } } }),
-      prisma.deal.count({ where: { stage: "CLOSED" } }),
-      prisma.deal.aggregate({ where: { stage: "CLOSED" }, _sum: { value: true } }),
+      prisma.lead.count({ where: leadWhere }),
+      prisma.lead.count({ where: { ...leadWhere, score: { gte: 80 } } }),
+      isBroker
+        ? prisma.deal.count({ where: { stage: "CLOSED", brokerId: user.id } })
+        : prisma.deal.count({ where: { stage: "CLOSED" } }),
+      isBroker
+        ? prisma.deal.aggregate({ where: { stage: "CLOSED", brokerId: user.id }, _sum: { value: true } })
+        : prisma.deal.aggregate({ where: { stage: "CLOSED" }, _sum: { value: true } }),
       prisma.property.count({ where: { status: "AVAILABLE" } }),
-      prisma.lead.groupBy({ by: ["source"], _count: { id: true } }),
-      prisma.user.findMany({
-        where: { role: "BROKER", isActive: true },
-        select: { id: true, name: true },
-        take: 5,
-      }),
+      // Broker doesn't see source breakdown
+      isBroker
+        ? Promise.resolve([])
+        : prisma.lead.groupBy({ by: ["source"], _count: { id: true } }),
       prisma.lead.findMany({
+        where: { ...leadWhere, score: { gte: 60 } },
         orderBy: [{ score: "desc" }, { createdAt: "desc" }],
         take: 6,
         select: { id: true, name: true, score: true, budget: true, source: true, requirements: true },
       }),
       prisma.siteVisit.findMany({
-        where: { scheduledAt: { gte: todayStart, lte: todayEnd } },
+        where: {
+          scheduledAt: { gte: todayStart, lte: todayEnd },
+          ...(isBroker ? { brokerId: user.id } : {}),
+        },
         take: 8,
         orderBy: { scheduledAt: "asc" },
         select: {
@@ -48,7 +69,11 @@ export async function GET() {
         },
       }),
       prisma.task.findMany({
-        where: { dueAt: { gte: todayStart, lte: todayEnd }, isCompleted: false },
+        where: {
+          dueAt: { gte: todayStart, lte: todayEnd },
+          isCompleted: false,
+          ...(isBroker ? { lead: { assignedToId: user.id } } : {}),
+        },
         take: 10,
         orderBy: { dueAt: "asc" },
         select: {
@@ -58,23 +83,33 @@ export async function GET() {
       }),
     ]);
 
-    const brokerPerformance = await Promise.all(
-      brokers.map(async (b) => {
-        const [leads, deals, commissions] = await Promise.all([
-          prisma.lead.count({ where: { assignedToId: b.id } }),
-          prisma.deal.count({ where: { brokerId: b.id } }),
-          prisma.commission.aggregate({ where: { brokerId: b.id }, _sum: { amount: true } }),
-        ]);
-        return { name: b.name, leads, deals, commission: commissions._sum.amount ?? 0 };
-      })
-    );
+    // Broker performance — only for admin/manager
+    let brokerPerformance: any[] = [];
+    if (!isBroker) {
+      const brokers = await prisma.user.findMany({
+        where: { role: "BROKER", isActive: true },
+        select: { id: true, name: true },
+        take: 5,
+      });
+      brokerPerformance = await Promise.all(
+        brokers.map(async (b) => {
+          const [leads, deals, commissions] = await Promise.all([
+            prisma.lead.count({ where: { assignedToId: b.id } }),
+            prisma.deal.count({ where: { brokerId: b.id } }),
+            prisma.commission.aggregate({ where: { brokerId: b.id }, _sum: { amount: true } }),
+          ]);
+          return { name: b.name, leads, deals, commission: commissions._sum.amount ?? 0 };
+        })
+      );
+    }
 
     return NextResponse.json({
+      isBroker,
       overview: {
         totalLeads,
         hotLeads,
         dealsClosedCount,
-        totalRevenue: totalRevenue._sum.value ?? 0,
+        totalRevenue: (totalRevenue as any)._sum?.value ?? 0,
         activeProperties,
       },
       leadsBySource,
@@ -83,14 +118,10 @@ export async function GET() {
       todayVisits,
       todayFollowUps,
     }, {
-      headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=30" },
+      headers: { "Cache-Control": "private, max-age=60" },
     });
   } catch (err: unknown) {
     console.error("Dashboard API Error:", err);
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ 
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? String(err) : undefined 
-    }, { status: 500 });
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

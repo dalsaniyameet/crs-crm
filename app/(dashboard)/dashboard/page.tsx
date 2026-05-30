@@ -155,6 +155,7 @@ export default function DashboardPage() {
     setPunching(false);
   };
 
+  const isBroker     = data?.isBroker ?? (userRole === "BROKER");
   const overview    = data?.overview ?? {};
   const sourceData  = (data?.leadsBySource ?? []).map((s: { source: string; _count: { id: number } }) => ({
     name:  SOURCE_LABEL[s.source] ?? s.source.replace(/_/g, " "),
@@ -170,7 +171,13 @@ export default function DashboardPage() {
     pct: Math.min(100, Math.round((b.deals / 12) * 100)),
   }));
 
-  const stats = [
+  const stats = isBroker ? [
+    // Broker sees only their assigned leads & visits
+    { label: "My Leads",      value: overview.totalLeads    ?? 0, icon: Users,       grad: "from-blue-600 to-blue-400",      href: "/leads" },
+    { label: "Hot Leads",     value: overview.hotLeads      ?? 0, icon: AlertCircle, grad: "from-red-600 to-red-400",        href: "/leads" },
+    { label: "Deals Closed",  value: overview.dealsClosedCount ?? 0, icon: GitBranch, grad: "from-emerald-600 to-emerald-400", href: "/deals" },
+    { label: "Visits Today",  value: todayVisits.length,          icon: Calendar,    grad: "from-orange-600 to-orange-400",  href: "/visits" },
+  ] : [
     { label: "Total Leads",       value: overview.totalLeads       ?? 0,  icon: Users,       grad: "from-blue-600 to-blue-400",    href: "/leads" },
     { label: "Active Properties", value: overview.activeProperties ?? "—", icon: Building2,   grad: "from-yellow-600 to-yellow-400", href: "/properties" },
     { label: "Deals Closed",      value: overview.dealsClosedCount ?? 0,  icon: GitBranch,   grad: "from-emerald-600 to-emerald-400", href: "/deals" },
@@ -258,8 +265,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Charts Row — admin only */}
+      {!isBroker && <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Lead Sources */}
         <div className="glass-card p-5 lg:col-span-2">
@@ -393,6 +400,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {!isBroker && </div>}
+
       {/* Hot Leads + Broker Performance + Follow-ups */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -434,8 +443,8 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Broker Performance */}
-        <div className="glass-card p-5">
+        {/* Broker Performance — admin only */}
+        {!isBroker && <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-semibold text-white">Broker Performance</h3>
             <a href="/reports" className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
@@ -470,6 +479,8 @@ export default function DashboardPage() {
             <div className="text-center py-10 text-muted-foreground text-sm">No broker data yet</div>
           )}
         </div>
+
+        {!isBroker && </div>}
 
         {/* Today's Follow-ups */}
         <div className="glass-card p-5">
