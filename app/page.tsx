@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight, Zap, Globe, Shield, Bot, BarChart3,
-  Building2, TrendingUp, Users, Star, Check, Phone, Mail, MapPin,
+  Building2, TrendingUp, Users, Star, Check, Phone, Mail, MapPin, PlayCircle,
 } from "lucide-react";
 
 function Counter({ to, suffix = "+" }: { to: number; suffix?: string }) {
@@ -39,6 +39,18 @@ const FEATURES = [
   { icon: "📊", title: "Deal Pipeline",       desc: "Visual kanban from first enquiry to deal close",       border: "#f59e0b" },
   { icon: "💰", title: "Commission Tracker",  desc: "Auto-calculate & generate commission invoices",         border: "#ec4899" },
   { icon: "📈", title: "Smart Reports",       desc: "Real-time broker performance & revenue analytics",     border: "#14b8a6" },
+];
+
+const TESTIMONIALS = [
+  { name: "Rajesh Patel", role: "Senior Broker, Navrangpura", text: "Lead scoring ne mara conversion rate 3x kar diyo. Best investment for my brokerage.", rating: 5, avatar: "RP" },
+  { name: "Priya Shah", role: "Property Consultant, SG Highway", text: "WhatsApp automation thi follow-ups automatic thay chhe. Time bachyo ane deals vadhya.", rating: 5, avatar: "PS" },
+  { name: "Amit Desai", role: "Director, Desai Realty", text: "Commission tracker ane reports — exactly what I needed. No more Excel sheets!", rating: 5, avatar: "AD" },
+];
+
+const STEPS = [
+  { step: "01", title: "Add Your Leads", desc: "Import from Excel, web forms, or add manually. AI auto-scores each lead instantly.", color: "#eab308" },
+  { step: "02", title: "Match & Follow Up", desc: "AI matches leads to properties. WhatsApp reminders sent automatically.", color: "#6366f1" },
+  { step: "03", title: "Close & Track", desc: "Move deals through pipeline, generate commission invoices, track revenue.", color: "#10b981" },
 ];
 
 const PLANS = [
@@ -81,6 +93,11 @@ export default function HomePage() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <a href="tel:+919876543210"
+            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", textDecoration: "none" }}
+            className="hidden md:flex">
+            <Phone className="w-3.5 h-3.5" /> +91 98765 43210
+          </a>
           <a href="https://cityrealspace.com" target="_blank" rel="noreferrer"
             style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#eab308", textDecoration: "none" }}
             className="hidden md:flex">
@@ -143,7 +160,7 @@ export default function HomePage() {
           </Link>
           <Link href="/demo"
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", borderRadius: 16, fontSize: 15, fontWeight: 600, background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.3)", color: "#eab308", textDecoration: "none" }}>
-            <Zap className="w-5 h-5" /> Free Demo
+            <PlayCircle className="w-5 h-5" /> Watch Demo
           </Link>
           <Link href="/free-trial"
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", borderRadius: 16, fontSize: 15, fontWeight: 600, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", textDecoration: "none" }}>
@@ -177,8 +194,8 @@ export default function HomePage() {
           0%   { transform: translateX(-50%); }
           100% { transform: translateX(0); }
         }
-        .ticker-ltr { animation: ticker-ltr 40s linear infinite; }
-        .ticker-rtl { animation: ticker-rtl 35s linear infinite; }
+        .ticker-ltr { animation: ticker-ltr 80s linear infinite; }
+        .ticker-rtl { animation: ticker-rtl 70s linear infinite; }
         .ticker-ltr:hover, .ticker-rtl:hover { animation-play-state: paused; }
       `}</style>
       <section style={{ position: "relative", zIndex: 10, overflow: "hidden", padding: "20px 0", borderTop: "1px solid rgba(234,179,8,0.08)", borderBottom: "1px solid rgba(234,179,8,0.08)", background: "rgba(234,179,8,0.02)" }}>
@@ -249,6 +266,27 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── How It Works ── */}
+      <section style={{ position: "relative", zIndex: 10, padding: "60px 24px", maxWidth: 900, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <div style={{ display: "inline-block", padding: "4px 14px", borderRadius: 999, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", color: "#818cf8", marginBottom: 14 }}>
+            HOW IT WORKS
+          </div>
+          <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 800, color: "#ffffff", marginBottom: 10 }}>Close More Deals in 3 Steps</h2>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
+          {STEPS.map((s, i) => (
+            <motion.div key={s.step} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+              style={{ padding: "28px 24px", borderRadius: 20, background: "rgba(255,255,255,0.02)", border: `1px solid ${s.color}22`, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: 16, right: 20, fontSize: 48, fontWeight: 900, color: `${s.color}08`, lineHeight: 1 }}>{s.step}</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: s.color, marginBottom: 12, lineHeight: 1 }}>{s.step}</div>
+              <h3 style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 16, marginBottom: 8 }}>{s.title}</h3>
+              <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>{s.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
       {/* ── Features ── */}
       <section style={{ position: "relative", zIndex: 10, padding: "60px 24px", maxWidth: 1100, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 48 }}>
@@ -261,12 +299,43 @@ export default function HomePage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           {FEATURES.map((f, i) => (
             <motion.div key={f.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}
-              style={{ padding: "24px", borderRadius: 20, background: "rgba(255,255,255,0.02)", border: `1px solid ${f.border}22` }}>
+              whileHover={{ y: -4, borderColor: `${f.border}55` }}
+              style={{ padding: "24px", borderRadius: 20, background: "rgba(255,255,255,0.02)", border: `1px solid ${f.border}22`, cursor: "default", transition: "border-color 0.2s" }}>
               <div style={{ width: 52, height: 52, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, background: `${f.border}12`, border: `1px solid ${f.border}30`, marginBottom: 16 }}>
                 {f.icon}
               </div>
               <h3 style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 15, marginBottom: 8 }}>{f.title}</h3>
               <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>{f.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Testimonials ── */}
+      <section style={{ position: "relative", zIndex: 10, padding: "60px 24px", maxWidth: 1000, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <div style={{ display: "inline-block", padding: "4px 14px", borderRadius: 999, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", color: "#eab308", marginBottom: 14 }}>
+            TRUSTED BY BROKERS
+          </div>
+          <h2 style={{ fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 800, color: "#ffffff", marginBottom: 10 }}>What Ahmedabad Brokers Say</h2>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          {TESTIMONIALS.map((t, i) => (
+            <motion.div key={t.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+              style={{ padding: "24px", borderRadius: 20, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(234,179,8,0.1)" }}>
+              <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
+                {Array.from({ length: t.rating }).map((_, j) => (
+                  <Star key={j} style={{ width: 14, height: 14, fill: "#eab308", color: "#eab308" }} />
+                ))}
+              </div>
+              <p style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.7, marginBottom: 20, fontStyle: "italic" }}>&ldquo;{t.text}&rdquo;</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#ca8a04,#eab308)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#050508", flexShrink: 0 }}>{t.avatar}</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f5f9" }}>{t.name}</div>
+                  <div style={{ fontSize: 12, color: "#64748b" }}>{t.role}</div>
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>

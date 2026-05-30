@@ -49,8 +49,12 @@ function getTransporter() {
 async function sendViaSMTP(to: string[], subject: string, html: string) {
   const t = getTransporter();
   if (!t) throw new Error("SMTP not configured — EMAIL_PASS missing");
-  const info = await t.sendMail({ from: FROM, to: to.join(", "), subject, html });
-  console.log("[EMAIL] SMTP OK:", info.messageId, "→", to.join(", "));
+  // Send individually to each recipient to ensure all receive the email
+  const unique = [...new Set(to.filter(Boolean))];
+  await Promise.all(unique.map(async (recipient) => {
+    const info = await t.sendMail({ from: FROM, to: recipient, subject, html });
+    console.log("[EMAIL] SMTP OK:", info.messageId, "→", recipient);
+  }));
 }
 
 // ── Main dispatcher — SMTP first, Resend fallback ───────────────────────────

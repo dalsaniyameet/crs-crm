@@ -123,10 +123,10 @@ export default function FreeTrialPage() {
                 <p style={{ fontSize: 13, color: "#64748b", marginBottom: 8 }}>Fill in your details — we&apos;ll set everything up for you.</p>
 
                 {[
-                  { key: "name",    label: "Your Name",    icon: User,      type: "text",  placeholder: "Rajesh Patel" },
-                  { key: "company", label: "Company Name", icon: Building2, type: "text",  placeholder: "City Real Space" },
-                  { key: "phone",   label: "Phone Number", icon: Phone,     type: "tel",   placeholder: "+91 98765 43210" },
-                  { key: "email",   label: "Email Address",icon: Mail,      type: "email", placeholder: "you@company.com" },
+                  { key: "name",    label: "Your Name",    icon: User,      type: "text",  placeholder: "Aapka poora naam" },
+                  { key: "company", label: "Company Name", icon: Building2, type: "text",  placeholder: "Aapki company ka naam" },
+                  { key: "phone",   label: "Phone Number", icon: Phone,     type: "tel",   placeholder: "Aapka mobile number" },
+                  { key: "email",   label: "Email Address",icon: Mail,      type: "email", placeholder: "Aapka email address" },
                 ].map(f => (
                   <div key={f.key}>
                     <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6, fontWeight: 500 }}>{f.label}</label>
@@ -161,7 +161,7 @@ export default function FreeTrialPage() {
                   <div style={{ position: "relative" }}>
                     <MessageSquare style={{ position: "absolute", left: 12, top: 12, width: 15, height: 15, color: "#475569" }} />
                     <textarea
-                      rows={3} placeholder="Tell us about your team size, requirements..."
+                      rows={3} placeholder="Aapki team size aur requirements batayein..."
                       value={form.message} onChange={e => set("message", e.target.value)}
                       style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f1f5f9", fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", fontFamily: "inherit" }}
                     />
