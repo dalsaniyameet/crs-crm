@@ -42,9 +42,6 @@ const FEATURES = [
 ];
 
 const TESTIMONIALS = [
-  { name: "Rajesh Patel", role: "Senior Broker, Navrangpura", text: "Lead scoring ne mara conversion rate 3x kar diyo. Best investment for my brokerage.", rating: 5, avatar: "RP" },
-  { name: "Priya Shah", role: "Property Consultant, SG Highway", text: "WhatsApp automation thi follow-ups automatic thay chhe. Time bachyo ane deals vadhya.", rating: 5, avatar: "PS" },
-  { name: "Amit Desai", role: "Director, Desai Realty", text: "Commission tracker ane reports — exactly what I needed. No more Excel sheets!", rating: 5, avatar: "AD" },
   { name: "Nikhil Bhai", role: "Residential & Commercial Manager", text: "Expert in both residential & commercial property deals across Ahmedabad.", rating: 5, avatar: "N", tags: ["Residential", "Commercial", "Founder & Owner"] },
   { name: "Amit Parmani", role: "Founder & Managing Director", text: "Visionary leader & founder of City Real Space with 25+ years of expertise in Gujarat real estate.", rating: 5, avatar: "A", tags: ["25+ Years of Trust", "Residential", "Commercial"] },
   { name: "Meet Dalsaniya", role: "SEO & Digital Marketing", text: "Driving online visibility & digital growth through SEO, social media & performance marketing.", rating: 5, avatar: "M", tags: ["SEO", "Digital Marketing"] },
