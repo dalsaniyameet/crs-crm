@@ -29,6 +29,7 @@ export default function EmployeeDailyReportPage() {
   const [loading, setLoading]       = useState(true);
   const [pastReports, setPastReports] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState(toDateKey(new Date()));
+  const [todayVisits, setTodayVisits]   = useState<any[]>([]);
 
   // Fetch employee profile from API using Clerk session
   useEffect(() => {
@@ -66,6 +67,30 @@ export default function EmployeeDailyReportPage() {
     if (!employeeId) { setLoading(false); return; }
     loadReport(selectedDate);
     loadPastReports();
+    // Auto-pull today's visits for daily report
+    if (selectedDate === toDateKey(new Date())) {
+      fetch("/api/visits")
+        .then(r => r.json())
+        .then((data: any[]) => {
+          if (!Array.isArray(data)) return;
+          const today = toDateKey(new Date());
+          const todayDone = data.filter(v =>
+            toDateKey(new Date(v.scheduledAt)) === today &&
+            (v.status === "COMPLETED" || v.status === "CONFIRMED" || v.status === "SCHEDULED")
+          );
+          setTodayVisits(todayDone);
+          // Auto-fill siteVisits count & feedback if not already submitted
+          setForm(prev => ({
+            ...prev,
+            siteVisits: prev.siteVisits || String(todayDone.filter(v => v.status === "COMPLETED").length),
+            visitsFeedback: prev.visitsFeedback || todayDone
+              .filter(v => v.feedback)
+              .map(v => `${v.lead?.name} @ ${v.property?.title || "property"}: ${v.feedback}`)
+              .join("\n") || prev.visitsFeedback,
+          }));
+        })
+        .catch(() => {});
+    }
   }, [employeeId, selectedDate]);
 
   async function loadReport(date: string) {
@@ -214,6 +239,56 @@ export default function EmployeeDailyReportPage() {
               💬 {existing.adminNote}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Today's Visits Auto-pulled */}
+      {todayVisits.length > 0 && selectedDate === today && (
+        <div className="glass-card p-4 border border-orange-500/20 bg-orange-500/5">
+          <h3 className="text-sm font-semibold text-orange-400 mb-3 flex items-center gap-2">
+            <Building2 className="w-4 h-4" /> Today's Visits ({todayVisits.length}) — Auto-pulled
+          </h3>
+          <div className="space-y-2">
+            {todayVisits.map(v => (
+              <div key={v.id} className="flex items-start gap-3 p-2.5 rounded-lg bg-white/5 border border-white/10">
+                <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                  v.status === "COMPLETED" ? "bg-emerald-400" :
+                  v.status === "CONFIRMED" ? "bg-blue-400" : "bg-yellow-400"
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-white">{v.lead?.name}</span>
+                    <a href={`tel:${v.lead?.phone}`} className="text-xs text-emerald-400">{v.lead?.phone}</a>
+                    {v.lead?.budget && (
+                      <span className="text-xs text-yellow-400">
+                        ₹{v.lead.budget >= 100000 ? `${(v.lead.budget/100000).toFixed(1)}L` : v.lead.budget}
+                      </span>
+                    )}
+                  </div>
+                  {v.property && (
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      🏢 {v.property.title} — {v.property.locality}
+                      {v.property.ownerName && <span className="ml-2">👤 {v.property.ownerName}</span>}
+                      {v.property.ownerPhone && (
+                        <a href={`tel:${v.property.ownerPhone}`} className="ml-1 text-emerald-400">{v.property.ownerPhone}</a>
+                      )}
+                      {v.property.price && (
+                        <span className="ml-2 text-gold-400 font-semibold">
+                          ₹{v.property.price >= 100000 ? `${(v.property.price/100000).toFixed(1)}L` : v.property.price}
+                          {v.property.transactionType === "RENT" || v.property.transactionType === "LEASE" ? "/mo" : ""}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                  v.status === "COMPLETED" ? "bg-emerald-500/20 text-emerald-400" :
+                  v.status === "CONFIRMED" ? "bg-blue-500/20 text-blue-400" :
+                  "bg-yellow-500/20 text-yellow-400"
+                }`}>{v.status}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

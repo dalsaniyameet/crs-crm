@@ -13,10 +13,26 @@ interface Visit {
   status: VisitStatus;
   feedback?: string;
   notes?: string;
-  lead: { id: string; name: string; phone: string };
-  property?: { id: string; title: string; locality: string };
+  lead: { id: string; name: string; phone: string; budget?: number; requirements?: string };
+  property?: { id: string; title: string; locality: string; city?: string; ownerName?: string; ownerPhone?: string; price?: number; transactionType?: string; address?: string };
   broker?: { id: string; name: string };
 }
+
+const fmtPrice = (p?: number, tx?: string) => {
+  if (!p) return null;
+  const v = p >= 10000000 ? `₹${(p/10000000).toFixed(1)}Cr` : p >= 100000 ? `₹${(p/100000).toFixed(1)}L` : `₹${(p/1000).toFixed(0)}K`;
+  return tx === "RENT" || tx === "LEASE" ? `${v}/mo` : v;
+};
+const fmtBudget = (b?: number) => {
+  if (!b) return null;
+  const val = b < 1000 ? b * 100000 : b;
+  return val >= 10000000 ? `₹${(val/10000000).toFixed(1)}Cr` : val >= 100000 ? `₹${(val/100000).toFixed(1)}L` : `₹${(val/1000).toFixed(0)}K`;
+};
+const getGoogleMapsUrl = (property?: Visit["property"]) => {
+  if (!property) return null;
+  const q = [property.address, property.locality, property.city, "Ahmedabad"].filter(Boolean).join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+};
 
 const statusConfig: Record<VisitStatus, { label: string; color: string; bg: string }> = {
   SCHEDULED:  { label: "Scheduled",  color: "text-blue-400",    bg: "bg-blue-500/20 border-blue-500/30" },
@@ -271,9 +287,39 @@ export default function VisitsPage() {
                     <span className={`text-xs px-2 py-0.5 rounded-full border ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                     {todayV && <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 animate-pulse">⚡ Today</span>}
                   </div>
+                  {/* Client */}
+                  <div className="flex items-center gap-3 flex-wrap mb-1">
+                    <a href={`tel:${visit.lead?.phone}`} className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300">
+                      <Phone className="w-3 h-3" /> {visit.lead?.phone}
+                    </a>
+                    {fmtBudget(visit.lead?.budget) && (
+                      <span className="text-xs text-yellow-400 font-semibold">💰 {fmtBudget(visit.lead?.budget)}</span>
+                    )}
+                    {visit.lead?.requirements && (
+                      <span className="text-xs text-muted-foreground truncate max-w-[160px]">📋 {visit.lead.requirements}</span>
+                    )}
+                  </div>
+                  {/* Property + Google Maps */}
                   {visit.property && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                      <MapPin className="w-3 h-3" /> {visit.property.title}
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <a href={getGoogleMapsUrl(visit.property) ?? "#"} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                        <MapPin className="w-3 h-3" /> {visit.property.title} — {visit.property.locality}
+                      </a>
+                      {fmtPrice(visit.property.price, visit.property.transactionType) && (
+                        <span className="text-xs text-gold-400 font-semibold">{fmtPrice(visit.property.price, visit.property.transactionType)}</span>
+                      )}
+                    </div>
+                  )}
+                  {/* Owner */}
+                  {visit.property?.ownerName && (
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-xs text-muted-foreground">👤 <span className="text-white">{visit.property.ownerName}</span></span>
+                      {visit.property.ownerPhone && (
+                        <a href={`tel:${visit.property.ownerPhone}`} className="text-xs text-emerald-400 hover:text-emerald-300">
+                          <Phone className="w-3 h-3 inline mr-0.5" />{visit.property.ownerPhone}
+                        </a>
+                      )}
                     </div>
                   )}
                   {visit.broker && (
