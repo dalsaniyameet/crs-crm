@@ -45,6 +45,9 @@ const TESTIMONIALS = [
   { name: "Rajesh Patel", role: "Senior Broker, Navrangpura", text: "Lead scoring ne mara conversion rate 3x kar diyo. Best investment for my brokerage.", rating: 5, avatar: "RP" },
   { name: "Priya Shah", role: "Property Consultant, SG Highway", text: "WhatsApp automation thi follow-ups automatic thay chhe. Time bachyo ane deals vadhya.", rating: 5, avatar: "PS" },
   { name: "Amit Desai", role: "Director, Desai Realty", text: "Commission tracker ane reports — exactly what I needed. No more Excel sheets!", rating: 5, avatar: "AD" },
+  { name: "Nikhil Bhai", role: "Residential & Commercial Manager", text: "Expert in both residential & commercial property deals across Ahmedabad.", rating: 5, avatar: "N", tags: ["Residential", "Commercial", "Founder & Owner"] },
+  { name: "Amit Parmani", role: "Founder & Managing Director", text: "Visionary leader & founder of City Real Space with 25+ years of expertise in Gujarat real estate.", rating: 5, avatar: "A", tags: ["25+ Years of Trust", "Residential", "Commercial"] },
+  { name: "Meet Dalsaniya", role: "SEO & Digital Marketing", text: "Driving online visibility & digital growth through SEO, social media & performance marketing.", rating: 5, avatar: "M", tags: ["SEO", "Digital Marketing"] },
 ];
 
 const STEPS = [
@@ -93,10 +96,10 @@ export default function HomePage() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <a href="tel:+919876543210"
+          <a href="tel:+919825031247"
             style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", textDecoration: "none" }}
             className="hidden md:flex">
-            <Phone className="w-3.5 h-3.5" /> +91 98765 43210
+            <Phone className="w-3.5 h-3.5" /> +91 98250 31247
           </a>
           <a href="https://cityrealspace.com" target="_blank" rel="noreferrer"
             style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#eab308", textDecoration: "none" }}
@@ -329,6 +332,13 @@ export default function HomePage() {
                 ))}
               </div>
               <p style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.7, marginBottom: 20, fontStyle: "italic" }}>&ldquo;{t.text}&rdquo;</p>
+              {(t as any).tags && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                  {(t as any).tags.map((tag: string) => (
+                    <span key={tag} style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", color: "#eab308" }}>{tag}</span>
+                  ))}
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#ca8a04,#eab308)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#050508", flexShrink: 0 }}>{t.avatar}</div>
                 <div>
