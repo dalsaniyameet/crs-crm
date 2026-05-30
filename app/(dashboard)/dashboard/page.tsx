@@ -266,10 +266,10 @@ export default function DashboardPage() {
       )}
 
       {/* Charts Row — admin only */}
-      {!isBroker && <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* Lead Sources */}
-        <div className="glass-card p-5 lg:col-span-2">
+      {!isBroker && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Lead Sources */}
+          <div className="glass-card p-5 lg:col-span-2">
           <style>{`
             @keyframes db-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
             @keyframes db-spin-rev { from{transform:rotate(0deg)} to{transform:rotate(-360deg)} }
@@ -398,9 +398,8 @@ export default function DashboardPage() {
             <div className="text-center py-10 text-muted-foreground text-sm">No visits today</div>
           )}
         </div>
-      </div>
-
-      {!isBroker && </div>}
+        </div>
+      )}
 
       {/* Hot Leads + Broker Performance + Follow-ups */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -444,7 +443,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Broker Performance — admin only */}
-        {!isBroker && <div className="glass-card p-5">
+        {!isBroker && (
+          <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-semibold text-white">Broker Performance</h3>
             <a href="/reports" className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
@@ -478,9 +478,8 @@ export default function DashboardPage() {
           ) : (
             <div className="text-center py-10 text-muted-foreground text-sm">No broker data yet</div>
           )}
-        </div>
-
-        {!isBroker && </div>}
+          </div>
+        )}
 
         {/* Today's Follow-ups */}
         <div className="glass-card p-5">
