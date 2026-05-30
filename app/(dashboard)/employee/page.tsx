@@ -225,9 +225,14 @@ export default function EmployeePanelPage() {
   const handlePunch = async (type: "IN" | "OUT", faceImage?: string) => {
     if (!locations[0]) { toast.error("No office location configured"); return; }
     setPunching(true);
+    // Calculate total break seconds including any ongoing break
+    const totalBreakSecs = breakState.total + (breakState.start > 0 ? Math.floor((Date.now() - breakState.start) / 1000) : 0);
     const res = await fetch("/api/attendance/guest", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: userName, phone: email || userName, locationId: locations[0].id, bypass: true, faceImage, ...(type === "OUT" ? { action: "OUT" } : {}) }),
+      body: JSON.stringify({
+        name: userName, phone: email || userName, locationId: locations[0].id, bypass: true, faceImage,
+        ...(type === "OUT" ? { action: "OUT", breakSeconds: totalBreakSecs } : {}),
+      }),
     });
     const data = await res.json();
     if (!res.ok) toast.error(data.error || "Failed");
@@ -313,6 +318,36 @@ export default function EmployeePanelPage() {
     if (!confirm("Delete this document?")) return;
     const res = await fetch("/api/employee/documents", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     if (res.ok) { setDocuments(prev => prev.filter(d => d.id !== id)); toast.success("Deleted"); }
+  };
+
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editForm, setEditForm]               = useState({ name: "", dob: "" });
+  const [editSaving, setEditSaving]           = useState(false);
+
+  const handleEditProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editForm.name.trim() && !editForm.dob) { toast.error("Kuch toh change karo"); return; }
+    setEditSaving(true);
+    try {
+      const res = await fetch("/api/employee/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(editForm.name.trim() ? { name: editForm.name.trim() } : {}),
+          ...(editForm.dob ? { dob: editForm.dob } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEmpProfile((p: any) => ({ ...p, name: data.name, dob: data.dob }));
+        toast.success("Profile updated! ✅");
+        setShowEditProfile(false);
+        setEditForm({ name: "", dob: "" });
+      } else {
+        toast.error(data.error || "Update failed");
+      }
+    } catch { toast.error("Network error"); }
+    setEditSaving(false);
   };
 
   const handleSignOut = async () => {
@@ -459,14 +494,66 @@ export default function EmployeePanelPage() {
                 {empProfile?.isActive !== false ? "✓ Active" : "✕ Inactive"}
               </span>
               {todayRecord && <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 animate-pulse">● In Office</span>}
+              {empProfile?.dob && (
+                <span className="text-xs text-muted-foreground">
+                  DOB: {new Date(empProfile.dob).toLocaleDateString("en-IN")}
+                </span>
+              )}
             </div>
           </div>
-          {/* Sign Out */}
-          <button onClick={handleSignOut}
-            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors flex-shrink-0">
-            <SignOutIcon className="w-3.5 h-3.5" /> Sign Out
-          </button>
+          {/* Edit + Sign Out */}
+          <div className="flex flex-col gap-2 flex-shrink-0">
+            <button onClick={() => { setShowEditProfile(v => !v); setEditForm({ name: empProfile?.name || userName, dob: empProfile?.dob ? new Date(empProfile.dob).toISOString().split("T")[0] : "" }); }}
+              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors">
+              <User className="w-3.5 h-3.5" /> Edit
+            </button>
+            <button onClick={handleSignOut}
+              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors">
+              <SignOutIcon className="w-3.5 h-3.5" /> Sign Out
+            </button>
+          </div>
         </div>
+
+        {/* Edit Profile Form */}
+        <AnimatePresence>
+          {showEditProfile && (
+            <motion.form
+              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+              onSubmit={handleEditProfile}
+              className="mt-4 pt-4 border-t border-white/10 space-y-3 overflow-hidden"
+            >
+              <div className="text-xs font-semibold text-white mb-1">✏️ Edit Profile</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Full Name</label>
+                  <input
+                    value={editForm.name}
+                    onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder={empProfile?.name || userName}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={editForm.dob}
+                    onChange={e => setEditForm(f => ({ ...f, dob: e.target.value }))}
+                    className={`${inputCls} [color-scheme:dark]`}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={editSaving}
+                  className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5 disabled:opacity-60">
+                  {editSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : null} Save Changes
+                </button>
+                <button type="button" onClick={() => { setShowEditProfile(false); setEditForm({ name: "", dob: "" }); }}
+                  className="px-4 py-2 text-xs text-muted-foreground hover:text-white border border-white/10 rounded-lg">Cancel</button>
+              </div>
+            </motion.form>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Tabs */}
@@ -564,7 +651,7 @@ export default function EmployeePanelPage() {
                 <button onClick={() => handlePunch("IN")} disabled={punching} className="flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-xl text-xs text-muted-foreground border border-white/10 hover:text-emerald-400 hover:border-emerald-500/30 transition-all">
                   {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />} Manual Punch In (no camera)
                 </button>
-                <div className="text-xs text-muted-foreground">Mon–Sat 10:00 AM – 7:00 PM · Sunday 4:00–6:00 PM</div>
+                <div className="text-xs text-muted-foreground">Mon–Sat 10:00 AM – 7:00 PM · Sunday 11:00 AM – 4:00 PM</div>
               </div>
             )}
           </div>
@@ -593,7 +680,7 @@ export default function EmployeePanelPage() {
               <div className="space-y-2">
                 {attendance.slice(0, 30).map((a: any) => {
                   const isSun = new Date(a.punchIn).getDay() === 0;
-                  const expectedH = isSun ? 2 : 9;
+                  const expectedH = isSun ? 5 : 9;
                   const diff = a.workHours ? a.workHours - expectedH : null;
                   return (
                     <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">

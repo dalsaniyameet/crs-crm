@@ -282,10 +282,10 @@ export default function DashboardPage() {
               <div className="w-40 h-40 rounded-full animate-pulse bg-white/10" />
             </div>
           ) : sourceData.length > 0 ? (
-            <div className="flex gap-6 items-center">
-              {/* SVG Donut + Spinning Rings */}
-              <div className="relative flex-shrink-0" style={{ width: 220, height: 220 }}>
-                <svg viewBox="0 0 220 220" width="220" height="220" style={{ position: "absolute", top: 0, left: 0 }}>
+            <div className="flex flex-col sm:flex-row gap-4 items-center">
+              {/* SVG Donut */}
+              <div className="relative flex-shrink-0 mx-auto" style={{ width: 180, height: 180 }}>
+                <svg viewBox="0 0 220 220" width="180" height="180" style={{ position: "absolute", top: 0, left: 0 }}>
                   {/* Outer spinning dashed arc */}
                   <g className="db-outer">
                     <circle cx="110" cy="110" r="107" fill="none" stroke="#0ea5e9" strokeWidth="4"

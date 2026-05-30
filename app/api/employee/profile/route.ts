@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH — update own avatar only
+// PATCH — update own avatar, name, dob
 export async function PATCH(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -66,17 +66,30 @@ export async function PATCH(req: NextRequest) {
     });
     if (!user?.email) return NextResponse.json({ error: "No email" }, { status: 400 });
 
-    const { avatarUrl } = await req.json();
-    if (!avatarUrl) return NextResponse.json({ error: "avatarUrl required" }, { status: 400 });
+    const body = await req.json();
+    const { avatarUrl, name, dob } = body;
+
+    if (!avatarUrl && !name && !dob)
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
     const emp = await prisma.employeeProfile.findUnique({ where: { email: user.email } });
     if (!emp) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
 
+    const updateData: any = {};
+    if (avatarUrl) updateData.avatarUrl = avatarUrl;
+    if (name?.trim()) {
+      updateData.name = name.trim();
+      await prisma.user.updateMany({ where: { email: user.email }, data: { name: name.trim() } });
+    }
+    if (dob) updateData.dob = new Date(dob);
+
     const updated = await prisma.employeeProfile.update({
       where: { email: user.email },
-      data:  { avatarUrl },
+      data:  updateData,
     });
-    await prisma.user.updateMany({ where: { email: user.email }, data: { avatar: avatarUrl } });
+    if (avatarUrl) {
+      await prisma.user.updateMany({ where: { email: user.email }, data: { avatar: avatarUrl } });
+    }
     return NextResponse.json(updated);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

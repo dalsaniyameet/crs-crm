@@ -5,8 +5,8 @@ import { notifyPunchIn, notifyPunchOut } from "@/lib/notify";
 
 // Office hours (IST): Monâ€“Sat 10:00â€“19:00, Sun 16:00â€“18:00
 const SCHEDULE = {
-  weekday: { inHour: 10, inMin: 0, outHour: 19, outMin: 0 },  // Monâ€“Sat
-  sunday:  { inHour: 16, inMin: 0, outHour: 18, outMin: 0 },  // Sun
+  weekday: { inHour: 10, inMin: 0, outHour: 19, outMin: 0 },  // Mon–Sat 10:00–19:00â€“Sat
+  sunday:  { inHour: 11, inMin: 0, outHour: 16, outMin: 0 },  // Sun 11:00–16:00
 };
 
 function getISTDate() {

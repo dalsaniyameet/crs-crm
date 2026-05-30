@@ -167,6 +167,73 @@ export default function HomePage() {
         </motion.div>
       </section>
 
+      {/* ── Ticker Strip ── */}
+      <style>{`
+        @keyframes ticker-ltr {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes ticker-rtl {
+          0%   { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
+        .ticker-ltr { animation: ticker-ltr 40s linear infinite; }
+        .ticker-rtl { animation: ticker-rtl 35s linear infinite; }
+        .ticker-ltr:hover, .ticker-rtl:hover { animation-play-state: paused; }
+      `}</style>
+      <section style={{ position: "relative", zIndex: 10, overflow: "hidden", padding: "20px 0", borderTop: "1px solid rgba(234,179,8,0.08)", borderBottom: "1px solid rgba(234,179,8,0.08)", background: "rgba(234,179,8,0.02)" }}>
+        {/* Row 1 — Left to Right */}
+        <div style={{ overflow: "hidden", marginBottom: 10 }}>
+          <div className="ticker-ltr" style={{ display: "flex", width: "max-content", gap: 0 }}>
+            {[
+              "🤖 AI Lead Scoring","💬 WhatsApp Automation","🏠 Property Matching","📊 Deal Pipeline",
+              "💰 Commission Tracker","📈 Smart Reports","📍 Ahmedabad Real Estate","🔑 Buyer & Seller Mgmt",
+              "🏗️ Commercial Properties","🤝 Broker Dashboard","⚡ GPT-4o Powered","🔒 Bank-grade Security",
+              "🏢 Residential Listings","📞 Auto Follow-ups","🗺️ Location Insights","📅 Meeting Scheduler",
+              "🧠 Smart Matching AI","📋 Site Visit Tracker","💼 Lead Management","🔔 Instant Alerts",
+              "📱 Mobile Ready","🌐 Online Presence","🏷️ Price Negotiation","🎯 Target Marketing",
+              // duplicate for seamless loop
+              "🤖 AI Lead Scoring","💬 WhatsApp Automation","🏠 Property Matching","📊 Deal Pipeline",
+              "💰 Commission Tracker","📈 Smart Reports","📍 Ahmedabad Real Estate","🔑 Buyer & Seller Mgmt",
+              "🏗️ Commercial Properties","🤝 Broker Dashboard","⚡ GPT-4o Powered","🔒 Bank-grade Security",
+              "🏢 Residential Listings","📞 Auto Follow-ups","🗺️ Location Insights","📅 Meeting Scheduler",
+              "🧠 Smart Matching AI","📋 Site Visit Tracker","💼 Lead Management","🔔 Instant Alerts",
+              "📱 Mobile Ready","🌐 Online Presence","🏷️ Price Negotiation","🎯 Target Marketing",
+            ].map((item, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 18px", fontSize: 13, fontWeight: 500, color: "#eab308", whiteSpace: "nowrap" }}>
+                {item}
+                <span style={{ color: "rgba(234,179,8,0.35)", marginLeft: 6, fontSize: 10 }}>✦</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        {/* Row 2 — Right to Left */}
+        <div style={{ overflow: "hidden" }}>
+          <div className="ticker-rtl" style={{ display: "flex", width: "max-content", gap: 0 }}>
+            {[
+              "🏢 Residential Listings","📞 Auto Follow-ups","🗺️ Location Insights","📅 Meeting Scheduler",
+              "🧠 Smart Matching AI","📋 Site Visit Tracker","💼 Lead Management","🔔 Instant Alerts",
+              "📱 Mobile Ready","🌐 Online Presence","🏷️ Price Negotiation","🎯 Target Marketing",
+              "🤖 AI Lead Scoring","💬 WhatsApp Automation","🏠 Property Matching","📊 Deal Pipeline",
+              "💰 Commission Tracker","📈 Smart Reports","📍 Ahmedabad Real Estate","🔑 Buyer & Seller Mgmt",
+              "🏗️ Commercial Properties","🤝 Broker Dashboard","⚡ GPT-4o Powered","🔒 Bank-grade Security",
+              // duplicate
+              "🏢 Residential Listings","📞 Auto Follow-ups","🗺️ Location Insights","📅 Meeting Scheduler",
+              "🧠 Smart Matching AI","📋 Site Visit Tracker","💼 Lead Management","🔔 Instant Alerts",
+              "📱 Mobile Ready","🌐 Online Presence","🏷️ Price Negotiation","🎯 Target Marketing",
+              "🤖 AI Lead Scoring","💬 WhatsApp Automation","🏠 Property Matching","📊 Deal Pipeline",
+              "💰 Commission Tracker","📈 Smart Reports","📍 Ahmedabad Real Estate","🔑 Buyer & Seller Mgmt",
+              "🏗️ Commercial Properties","🤝 Broker Dashboard","⚡ GPT-4o Powered","🔒 Bank-grade Security",
+            ].map((item, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 18px", fontSize: 13, fontWeight: 500, color: "#94a3b8", whiteSpace: "nowrap" }}>
+                {item}
+                <span style={{ color: "rgba(148,163,184,0.3)", marginLeft: 6, fontSize: 10 }}>✦</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Trust badges ── */}
       <section style={{ position: "relative", zIndex: 10, padding: "0 24px 40px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>

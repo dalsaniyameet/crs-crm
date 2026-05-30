@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendAdminEmail, sendEmployeeEmail, punchInEmailHtml, punchOutEmailHtml, empPunchInEmailHtml, empPunchOutEmailHtml } from "@/lib/email";
 
-const BREAK_MINUTES = 45;
+const BREAK_MINUTES = 0; // No auto deduction — employee tracks break manually
 
 export async function POST(req: Request) {
   try {
-    const { name, phone, locationId, action, bypass, faceImage, backdated, punchInTime, punchOutTime } = await req.json();
+    const { name, phone, locationId, action, bypass, faceImage, backdated, punchInTime, punchOutTime, breakSeconds } = await req.json();
     // action: "IN" | "OUT" | "BREAK_START" | "BREAK_END"
     // backdated: true = admin adding past attendance manually
 
@@ -43,10 +43,10 @@ export async function POST(req: Request) {
         const breakMs = BREAK_MINUTES * 60 * 1000;
         const netMs   = totalMs > breakMs ? totalMs - breakMs : totalMs;
         workHours     = netMs / (1000 * 60 * 60);
-        const expectedInMin = isSun ? 16 * 60 : 10 * 60;
+        const expectedInMin = isSun ? 11 * 60 : 10 * 60;
         const actualInMin   = pIn.getHours() * 60 + pIn.getMinutes();
         lateMinutes   = Math.max(0, actualInMin - expectedInMin);
-        const expectedH = isSun ? 2 : 9;
+        const expectedH = isSun ? 5 : 9;
         overtimeHours = Math.max(0, workHours - expectedH);
       }
 
@@ -137,21 +137,22 @@ export async function POST(req: Request) {
 
     // ── PUNCH OUT ──
     if (action === "OUT" || !action) {
-      const punchOut   = new Date();
-      const totalMs    = punchOut.getTime() - existing.punchIn.getTime();
-      const breakMs    = BREAK_MINUTES * 60 * 1000;
-      const netMs      = totalMs > breakMs ? totalMs - breakMs : totalMs;
-      const workHours  = netMs / (1000 * 60 * 60);
+      const punchOut      = new Date();
+      const totalMs       = punchOut.getTime() - existing.punchIn.getTime();
+      // breakSeconds sent from client (actual break time tracked by employee)
+      const breakSecs     = typeof breakSeconds === "number" && breakSeconds > 0 ? breakSeconds : 0;
+      const netMs         = Math.max(0, totalMs - breakSecs * 1000);
+      const workHours     = netMs / (1000 * 60 * 60);
 
-      // Late minutes: expected 10:00 AM (Mon-Sat), 4:00 PM (Sun)
+      // Late minutes: expected 10:00 AM (Mon-Sat), 11:00 AM (Sun)
       const punchInIST = new Date(existing.punchIn.getTime() + 5.5 * 60 * 60 * 1000);
       const isSun = punchInIST.getUTCDay() === 0;
-      const expectedInMin = isSun ? 16 * 60 : 10 * 60;
+      const expectedInMin = isSun ? 11 * 60 : 10 * 60;
       const actualInMin = punchInIST.getUTCHours() * 60 + punchInIST.getUTCMinutes();
       const lateMinutes = Math.max(0, actualInMin - expectedInMin);
 
-      // Overtime: worked beyond 9h (Mon-Sat) or 2h (Sun)
-      const expectedHours = isSun ? 2 : 9;
+      // Overtime: worked beyond 9h (Mon-Sat) or 5h (Sun, 11-4 = 5h)
+      const expectedHours = isSun ? 5 : 9;
       const overtimeHours = Math.max(0, workHours - expectedHours);
 
       // Upload face image for punch out
@@ -296,8 +297,8 @@ function checkTimeWindow(): { allowed: boolean; error?: string } {
   const day     = ist.getUTCDay();
   const current = ist.getUTCHours() * 60 + ist.getUTCMinutes();
   const sched   = day === 0
-    ? { inH: 16, inM: 0, outH: 18, outM: 0 }
-    : { inH: 10, inM: 0, outH: 19, outM: 0 };
+    ? { inH: 11, inM: 0, outH: 16, outM: 0 }  // Sunday 11:00–16:00
+    : { inH: 10, inM: 0, outH: 19, outM: 0 }; // Mon–Sat 10:00–19:00
   const open  = sched.inH * 60 + sched.inM;
   const close = sched.outH * 60 + sched.outM + 60;
   if (current < open)  return { allowed: false, error: `Office opens at ${fmt(sched.inH, sched.inM)}` };

@@ -207,6 +207,28 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     router.push("/sign-in");
   };
 
+  // ── Employee 10-min auto-logout on inactivity ──
+  useEffect(() => {
+    if (!isLoaded || !user || role === "ADMIN") return;
+    const TIMEOUT = 10 * 60 * 1000; // 10 minutes
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        toast("Session expired — logging out for security 🔒", { icon: "⚠️", duration: 3000 });
+        await signOut().catch(() => {});
+        router.push("/sign-in");
+      }, TIMEOUT);
+    };
+    const events = ["mousemove", "keydown", "click", "touchstart", "scroll"];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [isLoaded, user, role, signOut, router]);
+
   const [todayRecord, setTodayRecord]   = useState<any>(null);
   const [locations, setLocations]       = useState<any[]>([]);
   const [punching, setPunching]         = useState(false);
@@ -261,7 +283,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: userName, phone: userEmail, locationId: locations[0].id,
-        ...(isPunchedIn ? { action: "OUT" } : {}),
+        ...(isPunchedIn ? { action: "OUT", breakSeconds: breakUsed } : {}),
       }),
     });
     const data = await res.json();
@@ -441,7 +463,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center gap-3 px-4 md:px-5 h-14 border-b flex-shrink-0"
+        <header className="flex items-center gap-2 px-3 md:px-5 h-14 border-b flex-shrink-0"
           style={{ borderColor: "rgba(234,179,8,0.08)", background: "rgba(4,8,15,0.95)", backdropFilter: "blur(12px)" }}>
           <button onClick={() => setMobileOpen(true)} className="md:hidden text-muted-foreground hover:text-white">
             <Menu className="w-5 h-5" />
@@ -605,7 +627,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 ml-auto">
+          <div className="flex items-center gap-1 ml-auto">
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
               style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.25)", color: "#facc15" }}>
               <Zap className="w-3 h-3" /> AI Active
@@ -624,25 +646,25 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                     }`}
                     disabled={!onBreak && breakUsed >= BREAK_LIMIT}>
                     <Coffee className="w-3 h-3" />
-                    <span className="hidden sm:inline">{onBreak ? "End Break" : `Break${breakUsed > 0 ? ` (${Math.floor((BREAK_LIMIT-breakUsed)/60)}m)` : ""}`}</span>
+                    <span className="hidden lg:inline">{onBreak ? "End Break" : `Break${breakUsed > 0 ? ` (${Math.floor((BREAK_LIMIT-breakUsed)/60)}m)` : ""}`}</span>
                   </button>
                 )}
                 <button onClick={handlePunch} disabled={punching}
-                  className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
+                  className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
                     todayRecord
                       ? "bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
                       : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30 animate-pulse"
                   }`}>
                   {todayRecord ? <PunchOut className="w-3 h-3" /> : <LogIn className="w-3 h-3" />}
-                  <span>{punching ? "..." : todayRecord ? "Out" : "In"}</span>
+                  <span className="hidden sm:inline">{punching ? "..." : todayRecord ? "Out" : "In"}</span>
                 </button>
               </div>
             )}
 
             <NotificationBell />
             <button onClick={() => router.push(role === "ADMIN" ? "/attendance" : "/employee")}
-              className="cursor-pointer flex items-center gap-1.5" title={role === "ADMIN" ? "Admin Dashboard" : "My Panel"}>
-              <UserAvatar name={userName} imageUrl={userImage} />
+              className="cursor-pointer flex items-center gap-1" title={role === "ADMIN" ? "Admin Dashboard" : "My Panel"}>
+              <UserAvatar name={userName} imageUrl={userImage} size={28} />
               <span className={`hidden lg:block text-xs font-semibold px-2 py-0.5 rounded-full ${
                 role === "ADMIN"
                   ? "bg-red-500/15 text-red-400 border border-red-500/25"
@@ -657,6 +679,32 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             {children}
           </div>
         </main>
+
+        {/* Mobile Bottom Nav */}
+        <nav className="mobile-bottom-nav border-t"
+          style={{ background: "rgba(4,8,15,0.97)", borderColor: "rgba(234,179,8,0.1)", backdropFilter: "blur(12px)" }}>
+          <div className="w-full flex items-center justify-around px-1 py-2">
+            {[
+              { href: "/dashboard",   icon: Home,        label: "Home" },
+              { href: "/leads",       icon: Users,       label: "Leads" },
+              { href: "/properties",  icon: Building2,   label: "Props" },
+              { href: "/deals",       icon: TrendingUp,  label: "Deals" },
+              { href: role === "ADMIN" ? "/attendance" : "/employee", icon: UserCircle, label: role === "ADMIN" ? "Attend" : "Me" },
+            ].map(item => {
+              const active = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link key={item.href} href={item.href}
+                  className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-0 ${
+                    active ? "text-yellow-400" : "text-muted-foreground"
+                  }`}>
+                  <item.icon className={`w-5 h-5 flex-shrink-0 ${active ? "text-yellow-400" : ""}`} />
+                  <span className="text-[10px] font-medium truncate">{item.label}</span>
+                  {active && <span className="w-1 h-1 rounded-full bg-yellow-400" />}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </div>
       </>
       }
