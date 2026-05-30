@@ -3,14 +3,11 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { checkOverdueFollowUps } from "@/lib/leadAutomation";
 
-export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
 async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
 }
-
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
