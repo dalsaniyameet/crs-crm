@@ -261,8 +261,9 @@ export default function AttendancePage() {
   const present = Array.from(allDeduped.values()).filter(r => r.punchIn);
   const stillIn = present.filter(r => !r.punchOut);
 
-  // Which employees are currently punched in today (match by phone OR name)
-  const punchedInKeys = new Set([...stillIn.map((r: any) => r.phone), ...stillIn.map((r: any) => r.name)]);
+  // Which employees are currently punched in today (match by phone OR name) — includes punched out too
+  const punchedInKeys  = new Set([...stillIn.map((r: any) => r.phone), ...stillIn.map((r: any) => r.name)]);
+  const presentKeys    = new Set([...present.map((r: any) => r.phone), ...present.map((r: any) => r.name)]);
 
   // Helper: get today's record for an employee
   const getTodayRecord = (emp: any) =>
@@ -313,6 +314,8 @@ export default function AttendancePage() {
           <div className="space-y-2">
             {employees.filter(e => e.isActive).map(emp => {
               const isPunchedIn  = punchedInKeys.has(emp.email) || punchedInKeys.has(emp.phone) || punchedInKeys.has(emp.name);
+              const isPresent    = presentKeys.has(emp.email) || presentKeys.has(emp.phone) || presentKeys.has(emp.name);
+              const hasPunchedOut = isPresent && !isPunchedIn;
               const todayRecord  = getTodayRecord(emp);
               const bt           = breakTimers[emp.id];
               const onBreak      = bt?.start > 0;
@@ -334,8 +337,14 @@ export default function AttendancePage() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-white truncate">{emp.name}</span>
                         {isBday && <span className="text-base">🎂</span>}
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${isPunchedIn ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-muted-foreground"}`}>
-                          {isPunchedIn ? "● In Office" : "○ Absent"}
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          isPunchedIn
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : hasPunchedOut
+                            ? "bg-blue-500/20 text-blue-400"
+                            : "bg-white/5 text-muted-foreground"
+                        }`}>
+                          {isPunchedIn ? "● In Office" : hasPunchedOut ? "✓ Present" : "○ Absent"}
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">{emp.position}</div>
@@ -351,6 +360,19 @@ export default function AttendancePage() {
                             : <span className="ml-2 text-blue-400">🖱️ Manual</span>}
                         </div>
                       )}
+                      {isPunchedIn && todayRecord?.faceImageIn && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <a href={todayRecord.faceImageIn} target="_blank" rel="noreferrer" title="Punch In Face">
+                            <img src={todayRecord.faceImageIn} alt="in" className="w-8 h-8 rounded-full object-cover border-2 border-emerald-500/50 hover:border-emerald-400 transition-colors" />
+                          </a>
+                          {todayRecord.faceImageOut && (
+                            <a href={todayRecord.faceImageOut} target="_blank" rel="noreferrer" title="Punch Out Face">
+                              <img src={todayRecord.faceImageOut} alt="out" className="w-8 h-8 rounded-full object-cover border-2 border-red-500/50 hover:border-red-400 transition-colors" />
+                            </a>
+                          )}
+                          <span className="text-xs text-muted-foreground">Face photos</span>
+                        </div>
+                      )}
                     {!isPunchedIn && (() => {
                         // Show last punch out record for today
                         const doneRec = records.find(r => (r.phone === emp.email || r.phone === emp.phone || r.name === emp.name) && r.punchOut);
@@ -358,17 +380,35 @@ export default function AttendancePage() {
                         const diff = getWorkDiff(doneRec.punchIn, doneRec.punchOut, 0);
                         const diffH = Math.abs(diff / 3600).toFixed(1);
                         return (
-                          <div className="text-xs mt-0.5">
-                            <span className="text-muted-foreground">
-                              {new Date(doneRec.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                              {" → "}
-                              {new Date(doneRec.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                            </span>
-                            {" · "}
-                            {diff >= 0
-                              ? <span className="text-emerald-400">+{diffH}h extra ⬆️</span>
-                              : <span className="text-red-400">-{diffH}h short ⬇️</span>}
-                            {" · "}<span className={getPunchStatus(doneRec.punchIn).color}>{getPunchStatus(doneRec.punchIn).label}</span>
+                          <div className="text-xs mt-0.5 space-y-1">
+                            <div>
+                              <span className="text-muted-foreground">
+                                {new Date(doneRec.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                {" → "}
+                                {new Date(doneRec.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              </span>
+                              {" · "}
+                              {diff >= 0
+                                ? <span className="text-emerald-400">+{diffH}h extra ⬆️</span>
+                                : <span className="text-red-400">-{diffH}h short ⬇️</span>}
+                              {" · "}<span className={getPunchStatus(doneRec.punchIn).color}>{getPunchStatus(doneRec.punchIn).label}</span>
+                            </div>
+                            {/* Face images for punched out employee */}
+                            {(doneRec.faceImageIn || doneRec.faceImageOut) && (
+                              <div className="flex items-center gap-2">
+                                {doneRec.faceImageIn && (
+                                  <a href={doneRec.faceImageIn} target="_blank" rel="noreferrer" title="Punch In Face">
+                                    <img src={doneRec.faceImageIn} alt="in" className="w-8 h-8 rounded-full object-cover border-2 border-emerald-500/50 hover:border-emerald-400 transition-colors" />
+                                  </a>
+                                )}
+                                {doneRec.faceImageOut && (
+                                  <a href={doneRec.faceImageOut} target="_blank" rel="noreferrer" title="Punch Out Face">
+                                    <img src={doneRec.faceImageOut} alt="out" className="w-8 h-8 rounded-full object-cover border-2 border-red-500/50 hover:border-red-400 transition-colors" />
+                                  </a>
+                                )}
+                                <span className="text-muted-foreground">Face photos</span>
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
