@@ -266,14 +266,14 @@ export default function AttendancePage() {
   const stillIn = present.filter(r => !r.punchOut);
 
   // Which employees are currently punched in today (match by phone OR name) — includes punched out too
-  const punchedInKeys  = new Set([...stillIn.map((r: any) => r.phone), ...stillIn.map((r: any) => r.name.toLowerCase())]);
-  const presentKeys    = new Set([...present.map((r: any) => r.phone), ...present.map((r: any) => r.name.toLowerCase())]);
+  const punchedInKeys  = new Set([...stillIn.map((r: any) => r.phone), ...stillIn.map((r: any) => r.phone?.toLowerCase()), ...stillIn.map((r: any) => r.name.toLowerCase())]);
+  const presentKeys    = new Set([...present.map((r: any) => r.phone), ...present.map((r: any) => r.phone?.toLowerCase()), ...present.map((r: any) => r.name.toLowerCase())]);
 
   // Helper: get today's record for an employee
   const getTodayRecord = (emp: any) =>
     present.find((r: any) =>
-      r.phone === emp.email ||
-      r.phone === emp.phone ||
+      r.phone?.toLowerCase() === emp.email?.toLowerCase() ||
+      r.phone?.toLowerCase() === emp.phone?.toLowerCase() ||
       r.name.toLowerCase() === emp.name.toLowerCase()
     );
 
@@ -321,8 +321,8 @@ export default function AttendancePage() {
         ) : (
           <div className="space-y-2">
             {employees.filter(e => e.isActive).map(emp => {
-              const isPunchedIn  = punchedInKeys.has(emp.email) || punchedInKeys.has(emp.phone) || punchedInKeys.has(emp.name.toLowerCase());
-              const isPresent    = presentKeys.has(emp.email) || presentKeys.has(emp.phone) || presentKeys.has(emp.name.toLowerCase());
+              const isPunchedIn  = punchedInKeys.has(emp.email?.toLowerCase()) || punchedInKeys.has(emp.phone?.toLowerCase()) || punchedInKeys.has(emp.name.toLowerCase());
+              const isPresent    = presentKeys.has(emp.email?.toLowerCase()) || presentKeys.has(emp.phone?.toLowerCase()) || presentKeys.has(emp.name.toLowerCase());
               const hasPunchedOut = isPresent && !isPunchedIn;
               const todayRecord  = getTodayRecord(emp);
               const bt           = breakTimers[emp.id];

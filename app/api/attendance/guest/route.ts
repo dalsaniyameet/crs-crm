@@ -256,7 +256,11 @@ export async function GET(req: Request) {
     if (phone || name) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const orConditions: any[] = [];
-      if (phone) orConditions.push({ phone });
+      if (phone) {
+        orConditions.push({ phone });
+        orConditions.push({ phone: phone.toLowerCase() });
+        orConditions.push({ phone: phone.toUpperCase() });
+      }
       if (name)  orConditions.push({ name: { contains: name, mode: "insensitive" } });
       const records = await prisma.guestAttendance.findMany({
         where:   { OR: orConditions, punchIn: { gte: thirtyDaysAgo } },
