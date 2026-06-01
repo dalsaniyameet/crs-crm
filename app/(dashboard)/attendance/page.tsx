@@ -191,7 +191,11 @@ export default function AttendancePage() {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
     try {
-      const res = await fetch(`/api/attendance/guest?phone=${encodeURIComponent(emp.email)}`);
+      // Match by both phone/email AND name to catch all punch methods
+      const params = new URLSearchParams();
+      if (emp.email) params.set("phone", emp.email);
+      params.set("name", emp.name);
+      const res = await fetch(`/api/attendance/guest?${params.toString()}`);
       const data = await res.json();
       setEmpHistory(prev => ({ ...prev, [empId]: Array.isArray(data) ? data : [] }));
     } catch { setEmpHistory(prev => ({ ...prev, [empId]: [] })); }
@@ -262,12 +266,16 @@ export default function AttendancePage() {
   const stillIn = present.filter(r => !r.punchOut);
 
   // Which employees are currently punched in today (match by phone OR name) — includes punched out too
-  const punchedInKeys  = new Set([...stillIn.map((r: any) => r.phone), ...stillIn.map((r: any) => r.name)]);
-  const presentKeys    = new Set([...present.map((r: any) => r.phone), ...present.map((r: any) => r.name)]);
+  const punchedInKeys  = new Set([...stillIn.map((r: any) => r.phone), ...stillIn.map((r: any) => r.name.toLowerCase())]);
+  const presentKeys    = new Set([...present.map((r: any) => r.phone), ...present.map((r: any) => r.name.toLowerCase())]);
 
   // Helper: get today's record for an employee
   const getTodayRecord = (emp: any) =>
-    present.find((r: any) => r.phone === emp.email || r.phone === emp.phone || r.name === emp.name);
+    present.find((r: any) =>
+      r.phone === emp.email ||
+      r.phone === emp.phone ||
+      r.name.toLowerCase() === emp.name.toLowerCase()
+    );
 
   // Helper: work diff vs expected
   const getWorkDiff = (punchIn: string, punchOut: string | null, breakSecs: number) => {
@@ -313,8 +321,8 @@ export default function AttendancePage() {
         ) : (
           <div className="space-y-2">
             {employees.filter(e => e.isActive).map(emp => {
-              const isPunchedIn  = punchedInKeys.has(emp.email) || punchedInKeys.has(emp.phone) || punchedInKeys.has(emp.name);
-              const isPresent    = presentKeys.has(emp.email) || presentKeys.has(emp.phone) || presentKeys.has(emp.name);
+              const isPunchedIn  = punchedInKeys.has(emp.email) || punchedInKeys.has(emp.phone) || punchedInKeys.has(emp.name.toLowerCase());
+              const isPresent    = presentKeys.has(emp.email) || presentKeys.has(emp.phone) || presentKeys.has(emp.name.toLowerCase());
               const hasPunchedOut = isPresent && !isPunchedIn;
               const todayRecord  = getTodayRecord(emp);
               const bt           = breakTimers[emp.id];

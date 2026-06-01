@@ -252,10 +252,14 @@ export async function GET(req: Request) {
 
     // by phone = full history for one person (last 30 days)
     const phone = searchParams.get("phone");
-    if (phone) {
+    const name  = searchParams.get("name");
+    if (phone || name) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const orConditions: any[] = [];
+      if (phone) orConditions.push({ phone });
+      if (name)  orConditions.push({ name: { contains: name, mode: "insensitive" } });
       const records = await prisma.guestAttendance.findMany({
-        where:   { phone, punchIn: { gte: thirtyDaysAgo } },
+        where:   { OR: orConditions, punchIn: { gte: thirtyDaysAgo } },
         include: { location: true },
         orderBy: { punchIn: "desc" },
         take:    60,
