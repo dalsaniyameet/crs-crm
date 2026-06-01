@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/leads/housing-pull",
-      "schedule": "0 * * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/leads/follow-up?secret=crs-cron-2024",
