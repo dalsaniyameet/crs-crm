@@ -1199,7 +1199,11 @@ export default function EmployeeDetailPage() {
                     </div>
                     {d.adminNote && <p className="text-xs text-muted-foreground mt-0.5">Note: {d.adminNote}</p>}
                   </div>
-                  <a href={d.url} target="_blank" rel="noreferrer"
+                  <a
+                    href={d.url?.endsWith(".pdf") || d.url?.includes("/raw/") || d.url?.includes("application/pdf")
+                      ? `https://docs.google.com/viewer?url=${encodeURIComponent(d.url)}&embedded=true`
+                      : d.url}
+                    target="_blank" rel="noreferrer"
                     className="p-1.5 rounded-lg hover:bg-estate-500/10 text-muted-foreground hover:text-estate-400 transition-colors flex-shrink-0">
                     <ExternalLink className="w-4 h-4" />
                   </a>
