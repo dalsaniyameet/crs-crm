@@ -48,15 +48,23 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
     if (!emp) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
-    // Attendance via Attendance model (userId)
-    const attUser = await prisma.user.findUnique({ where: { email: emp.email }, select: { id: true } });
+    // Attendance via GuestAttendance model (email as phone field)
     let attendance: any[] = [];
     try {
-      attendance = attUser ? await prisma.attendance.findMany({
-        where: { userId: attUser.id },
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      attendance = await prisma.guestAttendance.findMany({
+        where: {
+          OR: [
+            { phone: emp.email },
+            { phone: emp.email.toLowerCase() },
+            { name: { contains: emp.name, mode: "insensitive" } },
+          ],
+          punchIn: { gte: thirtyDaysAgo },
+        },
+        include: { location: true },
         orderBy: { punchIn: "desc" },
         take: 60,
-      }) : [];
+      });
     } catch {}
 
     // CRM data linked via User record

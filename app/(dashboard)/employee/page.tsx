@@ -819,8 +819,8 @@ export default function EmployeePanelPage() {
                     {d.notes && <div className="text-xs text-muted-foreground">{d.notes}</div>}
                   </div>
                   <a
-                    href={d.url?.endsWith(".pdf") || d.url?.includes("/raw/") || d.url?.includes("application/pdf")
-                      ? `https://docs.google.com/viewer?url=${encodeURIComponent(d.url)}&embedded=true`
+                    href={d.url?.includes(".pdf") || d.url?.includes("/raw/") || d.url?.includes("application/pdf")
+                      ? `/api/pdf-proxy?url=${encodeURIComponent(d.url)}`
                       : d.url}
                     target="_blank" rel="noreferrer"
                     className="p-1.5 rounded-lg hover:bg-estate-500/10 text-muted-foreground hover:text-estate-400 transition-colors">

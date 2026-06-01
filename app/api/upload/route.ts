@@ -19,14 +19,19 @@ function cloudinaryUpload(
 
     // resource_type based on mime
     let resourceType = "image";
-    if (mimeType === "application/pdf" || mimeType.startsWith("application/") || mimeType.startsWith("text/")) {
+    if (mimeType.startsWith("application/") || mimeType.startsWith("text/")) {
       resourceType = "raw";
     } else if (mimeType.startsWith("video/")) {
       resourceType = "video";
     }
 
-    // signature
-    const sigStr = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+    // For PDF — use raw but add fl_inline flag via public_id trick
+    const isPdf = mimeType === "application/pdf";
+
+    // signature — include flags for pdf inline delivery
+    const sigParams: Record<string, string> = { folder, timestamp };
+    if (isPdf) sigParams["flags"] = "attachment:false";
+    const sigStr = Object.keys(sigParams).sort().map(k => `${k}=${sigParams[k]}`).join("&") + apiSecret;
     const signature = crypto.createHash("sha1").update(sigStr).digest("hex");
 
     // build multipart body manually

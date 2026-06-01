@@ -456,8 +456,8 @@ export default function EmployeeDetailPage() {
   );
 
   const uniqueAttDays = new Set(attendance.map((a: any) => new Date(a.punchIn).toDateString())).size;
-  const totalDays  = uniqueAttDays;
-  const totalHours = attendance.reduce((s: number, a: any) => s + (a.workHours || 0), 0);
+  const totalDays  = uniqueAttDays; // all records
+  const totalHours = attendance.filter((a:any) => a.punchOut).reduce((s: number, a: any) => s + (a.workHours || 0), 0);
   const pendingLeaves  = leaves.filter(l => l.status === "PENDING").length;
   const approvedLeaves = leaves.filter(l => l.status === "APPROVED").length;
   const approvedAtt    = attendance.filter((a: any) => a.approved && a.punchOut);
@@ -1200,8 +1200,8 @@ export default function EmployeeDetailPage() {
                     {d.adminNote && <p className="text-xs text-muted-foreground mt-0.5">Note: {d.adminNote}</p>}
                   </div>
                   <a
-                    href={d.url?.endsWith(".pdf") || d.url?.includes("/raw/") || d.url?.includes("application/pdf")
-                      ? `https://docs.google.com/viewer?url=${encodeURIComponent(d.url)}&embedded=true`
+                    href={d.url?.includes(".pdf") || d.url?.includes("/raw/") || d.url?.includes("application/pdf")
+                      ? `/api/pdf-proxy?url=${encodeURIComponent(d.url)}`
                       : d.url}
                     target="_blank" rel="noreferrer"
                     className="p-1.5 rounded-lg hover:bg-estate-500/10 text-muted-foreground hover:text-estate-400 transition-colors flex-shrink-0">
