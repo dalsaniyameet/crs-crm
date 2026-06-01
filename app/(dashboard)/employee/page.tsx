@@ -358,8 +358,9 @@ export default function EmployeePanelPage() {
     router.push("/sign-in");
   };
 
-  const totalDays      = attendance.filter((a: any) => a.approved).length; // only admin-approved
-  const totalHours     = attendance.filter((a: any) => a.approved).reduce((s: number, a: any) => s + (a.workHours || 0), 0);
+  const totalDays      = attendance.length; // all records shown to employee
+  const totalHours     = attendance.reduce((s: number, a: any) => s + (a.workHours || 0), 0);
+  const approvedDays   = attendance.filter((a: any) => a.approved).length; // for salary only
   const pendingLeaves  = leaves.filter(l => l.status === "PENDING").length;
   const approvedLeaves = leaves.filter(l => l.status === "APPROVED").length;
   const onBreak        = breakState.start > 0;
