@@ -1,51 +1,27 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { notifyPunchIn, notifyPunchOut } from "@/lib/notify";
 
-// Office hours (IST): Monâ€“Sat 10:00â€“19:00, Sun 16:00â€“18:00
-const SCHEDULE = {
-  weekday: { inHour: 10, inMin: 0, outHour: 19, outMin: 0 },  // Mon–Sat 10:00–19:00â€“Sat
-  sunday:  { inHour: 11, inMin: 0, outHour: 16, outMin: 0 },  // Sun 11:00–16:00
-};
+// ── Office Hours (IST): Mon–Sat 9:58 AM – 7:02 PM ───────────────────────────
+const OPEN_MIN  = 9  * 60 + 58; // 9:58 AM
+const CLOSE_MIN = 19 * 60 + 2;  // 7:02 PM
 
 function getISTDate() {
-  // Convert current UTC to IST (UTC+5:30)
-  const now = new Date();
-  const ist = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-  return ist;
+  return new Date(Date.now() + 5.5 * 60 * 60 * 1000);
 }
 
-function checkTimeWindow(type: "IN" | "OUT"): { allowed: boolean; error?: string } {
-  const ist     = getISTDate();
-  const day     = ist.getUTCDay(); // 0=Sun
-  const hour    = ist.getUTCHours();
-  const min     = ist.getUTCMinutes();
-  const current = hour * 60 + min;
-  const sched   = day === 0 ? SCHEDULE.sunday : SCHEDULE.weekday;
-
-  if (type === "IN") {
-    const open  = sched.inHour  * 60 + sched.inMin;
-    const close = sched.outHour * 60 + sched.outMin;
-    if (current < open)
-      return { allowed: false, error: `Punch In opens at ${formatTime(sched.inHour, sched.inMin)}` };
-    if (current > close)
-      return { allowed: false, error: `Punch In closed after ${formatTime(sched.outHour, sched.outMin)}` };
-  } else {
-    const earliest = sched.inHour  * 60 + sched.inMin;
-    const latest   = sched.outHour * 60 + sched.outMin + 60; // 1hr grace after closing
-    if (current < earliest)
-      return { allowed: false, error: `Punch Out not allowed before ${formatTime(sched.inHour, sched.inMin)}` };
-    if (current > latest)
-      return { allowed: false, error: `Punch Out window closed` };
-  }
+function checkOfficeHours(): { allowed: boolean; error?: string } {
+  const ist = getISTDate();
+  const day = ist.getUTCDay(); // 0 = Sunday
+  if (day === 0)
+    return { allowed: false, error: "CRM is closed on Sundays." };
+  const cur = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  if (cur < OPEN_MIN)
+    return { allowed: false, error: "Office hours start at 9:58 AM. CRM access is not available before that." };
+  if (cur > CLOSE_MIN)
+    return { allowed: false, error: "Office hours ended at 7:02 PM. CRM attendance is closed for today." };
   return { allowed: true };
-}
-
-function formatTime(h: number, m: number) {
-  const ampm = h >= 12 ? "PM" : "AM";
-  const hh   = h > 12 ? h - 12 : h === 0 ? 12 : h;
-  return `${hh}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
 export async function GET(req: Request) {
@@ -56,7 +32,6 @@ export async function GET(req: Request) {
     const url = new URL((req as any).url || "", "http://localhost");
     const employeeId = url.searchParams.get("employeeId");
 
-    // Admin fetching specific employee attendance
     if (employeeId) {
       const dbAdmin = await prisma.user.findFirst({ where: { clerkId: userId }, select: { role: true } });
       const isAdmin = dbAdmin?.role?.toUpperCase() === "ADMIN";
@@ -105,10 +80,14 @@ export async function POST(req: Request) {
 
     const { locationId, latitude, longitude, type } = await req.json();
 
+    // ── Office hours check ──
+    const timeCheck = checkOfficeHours();
+    if (!timeCheck.allowed)
+      return NextResponse.json({ error: timeCheck.error }, { status: 400 });
+
     const location = await prisma.attendanceLocation.findUnique({ where: { id: locationId } });
-    if (!location || !location.isActive) {
+    if (!location || !location.isActive)
       return NextResponse.json({ error: "Invalid location" }, { status: 400 });
-    }
 
     const distance = getDistance(latitude, longitude, location.latitude, location.longitude);
     if (distance > location.radius) {
@@ -116,12 +95,6 @@ export async function POST(req: Request) {
         { error: `You are ${Math.round(distance)}m away. Must be within ${location.radius}m of ${location.name}` },
         { status: 400 }
       );
-    }
-
-    // â”€â”€ Time window check â”€â”€
-    const timeCheck = checkTimeWindow(type);
-    if (!timeCheck.allowed) {
-      return NextResponse.json({ error: timeCheck.error }, { status: 400 });
     }
 
     const today = new Date();
@@ -138,12 +111,8 @@ export async function POST(req: Request) {
         include: { location: true },
       });
 
-      const punchInTime = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-      notifyPunchIn({
-        employeeName: user.name,
-        location:     location.name,
-        time:         punchInTime,
-      }).catch(() => {});
+      const punchInTime = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+      notifyPunchIn({ employeeName: user.name, location: location.name, time: punchInTime }).catch(() => {});
 
       return NextResponse.json(attendance);
     } else {
@@ -162,7 +131,7 @@ export async function POST(req: Request) {
         include: { location: true },
       });
 
-      const fmt = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+      const fmt = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
       notifyPunchOut({
         employeeName: user.name,
         location:     updated.location.name,

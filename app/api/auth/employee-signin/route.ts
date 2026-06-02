@@ -54,6 +54,17 @@ function clerkREST(method: string, path: string, body?: object): Promise<any> {
   });
 }
 
+// ── Office hours check (IST) 9:58 AM – 7:02 PM Mon–Sat ─────────────────────
+function checkEmployeeLoginHours(): string | null {
+  const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  const day = now.getUTCDay();
+  if (day === 0) return "CRM is closed on Sundays. See you Monday!";
+  const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
+  if (cur < 9 * 60 + 58)  return "Office hasn't started yet. CRM login opens at 9:58 AM.";
+  if (cur > 19 * 60 + 2)  return "Office hours are over. CRM login closed after 7:02 PM.";
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password, isAdmin } = await req.json();
@@ -64,6 +75,12 @@ export async function POST(req: NextRequest) {
     const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
     if (!isAdmin && adminEmails.includes(email.toLowerCase()))
       return NextResponse.json({ error: "Use Admin tab to login." }, { status: 403 });
+
+    // ── Block employee login outside office hours ──
+    if (!isAdmin) {
+      const hoursErr = checkEmployeeLoginHours();
+      if (hoursErr) return NextResponse.json({ error: hoursErr }, { status: 403 });
+    }
 
     // Find user
     const list = await clerkREST("GET", `/v1/users?email_address=${encodeURIComponent(email)}`);
@@ -97,6 +114,13 @@ export async function POST(req: NextRequest) {
     const location = await getLocationFromIP(ip);
     const loginTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", hour12: true });
 
+    // Check if employee already punched out today (re-login after punch out)
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const punchedOutToday = await prisma.guestAttendance.findFirst({
+      where: { phone: empEmail, punchOut: { not: null }, createdAt: { gte: todayStart } },
+    }).catch(() => null);
+    const isReLogin = !!punchedOutToday;
+
     // Send to ADMIN_EMAILS + all DB admins
     const dbAdminEmails = await prisma.user.findMany({
       where: { role: { in: ["ADMIN" as any, "SALES_MANAGER" as any] }, isActive: true },
@@ -107,9 +131,9 @@ export async function POST(req: NextRequest) {
 
     const loginHtml = `
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;padding:0;border-radius:12px;overflow:hidden">
-  <div style="background:#dc2626;padding:18px 24px">
-    <h2 style="color:#fff;margin:0;font-size:18px">🔐 Employee Login Alert</h2>
-    <p style="color:#fca5a5;margin:4px 0 0;font-size:13px">City Real Space CRM Security Notification</p>
+  <div style="background:${isReLogin ? '#b45309' : '#dc2626'};padding:18px 24px">
+    <h2 style="color:#fff;margin:0;font-size:18px">${isReLogin ? '⚠️ Employee Re-Login Alert' : '🔐 Employee Login Alert'}</h2>
+    <p style="color:#fca5a5;margin:4px 0 0;font-size:13px">${isReLogin ? 'This employee already punched out today and logged in again!' : 'City Real Space CRM Security Notification'}</p>
   </div>
   <div style="background:#1e293b;padding:24px">
     <table style="width:100%;border-collapse:collapse">
@@ -118,12 +142,13 @@ export async function POST(req: NextRequest) {
       <tr><td style="padding:8px 10px;color:#94a3b8;font-size:13px">Login Time</td><td style="padding:8px 10px;color:#fbbf24;font-size:14px"><strong>${loginTime}</strong></td></tr>
       <tr style="background:#0f172a"><td style="padding:8px 10px;color:#94a3b8;font-size:13px">📍 Location</td><td style="padding:8px 10px;color:#34d399;font-size:14px"><strong>${location}</strong></td></tr>
       <tr><td style="padding:8px 10px;color:#94a3b8;font-size:13px">IP Address</td><td style="padding:8px 10px;color:#94a3b8;font-size:13px">${ip}</td></tr>
+      ${isReLogin ? `<tr style="background:#0f172a"><td style="padding:8px 10px;color:#94a3b8;font-size:13px">Status</td><td style="padding:8px 10px;font-size:14px"><strong style="color:#fb923c">⚠️ Re-Login After Punch Out</strong></td></tr>` : ''}
     </table>
-    <div style="margin-top:16px;padding:12px;border:1px solid #dc2626;border-radius:8px">
-      <p style="color:#fca5a5;font-size:13px;margin:0">⚠️ If this login was not from the office, please contact admin immediately.</p>
+    <div style="margin-top:16px;padding:12px;border:1px solid ${isReLogin ? '#b45309' : '#dc2626'};border-radius:8px">
+      <p style="color:#fca5a5;font-size:13px;margin:0">${isReLogin ? '⚠️ This employee already punched out today and is logging in again. Please verify if access should be allowed.' : '⚠️ If this login was not authorized, please take action immediately.'}</p>
     </div>
     <div style="margin-top:16px">
-      <a href="${APP_URL}/admin-employees" style="display:inline-block;padding:10px 22px;background:#dc2626;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:bold">View Employee Panel →</a>
+      <a href="${APP_URL}/admin-employees" style="display:inline-block;padding:10px 22px;background:${isReLogin ? '#b45309' : '#dc2626'};color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:bold">View Employee Panel →</a>
     </div>
   </div>
   <div style="background:#0f172a;padding:12px 24px;text-align:center">
@@ -145,11 +170,11 @@ export async function POST(req: NextRequest) {
       });
       const FROM = `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`;
       await Promise.all(allAdminEmails.map(to =>
-        t.sendMail({ from: FROM, to, subject: `🔐 Employee Login: ${empName} from ${location}`, html: loginHtml }).catch(() => {})
+        t.sendMail({ from: FROM, to, subject: isReLogin ? `⚠️ Re-Login Alert: ${empName} logged in again after punch out` : `🔐 Employee Login: ${empName} from ${location}`, html: loginHtml }).catch(() => {})
       ));
     } else {
       const { sendAdminEmail } = await import("@/lib/email");
-      sendAdminEmail(`🔐 Employee Login: ${empName} from ${location}`, loginHtml).catch(() => {});
+      sendAdminEmail(isReLogin ? `⚠️ Re-Login Alert: ${empName} logged in again after punch out` : `🔐 Employee Login: ${empName} from ${location}`, loginHtml).catch(() => {});
     }
 
     return NextResponse.json({ token: tokenRes.token });

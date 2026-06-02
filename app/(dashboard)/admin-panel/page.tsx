@@ -42,6 +42,7 @@ export default function AdminPanelPage() {
   const [liveUsers, setLiveUsers]   = useState<any[]>([]);
   const [todayUsers, setTodayUsers]  = useState<any[]>([]);
   const [liveLoading, setLiveLoading] = useState(false);
+  const [sourceData, setSourceData] = useState<any[]>([]);
 
   async function fetchLive() {
     setLiveLoading(true);
@@ -66,9 +67,27 @@ export default function AdminPanelPage() {
     Promise.all([
       fetch("/api/admin/users").then(r => r.json()).catch(() => []),
       fetch("/api/reports").then(r => r.json()).catch(() => ({})),
-    ]).then(([u, r]) => {
+      fetch("/api/dashboard").then(r => r.json()).catch(() => ({})),
+    ]).then(([u, r, dash]) => {
       setUsers(Array.isArray(u) ? u : []);
       setStats(r);
+      const SOURCE_COLORS: Record<string, string> = {
+        WHATSAPP: "#25d366", ACRES99: "#eab308", MAGICBRICKS: "#f97316",
+        WEBSITE: "#0ea5e9", REFERRAL: "#ec4899", FACEBOOK: "#6366f1",
+        WALK_IN: "#a855f7", COLD_CALL: "#64748b", HOUSING: "#06b6d4",
+        GOOGLE_BUSINESS: "#ef4444", OTHER: "#94a3b8",
+      };
+      const SOURCE_LABEL: Record<string, string> = {
+        WHATSAPP: "WhatsApp", ACRES99: "99acres", MAGICBRICKS: "MagicBricks",
+        WEBSITE: "Website", REFERRAL: "Referral", FACEBOOK: "Facebook",
+        WALK_IN: "Walk In", COLD_CALL: "Cold Call", HOUSING: "Housing.com",
+        GOOGLE_BUSINESS: "Google", OTHER: "Other",
+      };
+      setSourceData((dash?.leadsBySource ?? []).map((s: any) => ({
+        name: SOURCE_LABEL[s.source] ?? s.source.replace(/_/g, " "),
+        value: s._count.id,
+        color: SOURCE_COLORS[s.source] ?? "#94a3b8",
+      })));
       setLoading(false);
     });
   }, []);
@@ -138,7 +157,7 @@ export default function AdminPanelPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">City Real Space · Full Control</p>
         </div>
-        <button onClick={() => { setLoading(true); Promise.all([fetch("/api/admin/users").then(r=>r.json()), fetch("/api/reports").then(r=>r.json())]).then(([u,r])=>{ setUsers(Array.isArray(u)?u:[]); setStats(r); setLoading(false); }); }}
+        <button onClick={() => { setLoading(true); Promise.all([fetch("/api/admin/users").then(r=>r.json()), fetch("/api/reports").then(r=>r.json()), fetch("/api/dashboard").then(r=>r.json())]).then(([u,r,dash])=>{ setUsers(Array.isArray(u)?u:[]); setStats(r); const SC: Record<string,string>={WHATSAPP:"#25d366",ACRES99:"#eab308",MAGICBRICKS:"#f97316",WEBSITE:"#0ea5e9",REFERRAL:"#ec4899",FACEBOOK:"#6366f1",WALK_IN:"#a855f7",COLD_CALL:"#64748b",HOUSING:"#06b6d4",GOOGLE_BUSINESS:"#ef4444",OTHER:"#94a3b8"}; const SL: Record<string,string>={WHATSAPP:"WhatsApp",ACRES99:"99acres",MAGICBRICKS:"MagicBricks",WEBSITE:"Website",REFERRAL:"Referral",FACEBOOK:"Facebook",WALK_IN:"Walk In",COLD_CALL:"Cold Call",HOUSING:"Housing.com",GOOGLE_BUSINESS:"Google",OTHER:"Other"}; setSourceData((dash?.leadsBySource??[]).map((s:any)=>({name:SL[s.source]??s.source.replace(/_/g," "),value:s._count.id,color:SC[s.source]??"#94a3b8"}))); setLoading(false); }); }}
           className="p-2 rounded-lg bg-white/5 border border-white/10 text-muted-foreground hover:text-white transition-all">
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </button>
@@ -217,6 +236,60 @@ export default function AdminPanelPage() {
               ))}
             </div>
           </div>
+
+          {/* Lead Sources Donut */}
+          {sourceData.length > 0 && (
+            <div className="glass-card p-5">
+              <h3 className="font-semibold text-white mb-5">Lead Sources</h3>
+              <div className="flex flex-col sm:flex-row gap-4 items-center">
+                <div className="relative flex-shrink-0" style={{ width: 160, height: 160 }}>
+                  <svg viewBox="0 0 220 220" width="160" height="160">
+                    {(() => {
+                      const total = sourceData.reduce((a: number, d: any) => a + d.value, 0);
+                      const cx = 110, cy = 110, r = 80, ir = 55;
+                      let angle = -90;
+                      return sourceData.map((s: any, i: number) => {
+                        const sweep = (s.value / total) * 360;
+                        const a1 = (angle * Math.PI) / 180;
+                        const a2 = ((angle + sweep) * Math.PI) / 180;
+                        const x1o = cx + r * Math.cos(a1), y1o = cy + r * Math.sin(a1);
+                        const x2o = cx + r * Math.cos(a2), y2o = cy + r * Math.sin(a2);
+                        const x1i = cx + ir * Math.cos(a2), y1i = cy + ir * Math.sin(a2);
+                        const x2i = cx + ir * Math.cos(a1), y2i = cy + ir * Math.sin(a1);
+                        const large = sweep > 180 ? 1 : 0;
+                        const d = `M${x1o},${y1o} A${r},${r} 0 ${large},1 ${x2o},${y2o} L${x1i},${y1i} A${ir},${ir} 0 ${large},0 ${x2i},${y2i} Z`;
+                        angle += sweep;
+                        return <path key={i} d={d} fill={s.color} opacity="0.92" />;
+                      });
+                    })()}
+                    <text x="110" y="104" textAnchor="middle" fill="white" fontSize="30" fontWeight="bold">
+                      {sourceData.reduce((s: number, d: any) => s + d.value, 0)}
+                    </text>
+                    <text x="110" y="122" textAnchor="middle" fill="#64748b" fontSize="11">Total Leads</text>
+                  </svg>
+                </div>
+                <div className="flex-1 space-y-2 min-w-0">
+                  {sourceData.map((s: any) => {
+                    const total = sourceData.reduce((a: number, d: any) => a + d.value, 0);
+                    const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
+                    return (
+                      <div key={s.name}>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                          <span className="text-xs text-white truncate flex-1">{s.name}</span>
+                          <span className="text-xs font-bold text-white">{s.value}</span>
+                          <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                        </div>
+                        <div className="h-1 rounded-full bg-white/10 ml-4">
+                          <div className="h-1 rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: s.color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Broker Performance */}
           {brokers.length > 0 && (

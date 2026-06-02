@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     const user = await getOrCreateUser(userId);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    if (user.role === "BROKER") {
+    if (user.role !== "ADMIN") {
       return NextResponse.json({ error: "Access denied. Only admin can add leads." }, { status: 403 });
     }
 

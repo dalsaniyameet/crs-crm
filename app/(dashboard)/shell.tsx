@@ -731,7 +731,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             {[
               { href: "/dashboard",   icon: Home,        label: "Home" },
               { href: "/leads",       icon: Users,       label: "Leads" },
-              { href: "/properties",  icon: Building2,   label: "Props" },
+              ...(role === "ADMIN" || role === "SALES_MANAGER" || role === "MARKETING" ? [{ href: "/properties", icon: Building2, label: "Props" }] : []),
               { href: "/deals",       icon: TrendingUp,  label: "Deals" },
               { href: role === "ADMIN" ? "/attendance" : "/employee", icon: UserCircle, label: role === "ADMIN" ? "Attend" : "Me" },
             ].map(item => {

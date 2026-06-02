@@ -74,7 +74,7 @@ export default function LeadsPage() {
   const { user, isLoaded } = useUser();
   const role = ((user?.publicMetadata?.role as string) || "BROKER").toUpperCase();
   const isAdmin = role === "ADMIN";
-  const canSeeAll = role === "ADMIN" || role === "SALES_MANAGER" || role === "MARKETING";
+  const canSeeAll = role === "ADMIN";
 
   const [leads, setLeads]           = useState<Lead[]>([]);
   const [total, setTotal]           = useState(0);

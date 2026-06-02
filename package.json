@@ -67,7 +67,6 @@
     "svix": "^1.93.0",
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7",
-    "twilio": "^5.0.3",
     "uuid": "^9.0.1",
     "xlsx": "^0.18.5",
     "xlsx-js-style": "^1.2.0",

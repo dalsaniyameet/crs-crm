@@ -5,7 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import {
   Megaphone, Send, Users, Mail, MessageSquare, Plus, Eye,
   Loader2, X, CreditCard, Building2, Phone, CheckSquare, Square,
-  ImageIcon, Trash2, RefreshCw, UserCheck,
+  ImageIcon, Trash2, RefreshCw, UserCheck, Copy, Check, Sparkles,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -27,7 +27,9 @@ export default function MarketingPage() {
   const { user } = useUser();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [activeTab, setActiveTab] = useState<"blast" | "emp" | "campaigns">("blast");
+  const [activeTab, setActiveTab] = useState<"blast" | "emp" | "campaigns" | "social">("blast");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [postForm, setPostForm] = useState({ type: "OFFICE", area: "", locality: "", price: "", bhk: "", extra: "" });
 
   // ── Owner Blast ──
   const [owners, setOwners]           = useState<any[]>([]);
@@ -160,12 +162,77 @@ export default function MarketingPage() {
     }).catch(() => {});
   };
 
+  const SOCIAL_POSTS = [
+    {
+      id: "p1",
+      platforms: ["Instagram", "Facebook"],
+      category: "🏢 Commercial",
+      text: `🏢 PRIME OFFICE SPACE AVAILABLE!\n\n📍 Location: Ahmedabad\n✅ Ready to Move\n💼 Ideal for Corporates & Startups\n🔑 Flexible Lease Terms\n\n📞 Call/WhatsApp: +91 XXXXX XXXXX\n\n🏙️ City Real Space — Ahmedabad's Trusted Property Broker\n\n#AhmedabadRealEstate #OfficeSpace #CommercialProperty #CityRealSpace #AhmedabadOffice #PropertyAhmedabad`,
+    },
+    {
+      id: "p2",
+      platforms: ["Instagram", "WhatsApp Status"],
+      category: "🏠 Residential",
+      text: `🏠 DREAM HOME ALERT! 🌟\n\n✨ Beautiful Apartment Available\n📍 Prime Location — Ahmedabad\n🛏️ Spacious Rooms | Modern Amenities\n💰 Best Price in the Area!\n\nInterested? DM us or Call Now! 📲\n+91 XXXXX XXXXX\n\n🏙️ City Real Space\nAhmedabad's #1 Property Broker\n\n#AhmedabadHomes #FlatForSale #ApartmentAhmedabad #RealEstateAhmedabad #CityRealSpace`,
+    },
+    {
+      id: "p3",
+      platforms: ["Facebook", "WhatsApp Status"],
+      category: "🏪 Shop / Showroom",
+      text: `🏪 SHOP / SHOWROOM FOR RENT!\n\n📍 High Footfall Area — Ahmedabad\n🚗 Ample Parking Available\n⚡ 24/7 Power Backup\n🔐 Gated Complex with Security\n\n💼 Perfect for Retail, Showroom, Restaurant\n\n📞 Contact: +91 XXXXX XXXXX\n🌐 City Real Space, Ahmedabad\n\n#ShopForRent #ShowroomAhmedabad #CommercialRent #AhmedabadBusiness #CityRealSpace`,
+    },
+    {
+      id: "p4",
+      platforms: ["Instagram", "Facebook"],
+      category: "📣 Owner Connect",
+      text: `📣 PROPERTY OWNERS — WE NEED YOUR LISTINGS!\n\n🏢 Office | 🏪 Shop | 🏠 Flat | 🏭 Warehouse\n\nAre you looking to RENT or SELL your property?\n\n✅ Free Listing\n✅ Verified Buyers & Tenants\n✅ Quick Closure\n✅ Best Market Price\n\nContact us TODAY!\n📞 +91 XXXXX XXXXX\n📍 City Real Space, Ahmedabad\n\n#PropertyOwners #RentYourProperty #SellProperty #AhmedabadRealEstate #CityRealSpace`,
+    },
+    {
+      id: "p5",
+      platforms: ["WhatsApp Status", "Instagram"],
+      category: "💼 Why Choose Us",
+      text: `💼 WHY CHOOSE CITY REAL SPACE?\n\n✅ 500+ Happy Clients\n✅ 10+ Years Experience\n✅ Commercial & Residential Experts\n✅ Transparent Deals — No Hidden Charges\n✅ Pan-Ahmedabad Coverage\n\n🏙️ Your Trusted Real Estate Partner\n\n📞 Call Now: +91 XXXXX XXXXX\n📍 Ahmedabad, Gujarat\n\n#CityRealSpace #TrustedBroker #AhmedabadRealEstate #PropertyBroker #RealEstateExperts`,
+    },
+    {
+      id: "p6",
+      platforms: ["Facebook", "Instagram"],
+      category: "🏭 Warehouse / Industrial",
+      text: `🏭 WAREHOUSE / GODOWN AVAILABLE!\n\n📍 Strategic Location — Ahmedabad\n📦 Large Storage Space\n🚛 Easy Truck Access\n⚡ Heavy Power Load Available\n🔐 24/7 Security\n\n✅ Ideal for Manufacturing, Logistics & Storage\n\n📞 +91 XXXXX XXXXX\n🏙️ City Real Space, Ahmedabad\n\n#WarehouseForRent #GodownAhmedabad #IndustrialProperty #LogisticsAhmedabad #CityRealSpace`,
+    },
+    {
+      id: "p7",
+      platforms: ["Instagram", "WhatsApp Status"],
+      category: "🌟 Festive / Special",
+      text: `🌟 SPECIAL PROPERTY DEALS THIS SEASON!\n\n🏢 Office Spaces\n🏪 Shops & Showrooms\n🏠 Residential Flats\n🏭 Warehouses & Godowns\n\nAll at BEST PRICES in Ahmedabad! 🎉\n\n📞 Call/WhatsApp: +91 XXXXX XXXXX\n\n🏙️ City Real Space\nAhmedabad | Gujarat\n\n#PropertyDeals #AhmedabadRealEstate #BestPrice #CityRealSpace #RealEstate2025`,
+    },
+  ];
+
+  const generateCustomPost = () => {
+    const { type, area, locality, price, bhk, extra } = postForm;
+    const isResidential = ["APARTMENT", "VILLA", "STUDIO", "PENTHOUSE"].includes(type);
+    const emoji = { OFFICE: "🏢", SHOP: "🏪", SHOWROOM: "🏪", WAREHOUSE: "🏭", APARTMENT: "🏠", VILLA: "🏡", PLOT: "🌳", PENTHOUSE: "🏙️", STUDIO: "🛋️", COMMERCIAL_LAND: "🌍", INDUSTRIAL: "🏭" }[type] || "🏢";
+    return `${emoji} ${type.replace("_", " ")} ${isResidential ? "FOR SALE/RENT" : "AVAILABLE"}!\n\n📍 Location: ${locality || "Ahmedabad"}${area ? `\n📐 Area: ${area} sq.ft` : ""}${bhk ? `\n🛏️ ${bhk} BHK` : ""}${price ? `\n💰 Price: ₹${price}` : ""}\n✅ Ready to Move\n${extra ? `\n${extra}\n` : ""}\n📞 Call/WhatsApp: +91 XXXXX XXXXX\n🏙️ City Real Space, Ahmedabad\n\n#AhmedabadRealEstate #CityRealSpace #${type.replace("_", "")}Ahmedabad #PropertyAhmedabad`;
+  };
+
+  const copyPost = (id: string, text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      toast.success("Post copied! Paste karo Instagram/Facebook pe 🚀");
+      setTimeout(() => setCopiedId(null), 3000);
+    });
+  };
+
   const filteredOwners = owners.filter(o =>
     !search || o.name?.toLowerCase().includes(search.toLowerCase()) ||
     o.phone?.includes(search) || o.locality?.toLowerCase().includes(search.toLowerCase())
   );
 
   const inputCls = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50";
+  const PLATFORM_COLORS: Record<string, string> = {
+    "Instagram": "bg-pink-500/15 text-pink-400 border-pink-500/20",
+    "Facebook": "bg-blue-500/15 text-blue-400 border-blue-500/20",
+    "WhatsApp Status": "bg-green-500/15 text-green-400 border-green-500/20",
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-5">
@@ -184,6 +251,7 @@ export default function MarketingPage() {
           { id: "blast",     label: "📱 Owner Blast" },
           { id: "emp",       label: "👥 Employee" },
           { id: "campaigns", label: "📊 Campaigns" },
+          { id: "social",    label: "✨ Social Posts" },
         ] as const).map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
             className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
@@ -446,6 +514,106 @@ export default function MarketingPage() {
                 </button>
               </div>
             )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── SOCIAL POSTS TAB ── */}
+      {activeTab === "social" && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+
+          {/* Custom Post Generator */}
+          <div className="glass-card p-5 space-y-4">
+            <h3 className="font-semibold text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-yellow-400" /> Custom Property Post Generator
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Property Type</label>
+                <select value={postForm.type} onChange={e => setPostForm(p => ({ ...p, type: e.target.value }))}
+                  className={inputCls}>
+                  {["OFFICE","SHOP","SHOWROOM","WAREHOUSE","APARTMENT","VILLA","PLOT","PENTHOUSE","STUDIO","COMMERCIAL_LAND","INDUSTRIAL"].map(t => (
+                    <option key={t} value={t} className="bg-gray-900">{t.replace("_"," ")}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Area (sq.ft)</label>
+                <input value={postForm.area} onChange={e => setPostForm(p => ({ ...p, area: e.target.value }))}
+                  placeholder="e.g. 1200" className={inputCls} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Locality</label>
+                <input value={postForm.locality} onChange={e => setPostForm(p => ({ ...p, locality: e.target.value }))}
+                  placeholder="e.g. Prahlad Nagar" className={inputCls} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Price / Rent</label>
+                <input value={postForm.price} onChange={e => setPostForm(p => ({ ...p, price: e.target.value }))}
+                  placeholder="e.g. 45 Lakh" className={inputCls} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">BHK (if residential)</label>
+                <input value={postForm.bhk} onChange={e => setPostForm(p => ({ ...p, bhk: e.target.value }))}
+                  placeholder="e.g. 3" className={inputCls} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Extra Line</label>
+                <input value={postForm.extra} onChange={e => setPostForm(p => ({ ...p, extra: e.target.value }))}
+                  placeholder="e.g. Parking included" className={inputCls} />
+              </div>
+            </div>
+            <div className="relative">
+              <pre className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white whitespace-pre-wrap font-sans leading-relaxed">
+                {generateCustomPost()}
+              </pre>
+              <button
+                onClick={() => copyPost("custom", generateCustomPost())}
+                className={`absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  copiedId === "custom"
+                    ? "bg-green-500/20 border-green-500/30 text-green-400"
+                    : "bg-white/10 border-white/20 text-muted-foreground hover:text-white"
+                }`}>
+                {copiedId === "custom" ? <><Check className="w-3.5 h-3.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+              </button>
+            </div>
+          </div>
+
+          {/* Ready-made Templates */}
+          <div>
+            <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-estate-400" /> Ready-Made Post Templates
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {SOCIAL_POSTS.map(post => (
+                <div key={post.id} className="glass-card p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-white">{post.category}</span>
+                    <div className="flex gap-1.5">
+                      {post.platforms.map(p => (
+                        <span key={p} className={`text-xs px-2 py-0.5 rounded-full border ${PLATFORM_COLORS[p] || "bg-white/10 text-white border-white/20"}`}>
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed line-clamp-6 bg-white/3 rounded-lg p-3">
+                    {post.text}
+                  </pre>
+                  <button
+                    onClick={() => copyPost(post.id, post.text)}
+                    className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all border ${
+                      copiedId === post.id
+                        ? "bg-green-500/20 border-green-500/30 text-green-400"
+                        : "bg-white/5 border-white/10 text-muted-foreground hover:text-white hover:bg-white/10"
+                    }`}>
+                    {copiedId === post.id
+                      ? <><Check className="w-3.5 h-3.5" /> Copied to Clipboard!</>
+                      : <><Copy className="w-3.5 h-3.5" /> Copy Post</>}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </motion.div>
       )}

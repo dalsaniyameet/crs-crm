@@ -46,7 +46,7 @@ export default function LiveLocationPage() {
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Navigation className="w-6 h-6 text-emerald-400" /> Live Location
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Employees ki real-time location — last 10 min active</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Employees real-time location — active in last 10 min</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
@@ -74,8 +74,8 @@ export default function LiveLocationPage() {
       ) : users.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Navigation className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Koi employee abhi active nahi</p>
-          <p className="text-xs mt-1 opacity-60">Jab employee CRM open karega aur location allow karega, yahan dikhega</p>
+          <p className="text-sm">No employees active right now</p>
+          <p className="text-xs mt-1 opacity-60">Employees will appear here when they open the CRM and allow location</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -134,21 +134,22 @@ export default function LiveLocationPage() {
                   </span>
                 </div>
 
-                {/* OpenStreetMap embed */}
-                <a href={mapsUrl} target="_blank" rel="noreferrer" className="block relative">
+                {/* OpenStreetMap embed — click opens Google Maps */}
+                <div className="relative cursor-pointer" onClick={() => window.open(mapsUrl, "_blank")}>
                   <div className="w-full h-44 relative overflow-hidden">
                     <iframe
                       src={`https://www.openstreetmap.org/export/embed.html?bbox=${u.liveLongitude - 0.004},${u.liveLatitude - 0.004},${u.liveLongitude + 0.004},${u.liveLatitude + 0.004}&layer=mapnik&marker=${u.liveLatitude},${u.liveLongitude}`}
                       className="w-full h-full border-0 pointer-events-none"
                       title={`${u.name} location`}
                     />
+                    <div className="absolute inset-0 bg-transparent" />
                     <div className="absolute bottom-2 right-2">
                       <span className="text-xs bg-black/70 text-white px-2 py-1 rounded-lg">
-                        🗺️ Google Maps pe kholo
+                        🗺️ Open in Google Maps
                       </span>
                     </div>
                   </div>
-                </a>
+                </div>
               </motion.div>
             );
           })}
@@ -156,7 +157,7 @@ export default function LiveLocationPage() {
       )}
 
       <p className="text-xs text-muted-foreground text-center">
-        Auto-refresh: 30 sec · Employee location update: 30 sec (CRM open hone par)
+        Auto-refresh: 30 sec · Employee location updates every 30 sec when CRM is open
       </p>
     </div>
   );

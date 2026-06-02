@@ -9,7 +9,7 @@ import nodemailer from "nodemailer";
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "meetdalsaniya143@gmail.com,info@cityrealspace.com")
   .split(",").map(e => e.trim()).filter(Boolean);
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://crs-crm.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://cityrealspacecrm.com";
 const FROM    = `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`;
 
 // ── Resend API (Vercel-friendly) ──────────────────────────────────────────────

@@ -3,10 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { sendAdminEmail, newLeadEmailHtml, newLeadMessageEmailHtml } from "@/lib/email";
 
-const XML_EMPTY = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
-const XML_HEADERS = { "Content-Type": "text/xml" };
+// ── WATI Webhook payload shape ──
+// { waId, senderName, text: { body }, type, media: { url } }
 
-// Check owner-client match: if owner replied, find active leads matching their property type
 async function checkOwnerClientMatch(ownerId: string, ownerName: string) {
   try {
     const ownerProps = await prisma.property.findMany({
@@ -23,13 +22,11 @@ async function checkOwnerClientMatch(ownerId: string, ownerName: string) {
           transactionType: prop.transactionType || undefined,
           ...(prop.price ? { budget: { gte: prop.price * 0.8 } } : {}),
         },
-        select: { id: true, name: true, phone: true, requirements: true },
+        select: { id: true, name: true, phone: true },
         take: 5,
       });
-
       if (!matchingLeads.length) continue;
 
-      // Notify admins with match alert
       const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true }, select: { id: true } });
       await Promise.all(admins.map(a =>
         prisma.notification.create({
@@ -37,12 +34,8 @@ async function checkOwnerClientMatch(ownerId: string, ownerName: string) {
             userId:  a.id,
             type:    "PROPERTY_MATCH",
             title:   `🔥 Owner-Client Match! ${ownerName}`,
-            message: `Owner *${ownerName}* replied. Property "${prop.title}" matches ${matchingLeads.length} active lead(s)! Check WP Inbox.`,
-            metadata: {
-              ownerId,
-              propertyTitle: prop.title,
-              matchedLeads:  matchingLeads.map(l => ({ id: l.id, name: l.name })),
-            },
+            message: `Owner *${ownerName}* replied. Property "${prop.title}" matches ${matchingLeads.length} active lead(s)!`,
+            metadata: { ownerId, propertyTitle: prop.title, matchedLeads: matchingLeads.map(l => ({ id: l.id, name: l.name })) },
           },
         }).catch(() => {})
       ));
@@ -51,34 +44,37 @@ async function checkOwnerClientMatch(ownerId: string, ownerName: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const body        = await req.formData();
-  const from        = body.get("From")        as string;
-  const toNumber    = body.get("To")          as string; // which of our 4 WP numbers
-  const messageBody = body.get("Body")        as string;
-  const profileName = body.get("ProfileName") as string;
-  const mediaUrl    = body.get("MediaUrl0")   as string | null;
+  let body: any;
+  try { body = await req.json(); } catch { return NextResponse.json({ ok: true }); }
 
-  const phone    = from.replace("whatsapp:+91", "").replace("whatsapp:+", "").replace(/\D/g, "").slice(-10);
-  const ourPhone = toNumber.replace("whatsapp:+91", "").replace("whatsapp:+", "").replace(/\D/g, "").slice(-10);
+  // WATI webhook format
+  const phone       = (body.waId || "").replace(/\D/g, "").slice(-10);
+  const profileName = body.senderName || "";
+  const messageBody = body.text?.body || body.caption || "";
+  const mediaUrl    = body.media?.url || null;
 
-  // Find which WP number received this message
-  const wpNumber = await prisma.wpNumber.findFirst({ where: { number: { endsWith: ourPhone } } });
+  if (!phone) return NextResponse.json({ ok: true });
 
-  // Identify sender — owner or lead
+  // Find WP number that received this (WATI sends whatsappNumber in payload)
+  const ourPhone = (body.whatsappNumber || "").replace(/\D/g, "").slice(-10);
+  const wpNumber = ourPhone
+    ? await prisma.wpNumber.findFirst({ where: { number: { endsWith: ourPhone } } })
+    : null;
+
   const owner = await prisma.propertyOwner.findFirst({ where: { phone: { endsWith: phone } } });
   const lead  = await prisma.lead.findFirst({ where: { phone } });
 
-  // Save to WP Inbox (all messages from all 4 numbers)
+  // Save to WP Inbox
   if (wpNumber) {
     await prisma.wpInbox.create({
       data: {
-        wpNumberId:      wpNumber.id,
-        fromPhone:       phone,
-        fromName:        profileName || owner?.name || lead?.name || null,
-        message:         messageBody || null,
-        mediaUrl:        mediaUrl    || null,
-        matchedLeadId:   lead?.id    || null,
-        matchedOwnerId:  owner?.id   || null,
+        wpNumberId:     wpNumber.id,
+        fromPhone:      phone,
+        fromName:       profileName || owner?.name || lead?.name || null,
+        message:        messageBody || null,
+        mediaUrl:       mediaUrl    || null,
+        matchedLeadId:  lead?.id    || null,
+        matchedOwnerId: owner?.id   || null,
       },
     }).catch(() => {});
   }
@@ -88,7 +84,6 @@ export async function POST(req: NextRequest) {
     await prisma.ownerMessage.create({
       data: { ownerId: owner.id, direction: "IN", message: messageBody || "", mediaUrl: mediaUrl || null },
     });
-    // Check if owner's property matches any active client
     checkOwnerClientMatch(owner.id, owner.name).catch(() => {});
 
     const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true }, select: { id: true } });
@@ -99,15 +94,14 @@ export async function POST(req: NextRequest) {
       `WhatsApp from Owner: ${owner.name}`,
       newLeadMessageEmailHtml({ leadName: owner.name, leadPhone: phone, message: messageBody || "(media)", channel: "WhatsApp (Owner)" })
     ).catch(() => {});
-    return new NextResponse(XML_EMPTY, { headers: XML_HEADERS });
+    return NextResponse.json({ ok: true });
   }
 
-  // ── Lead / new client ──
+  // ── New lead ──
   if (!lead) {
     const newLead = await prisma.lead.create({
       data: { name: profileName || "WhatsApp Lead", phone, source: "WHATSAPP", requirements: messageBody, status: "NEW" },
     });
-    // Update inbox with new lead id
     if (wpNumber) await prisma.wpInbox.updateMany({ where: { fromPhone: phone, matchedLeadId: null }, data: { matchedLeadId: newLead.id } }).catch(() => {});
 
     await sendWhatsApp(phone,
@@ -135,5 +129,5 @@ export async function POST(req: NextRequest) {
     ).catch(() => {});
   }
 
-  return new NextResponse(XML_EMPTY, { headers: XML_HEADERS });
+  return NextResponse.json({ ok: true });
 }

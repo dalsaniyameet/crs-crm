@@ -225,10 +225,11 @@ export default function EmployeePanelPage() {
     setUploadingPhoto(false);
   };
 
+  const [logoutCountdown, setLogoutCountdown] = useState<number | null>(null);
+
   const handlePunch = async (type: "IN" | "OUT", faceImage?: string) => {
     if (!locations[0]) { toast.error("No office location configured"); return; }
     setPunching(true);
-    // Calculate total break seconds including any ongoing break
     const totalBreakSecs = breakState.total + (breakState.start > 0 ? Math.floor((Date.now() - breakState.start) / 1000) : 0);
     const res = await fetch("/api/attendance/guest", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -238,11 +239,34 @@ export default function EmployeePanelPage() {
       }),
     });
     const data = await res.json();
-    if (!res.ok) toast.error(data.error || "Failed");
-    else if (type === "IN") { toast.success("Punched in! 🎯"); setTodayRecord(data.record); fetchData(); }
-    else { toast.success(`Punched out! ${data.record?.workHours?.toFixed(1) || 0}h worked 💪`); setTodayRecord(null); setBreakState({ start: 0, total: 0 }); fetchData(); }
+    if (!res.ok) {
+      toast.error(data.error || "Failed");
+    } else if (type === "IN") {
+      toast.success("Punched in! 🎯");
+      setTodayRecord(data.record);
+      fetchData();
+    } else {
+      // Punch OUT — start 15s countdown then auto logout
+      const hrs = data.record?.workHours?.toFixed(1) || 0;
+      toast.success(`Punched out! ${hrs}h worked 💪`);
+      setTodayRecord(null);
+      setBreakState({ start: 0, total: 0 });
+      fetchData();
+      setLogoutCountdown(15);
+    }
     setPunching(false);
   };
+
+  // Auto logout countdown after punch out
+  useEffect(() => {
+    if (logoutCountdown === null) return;
+    if (logoutCountdown === 0) {
+      signOut().then(() => router.push("/sign-in")).catch(() => router.push("/sign-in"));
+      return;
+    }
+    const t = setTimeout(() => setLogoutCountdown(c => (c ?? 1) - 1), 1000);
+    return () => clearTimeout(t);
+  }, [logoutCountdown, signOut, router]);
 
   const toggleBreak = () => {
     setBreakState(prev => {
@@ -372,6 +396,34 @@ export default function EmployeePanelPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-3xl mx-auto">
+
+      {/* Auto Logout Countdown Banner */}
+      <AnimatePresence>
+        {logoutCountdown !== null && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="glass-card p-8 text-center max-w-sm mx-4 border border-red-500/30">
+              <div className="text-5xl mb-4">🔴</div>
+              <h2 className="text-xl font-bold text-white mb-2">Punched Out Successfully</h2>
+              <p className="text-muted-foreground text-sm mb-6">You will be logged out automatically in</p>
+              <div className="text-6xl font-bold text-red-400 font-mono mb-6">{logoutCountdown}</div>
+              <div className="w-full bg-white/10 rounded-full h-2 mb-6">
+                <motion.div
+                  className="h-2 rounded-full bg-red-400"
+                  animate={{ width: `${(logoutCountdown / 15) * 100}%` }}
+                  transition={{ duration: 0.9 }}
+                />
+              </div>
+              <button
+                onClick={() => { setLogoutCountdown(null); signOut().then(() => router.push("/sign-in")); }}
+                className="w-full py-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-semibold hover:bg-red-500/30 transition-all">
+                Logout Now
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Face Punch Modal */}
       <AnimatePresence>
