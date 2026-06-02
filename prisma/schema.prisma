@@ -831,6 +831,24 @@ model WpInbox {
   @@map("wp_inbox")
 }
 
+// ─── OVERTIME / AFTER-HOURS LOGIN APPROVAL ──────────────────────────────────
+model OvertimeApproval {
+  id         String    @id @default(cuid())
+  empEmail   String
+  empName    String
+  loginTime  String
+  location   String
+  ip         String
+  status     String    @default("PENDING") // PENDING, APPROVED, DENIED
+  token      String?   // Clerk sign-in token set after admin approves
+  expiresAt  DateTime
+  approvedAt DateTime?
+  deniedAt   DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@map("overtime_approvals")
+}
+
 // ─── DAILY REPORT ────────────────────────────────────────────────────────────
 model DailyReport {
   id                String          @id @default(cuid())

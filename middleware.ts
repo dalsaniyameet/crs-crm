@@ -14,6 +14,7 @@ const isPublic = createRouteMatcher([
   "/api/auth/verify-employee",
   "/api/auth/check-admin",
   "/api/auth/employee-signin",
+  "/api/auth/overtime-approval",
   "/api/google/callback",
   "/api/google/calendar",
   "/api/leads/follow-up",

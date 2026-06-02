@@ -76,10 +76,91 @@ export async function POST(req: NextRequest) {
     if (!isAdmin && adminEmails.includes(email.toLowerCase()))
       return NextResponse.json({ error: "Use Admin tab to login." }, { status: 403 });
 
-    // ── Block employee login outside office hours ──
+    // ── After office hours: create approval request instead of blocking ──
     if (!isAdmin) {
       const hoursErr = checkEmployeeLoginHours();
-      if (hoursErr) return NextResponse.json({ error: hoursErr }, { status: 403 });
+      if (hoursErr) {
+        // Verify password first before creating request
+        const listCheck = await clerkREST("GET", `/v1/users?email_address=${encodeURIComponent(email)}`);
+        const usersCheck = listCheck.data ?? listCheck;
+        if (!usersCheck.length)
+          return NextResponse.json({ error: "No account found. Contact your admin." }, { status: 404 });
+        const verifyCheck = await clerkREST("POST", `/v1/users/${usersCheck[0].id}/verify_password`, { password });
+        if (!verifyCheck.verified)
+          return NextResponse.json({ error: "Incorrect password. Please enter the password provided by your admin." }, { status: 401 });
+
+        const ipOt = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "Unknown";
+        const locationOt = await getLocationFromIP(ipOt);
+        const loginTimeOt = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", hour12: true });
+        const empEmailOt  = usersCheck[0].email_addresses?.[0]?.email_address || email;
+        const empNameOt   = [usersCheck[0].first_name, usersCheck[0].last_name].filter(Boolean).join(" ") || empEmailOt;
+
+        // Create approval request (expires in 2 hours)
+        const approval = await prisma.overtimeApproval.create({
+          data: {
+            empEmail:  empEmailOt,
+            empName:   empNameOt,
+            loginTime: loginTimeOt,
+            location:  locationOt,
+            ip:        ipOt,
+            expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          },
+        });
+
+        // Send approval email to all admins
+        const dbAdminEmailsOt = await prisma.user.findMany({
+          where: { role: { in: ["ADMIN" as any] }, isActive: true },
+          select: { email: true },
+        }).then(rows => rows.map(r => r.email).filter(Boolean)).catch(() => [] as string[]);
+        const envEmailsOt = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim()).filter(Boolean);
+        const allAdminEmailsOt = [...new Set([...envEmailsOt, ...dbAdminEmailsOt])];
+
+        const approveUrl = `${APP_URL}/api/auth/overtime-approval?id=${approval.id}&action=APPROVED`;
+        const denyUrl    = `${APP_URL}/api/auth/overtime-approval?id=${approval.id}&action=DENIED`;
+
+        const approvalHtml = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;padding:0;border-radius:12px;overflow:hidden">
+  <div style="background:#b45309;padding:18px 24px">
+    <h2 style="color:#fff;margin:0;font-size:18px">⏰ After-Hours Login Request</h2>
+    <p style="color:#fde68a;margin:4px 0 0;font-size:13px">Employee wants to access CRM outside office hours</p>
+  </div>
+  <div style="background:#1e293b;padding:24px">
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:8px 10px;color:#94a3b8;font-size:13px;width:130px">Employee</td><td style="padding:8px 10px;color:#fff;font-size:14px"><strong>${empNameOt}</strong></td></tr>
+      <tr style="background:#0f172a"><td style="padding:8px 10px;color:#94a3b8;font-size:13px">Email</td><td style="padding:8px 10px;color:#fff;font-size:14px">${empEmailOt}</td></tr>
+      <tr><td style="padding:8px 10px;color:#94a3b8;font-size:13px">Login Time</td><td style="padding:8px 10px;color:#fbbf24;font-size:14px"><strong>${loginTimeOt}</strong></td></tr>
+      <tr style="background:#0f172a"><td style="padding:8px 10px;color:#94a3b8;font-size:13px">📍 Location</td><td style="padding:8px 10px;color:#34d399;font-size:14px"><strong>${locationOt}</strong></td></tr>
+      <tr><td style="padding:8px 10px;color:#94a3b8;font-size:13px">IP Address</td><td style="padding:8px 10px;color:#94a3b8;font-size:13px">${ipOt}</td></tr>
+    </table>
+    <p style="color:#fde68a;font-size:13px;margin:16px 0 8px">⚠️ This request expires in 2 hours. Please approve or deny:</p>
+    <div style="display:flex;gap:12px;margin-top:12px">
+      <a href="${approveUrl}" style="display:inline-block;padding:12px 28px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;font-size:15px;font-weight:bold">✅ Approve</a>
+      <a href="${denyUrl}" style="display:inline-block;padding:12px 28px;background:#dc2626;color:#fff;text-decoration:none;border-radius:6px;font-size:15px;font-weight:bold">❌ Deny</a>
+    </div>
+  </div>
+  <div style="background:#0f172a;padding:12px 24px;text-align:center">
+    <p style="color:#475569;font-size:11px;margin:0">City Real Space | Ahmedabad | cityrealspacecrm.com</p>
+  </div>
+</div>`;
+
+        const nodemailerOt = (await import("nodemailer")).default;
+        const portOt = parseInt(process.env.EMAIL_PORT || "465");
+        const secureOt = process.env.EMAIL_SECURE === "true" || portOt === 465;
+        if (process.env.EMAIL_PASS && process.env.EMAIL_PASS !== "YOUR_EMAIL_PASSWORD") {
+          const t = nodemailerOt.createTransport({
+            host: process.env.EMAIL_HOST || "smtpout.secureserver.net",
+            port: portOt, secure: secureOt,
+            auth: { user: process.env.EMAIL_USER || "info@cityrealspace.com", pass: process.env.EMAIL_PASS },
+            tls: { rejectUnauthorized: false }, connectionTimeout: 15000,
+          });
+          const FROM = `"City Real Space CRM" <${process.env.EMAIL_USER || "info@cityrealspace.com"}>`;
+          await Promise.all(allAdminEmailsOt.map(to =>
+            t.sendMail({ from: FROM, to, subject: `⏰ Overtime Login Request: ${empNameOt} at ${loginTimeOt}`, html: approvalHtml }).catch(() => {})
+          ));
+        }
+
+        return NextResponse.json({ requiresApproval: true, approvalId: approval.id });
+      }
     }
 
     // Find user

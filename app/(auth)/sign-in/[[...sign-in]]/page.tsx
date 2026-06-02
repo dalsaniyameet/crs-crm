@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSignIn, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -7,13 +7,12 @@ import { Loader2, LogIn, Lock, Mail, Shield, Clock } from "lucide-react";
 
 type Tab = "admin" | "employee";
 
-// ── Office hours check (IST) ─────────────────────────────────────────────────
-const OPEN_MIN  = 9  * 60 + 58; // 9:58 AM
-const CLOSE_MIN = 19 * 60 + 2;  // 7:02 PM
+const OPEN_MIN  = 9  * 60 + 58;
+const CLOSE_MIN = 19 * 60 + 2;
 
 function getOfficeHoursError(): string | null {
-  const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000); // IST
-  const day = now.getUTCDay(); // 0 = Sunday
+  const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  const day = now.getUTCDay();
   if (day === 0) return "CRM is closed on Sundays. See you Monday!";
   const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
   if (cur < OPEN_MIN)  return "Office hasn't started yet. CRM login opens at 9:58 AM.";
@@ -26,25 +25,30 @@ export default function SignInPage() {
   const { isSignedIn } = useAuth();
   const router = useRouter();
 
-  const [tab, setTab]         = useState<Tab>("admin");
-  const [error, setError]     = useState("");
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab]               = useState<Tab>("admin");
+  const [error, setError]           = useState("");
+  const [loading, setLoading]       = useState(false);
 
-  // Admin fields
+  // Admin
   const [adminEmail, setAdminEmail]       = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminMode, setAdminMode]         = useState<"oauth" | "password">("oauth");
 
-  // Employee fields
+  // Employee
   const [empEmail, setEmpEmail]       = useState("");
   const [empPassword, setEmpPassword] = useState("");
+
+  // After-hours approval waiting
+  const [approvalId, setApprovalId]         = useState<string | null>(null);
+  const [approvalStatus, setApprovalStatus] = useState<"PENDING" | "APPROVED" | "DENIED" | "EXPIRED">("PENDING");
+  const [approvalToken, setApprovalToken]   = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!isSignedIn) return;
     router.replace("/dashboard");
   }, [isSignedIn, router]);
 
-  // Show outside-hours message if redirected from middleware
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("reason") === "outside-hours") {
@@ -53,7 +57,41 @@ export default function SignInPage() {
     }
   }, []);
 
-  // ── Admin Login ──────────────────────────────────────────────────────────
+  // Poll for approval status every 5s
+  useEffect(() => {
+    if (!approvalId) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const res  = await fetch(`/api/auth/overtime-approval?id=${approvalId}&poll=1`);
+        const data = await res.json();
+        setApprovalStatus(data.status);
+        if (data.status === "APPROVED" && data.token) {
+          setApprovalToken(data.token);
+          clearInterval(pollRef.current!);
+        }
+        if (data.status === "DENIED" || data.status === "EXPIRED") {
+          clearInterval(pollRef.current!);
+        }
+      } catch {}
+    }, 5000);
+    return () => clearInterval(pollRef.current!);
+  }, [approvalId]);
+
+  // Auto login once token received
+  useEffect(() => {
+    if (!approvalToken || !isLoaded) return;
+    (async () => {
+      try {
+        const result = await signIn!.create({ strategy: "ticket", ticket: approvalToken });
+        if (result.status === "complete") {
+          await setActive!({ session: result.createdSessionId });
+          router.push("/employee");
+        }
+      } catch { setError("Auto-login failed. Please try logging in again."); setApprovalId(null); }
+    })();
+  }, [approvalToken, isLoaded, signIn, setActive, router]);
+
+  // ── Admin Login ──
   async function handleAdminLogin(e: React.FormEvent, forceMode?: "oauth" | "password") {
     e.preventDefault();
     if (!isLoaded) return;
@@ -61,81 +99,62 @@ export default function SignInPage() {
     setError(""); setLoading(true);
     try {
       const res = await fetch("/api/auth/check-admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: adminEmail }),
       });
       if (!res.ok) { setError("You are not authorized as admin."); setLoading(false); return; }
 
       if (mode === "password") {
-        const tokenRes = await fetch("/api/auth/employee-signin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const tokenRes  = await fetch("/api/auth/employee-signin", {
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: adminEmail, password: adminPassword, isAdmin: true }),
         });
         const tokenData = await tokenRes.json();
         if (!tokenRes.ok) { setError(tokenData.error || "Incorrect email or password."); setLoading(false); return; }
-
         const result = await signIn!.create({ strategy: "ticket", ticket: tokenData.token });
-        if (result.status === "complete") {
-          await setActive!({ session: result.createdSessionId });
-          router.push("/dashboard"); return;
-        }
+        if (result.status === "complete") { await setActive!({ session: result.createdSessionId }); router.push("/dashboard"); return; }
         setError("Login failed. Try again.");
         setLoading(false); return;
       }
-
-      await signIn!.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/dashboard",
-      });
+      await signIn!.authenticateWithRedirect({ strategy: "oauth_google", redirectUrl: "/sso-callback", redirectUrlComplete: "/dashboard" });
     } catch (err: any) {
       const code = err?.errors?.[0]?.code || "";
       setError(
         code === "form_password_incorrect"    ? "Incorrect password." :
         code === "form_identifier_not_found"  ? "Admin account not found." :
         code === "strategy_for_user_invalid"  ? "This account uses Google login. Please use OAuth above." :
-        code === "single_session_mode_enabled"? "Already signed in. Refresh the page." :
         err?.errors?.[0]?.message || "Login failed"
       );
       setLoading(false);
     }
   }
 
-  // ── Employee Login ───────────────────────────────────────────────────────
+  // ── Employee Login ──
   async function handleEmpLogin(e: React.FormEvent) {
     e.preventDefault();
     if (!isLoaded) return;
     setError(""); setLoading(true);
-
-    // ── Check office hours on client side first ──
-    const hoursError = getOfficeHoursError();
-    if (hoursError) {
-      setError(hoursError);
-      setLoading(false);
-      return;
-    }
-
     try {
-      const res = await fetch("/api/auth/employee-signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res  = await fetch("/api/auth/employee-signin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: empEmail, password: empPassword }),
       });
       const data = await res.json();
 
       if (!res.ok) {
         const msg = data.error || "Incorrect email or password.";
-        if (msg.toLowerCase().includes("hour") || msg.toLowerCase().includes("office") || msg.toLowerCase().includes("9:58") || msg.toLowerCase().includes("7:02")) {
-          setError(msg);
-        } else if (msg.toLowerCase().includes("password") || msg.toLowerCase().includes("incorrect") || msg.toLowerCase().includes("invalid")) {
-          setError("Incorrect password. Please enter the password provided by your admin.");
-        } else {
-          setError(msg);
-        }
-        setLoading(false);
-        return;
+        setError(msg.toLowerCase().includes("password") || msg.toLowerCase().includes("incorrect")
+          ? "Incorrect password. Please enter the password provided by your admin."
+          : msg
+        );
+        setLoading(false); return;
+      }
+
+      // After-hours: requires admin approval
+      if (data.requiresApproval) {
+        setApprovalId(data.approvalId);
+        setApprovalStatus("PENDING");
+        setLoading(false); return;
       }
 
       const tokenResult = await signIn!.create({ strategy: "ticket", ticket: data.token });
@@ -157,6 +176,66 @@ export default function SignInPage() {
   }
 
   const officeHoursError = tab === "employee" ? getOfficeHoursError() : null;
+
+  // ── APPROVAL WAITING SCREEN ──
+  if (approvalId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="glass-card w-full max-w-sm p-8 text-center">
+          {approvalStatus === "PENDING" && (
+            <>
+              <div className="text-5xl mb-4">⏳</div>
+              <h2 className="text-xl font-bold text-white mb-2">Waiting for Admin Approval</h2>
+              <p className="text-muted-foreground text-sm mb-6">
+                Your after-hours login request has been sent to admin. Please wait for approval.
+              </p>
+              <div className="flex items-center justify-center gap-2 text-yellow-400 text-sm mb-6">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Checking every 5 seconds...
+              </div>
+              <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-300 mb-4">
+                📧 An approval email has been sent to admin with <strong>Approve</strong> and <strong>Deny</strong> buttons.
+              </div>
+              <button onClick={() => { setApprovalId(null); setError(""); }}
+                className="text-xs text-muted-foreground hover:text-white underline mt-2">
+                Cancel and go back
+              </button>
+            </>
+          )}
+          {approvalStatus === "APPROVED" && (
+            <>
+              <div className="text-5xl mb-4">✅</div>
+              <h2 className="text-xl font-bold text-white mb-2">Approved!</h2>
+              <p className="text-muted-foreground text-sm mb-4">Admin approved your access. Logging you in...</p>
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-400 mx-auto" />
+            </>
+          )}
+          {approvalStatus === "DENIED" && (
+            <>
+              <div className="text-5xl mb-4">❌</div>
+              <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
+              <p className="text-muted-foreground text-sm mb-6">Admin has denied your after-hours login request.</p>
+              <button onClick={() => { setApprovalId(null); setError(""); }}
+                className="btn-primary w-full py-3 text-sm font-semibold rounded-xl">
+                Go Back
+              </button>
+            </>
+          )}
+          {approvalStatus === "EXPIRED" && (
+            <>
+              <div className="text-5xl mb-4">⏰</div>
+              <h2 className="text-xl font-bold text-white mb-2">Request Expired</h2>
+              <p className="text-muted-foreground text-sm mb-6">Your approval request expired (2 hour limit). Please try again.</p>
+              <button onClick={() => { setApprovalId(null); setError(""); }}
+                className="btn-primary w-full py-3 text-sm font-semibold rounded-xl">
+                Try Again
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -185,11 +264,12 @@ export default function SignInPage() {
           </p>
           <div className="p-4 rounded-xl border border-gold-500/20 bg-gold-500/5 max-w-sm">
             <p className="text-gold-400 text-sm font-medium mb-1">🔐 Secure Access</p>
-            <p className="text-muted-foreground text-xs">Only pre-registered employees can access this CRM. Contact your admin if you need access.</p>
+            <p className="text-muted-foreground text-xs">Only pre-registered employees can access this CRM.</p>
           </div>
           <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 max-w-sm">
             <p className="text-blue-400 text-sm font-medium mb-1 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Office Hours</p>
-            <p className="text-muted-foreground text-xs">Employee CRM access: <strong className="text-white">Mon–Sat, 9:58 AM – 7:02 PM</strong> (IST)</p>
+            <p className="text-muted-foreground text-xs">Employee CRM: <strong className="text-white">Mon–Sat, 9:58 AM – 7:02 PM</strong> (IST)</p>
+            <p className="text-muted-foreground text-xs mt-1">After hours? Login and wait for admin approval.</p>
           </div>
         </div>
         <div className="relative z-10 text-xs text-muted-foreground">© 2024 City Real Space, Ahmedabad</div>
@@ -198,9 +278,7 @@ export default function SignInPage() {
       {/* Right panel */}
       <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center px-6 py-12 relative min-h-screen">
         <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent hidden lg:block" />
-
         <div className="w-full max-w-sm relative z-10">
-          {/* Mobile logo */}
           <div className="flex flex-col items-center mb-6 lg:hidden">
             <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-white shadow-neon border-2 border-estate-500/30 mb-3">
               <Image src="/logo.jpeg" alt="City Real Space" fill className="object-contain p-1" />
@@ -227,7 +305,6 @@ export default function SignInPage() {
                 <h2 className="text-xl font-bold text-white mb-1">Admin Login</h2>
                 <p className="text-muted-foreground text-sm">Sign in with Google or password</p>
               </div>
-
               <div className="flex rounded-lg bg-white/5 border border-white/10 p-1 mb-4">
                 <button type="button" onClick={() => { setAdminMode("oauth"); setError(""); }}
                   className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${adminMode === "oauth" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"}`}>
@@ -238,34 +315,28 @@ export default function SignInPage() {
                   Password
                 </button>
               </div>
-
               <form onSubmit={handleAdminLogin} className="space-y-4">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Admin Email</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input type="email" required value={adminEmail}
-                      onChange={e => setAdminEmail(e.target.value)}
+                    <input type="email" required value={adminEmail} onChange={e => setAdminEmail(e.target.value)}
                       placeholder="admin@cityrealspace.com"
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50" />
                   </div>
                 </div>
-
                 {adminMode === "password" && (
                   <div>
                     <label className="text-xs text-muted-foreground mb-1.5 block">Password</label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <input type="password" required value={adminPassword}
-                        onChange={e => setAdminPassword(e.target.value)}
+                      <input type="password" required value={adminPassword} onChange={e => setAdminPassword(e.target.value)}
                         placeholder="Enter your password"
                         className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50" />
                     </div>
                   </div>
                 )}
-
                 {error && <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
-
                 {adminMode === "password" ? (
                   <button type="submit" disabled={loading || !adminEmail || !adminPassword}
                     className="btn-primary w-full py-3 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
@@ -292,25 +363,16 @@ export default function SignInPage() {
                         if (!isLoaded || !adminEmail) return;
                         setError(""); setLoading(true);
                         try {
-                          const res = await fetch("/api/auth/check-admin", {
-                            method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ email: adminEmail }),
-                          });
+                          const res = await fetch("/api/auth/check-admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: adminEmail }) });
                           if (!res.ok) { setError("You are not authorized as admin."); setLoading(false); return; }
-                          await signIn!.authenticateWithRedirect({
-                            strategy: "oauth_microsoft",
-                            redirectUrl: "/sso-callback",
-                            redirectUrlComplete: "/dashboard",
-                          });
+                          await signIn!.authenticateWithRedirect({ strategy: "oauth_microsoft", redirectUrl: "/sso-callback", redirectUrlComplete: "/dashboard" });
                         } catch { setError("Microsoft login failed"); setLoading(false); }
                       }}
                       className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-[#2f2f2f] text-white font-semibold text-sm hover:bg-[#404040] transition-colors disabled:opacity-60">
                       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                         <svg className="w-5 h-5" viewBox="0 0 24 24">
-                          <path fill="#F25022" d="M1 1h10v10H1z"/>
-                          <path fill="#7FBA00" d="M13 1h10v10H13z"/>
-                          <path fill="#00A4EF" d="M1 13h10v10H1z"/>
-                          <path fill="#FFB900" d="M13 13h10v10H13z"/>
+                          <path fill="#F25022" d="M1 1h10v10H1z"/><path fill="#7FBA00" d="M13 1h10v10H13z"/>
+                          <path fill="#00A4EF" d="M1 13h10v10H1z"/><path fill="#FFB900" d="M13 13h10v10H13z"/>
                         </svg>
                       )}
                       Continue with Microsoft
@@ -330,14 +392,14 @@ export default function SignInPage() {
                 <p className="text-muted-foreground text-sm">Enter your email and password given by admin</p>
               </div>
 
-              {/* Office hours banner */}
+              {/* Office hours status banner */}
               {officeHoursError ? (
-                <div className="mb-5 p-4 rounded-xl border border-red-500/30 bg-red-500/10 flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="mb-5 p-4 rounded-xl border border-orange-500/30 bg-orange-500/10 flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-red-400 text-sm font-semibold mb-0.5">Access Restricted</p>
-                    <p className="text-red-300 text-xs">{officeHoursError}</p>
-                    <p className="text-muted-foreground text-xs mt-1">Office hours: <strong className="text-white">Mon–Sat, 9:58 AM – 7:02 PM</strong> IST</p>
+                    <p className="text-orange-400 text-sm font-semibold mb-0.5">Outside Office Hours</p>
+                    <p className="text-orange-300 text-xs">{officeHoursError}</p>
+                    <p className="text-muted-foreground text-xs mt-1">You can still login — admin will receive an <strong className="text-white">approval request</strong>.</p>
                   </div>
                 </div>
               ) : (
@@ -352,10 +414,8 @@ export default function SignInPage() {
                   <label className="text-xs text-muted-foreground mb-1.5 block">Work Email</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input type="email" required value={empEmail}
-                      onChange={e => setEmpEmail(e.target.value)}
-                      placeholder="you@cityrealspace.com"
-                      autoComplete="username"
+                    <input type="email" required value={empEmail} onChange={e => setEmpEmail(e.target.value)}
+                      placeholder="you@cityrealspace.com" autoComplete="username"
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50" />
                   </div>
                 </div>
@@ -363,25 +423,21 @@ export default function SignInPage() {
                   <label className="text-xs text-muted-foreground mb-1.5 block">Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input type="password" required value={empPassword}
-                      onChange={e => setEmpPassword(e.target.value)}
-                      placeholder="Enter your password"
-                      autoComplete="current-password"
+                    <input type="password" required value={empPassword} onChange={e => setEmpPassword(e.target.value)}
+                      placeholder="Enter your password" autoComplete="current-password"
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50" />
                   </div>
                 </div>
-
                 {error && (
                   <div className="flex items-start gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                     <Clock className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                     <span>{error}</span>
                   </div>
                 )}
-
-                <button type="submit" disabled={loading || !!officeHoursError}
+                <button type="submit" disabled={loading}
                   className="btn-primary w-full py-3 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-                  {loading ? "Signing in..." : officeHoursError ? "Outside Office Hours" : "Sign In"}
+                  {loading ? "Signing in..." : officeHoursError ? "Request After-Hours Access" : "Sign In"}
                 </button>
                 <p className="text-center text-xs text-muted-foreground">Password is provided by your admin</p>
               </form>
