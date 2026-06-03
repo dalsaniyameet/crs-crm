@@ -149,6 +149,8 @@ model User {
   liveLongitude Float?
   liveAddress   String?
   liveUpdatedAt DateTime?
+  loginCount    Int      @default(0)
+  loginHistory  Json?    // [{at, ip, page}]
 
   @@map("users")
 }

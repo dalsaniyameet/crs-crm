@@ -590,6 +590,50 @@ export default function AdminPanelPage() {
                           })}
                         </div>
                       )}
+                      {/* Login count + times */}
+                      <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/25 text-blue-300">
+                          🔑 {u.todayLogins ?? 0} login{(u.todayLogins ?? 0) !== 1 ? "s" : ""} today
+                        </span>
+                        {(u.loginHistory ?? []).map((h: any, idx: number) => (
+                          <span key={idx} className="text-xs text-muted-foreground">
+                            {new Date(h.at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                          </span>
+                        ))}
+                      </div>
+                      {/* Live location */}
+                      {u.location && (
+                        <a href={`https://www.google.com/maps?q=${u.location.lat},${u.location.lng}`}
+                          target="_blank" rel="noreferrer"
+                          className="mt-1.5 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 truncate">
+                          📍 {u.location.address ? u.location.address.split(",").slice(0,2).join(",") : `${u.location.lat?.toFixed(4)}, ${u.location.lng?.toFixed(4)}`}
+                          <span className="text-muted-foreground ml-1">Maps ↗</span>
+                        </a>
+                      )}
+
+                      {/* Login count today */}
+                      <div className="mt-2 flex flex-wrap gap-2 items-center">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/25 text-blue-300">
+                          🔑 {u.todayLogins ?? 0} login{(u.todayLogins ?? 0) !== 1 ? "s" : ""} today
+                        </span>
+                        {(u.loginHistory ?? []).slice(0, 3).map((h: any, idx: number) => (
+                          <span key={idx} className="text-xs text-muted-foreground">
+                            {new Date(h.at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Live location */}
+                      {u.location && (
+                        <a href={`https://www.google.com/maps?q=${u.location.lat},${u.location.lng}`}
+                          target="_blank" rel="noreferrer"
+                          className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
+                          📍 {u.location.address
+                            ? u.location.address.split(",").slice(0, 2).join(",")
+                            : `${u.location.lat?.toFixed(4)}, ${u.location.lng?.toFixed(4)}`}
+                          <span className="text-muted-foreground">· Maps ↗</span>
+                        </a>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -631,15 +675,30 @@ export default function AdminPanelPage() {
                       <p className="text-xs text-muted-foreground">{u.email}</p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className={`text-xs font-semibold ${
-                        u.isOnline ? "text-emerald-400" : "text-muted-foreground"
-                      }`}>
-                        {u.isOnline ? "Online" : `${u.minsAgo}m ago`}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {u.currentPage?.replace(/^\//, "") || "dashboard"}
-                      </p>
-                    </div>
+                        <p className={`text-xs font-semibold ${
+                          u.isOnline ? "text-emerald-400" : "text-muted-foreground"
+                        }`}>
+                          {u.isOnline ? "Online" : `${u.minsAgo}m ago`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {u.currentPage?.replace(/^\//, "") || "dashboard"}
+                        </p>
+                        <p className="text-xs text-blue-400">
+                          🔑 {u.todayLogins ?? 0}x
+                          {(u.loginHistory ?? []).slice(0,2).map((h: any, i: number) => (
+                            <span key={i} className="ml-1 text-muted-foreground">
+                              {new Date(h.at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                            </span>
+                          ))}
+                        </p>
+                        {u.location && (
+                          <a href={`https://www.google.com/maps?q=${u.location.lat},${u.location.lng}`}
+                            target="_blank" rel="noreferrer"
+                            className="text-xs text-blue-400 hover:text-blue-300">
+                            📍 Maps ↗
+                          </a>
+                        )}
+                      </div>
                   </div>
                 ))}
               </div>
