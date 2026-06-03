@@ -11,7 +11,6 @@ export async function GET(req: NextRequest) {
 
     const user = await prisma.user.findUnique({ where: { clerkId: userId } });
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-    if (user.role === "BROKER") return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
     const { searchParams } = new URL(req.url);
     const category        = searchParams.get("category");
