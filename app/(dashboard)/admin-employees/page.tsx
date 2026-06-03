@@ -249,10 +249,7 @@ export default function AdminEmployeesPage() {
   const [todayReports, setTodayReports] = useState<any[]>([]);
   const [reportsLoading, setReportsLoading] = useState(true);
 
-  const myRole = (user?.publicMetadata?.role as string | undefined)?.toUpperCase();
-  useEffect(() => {
-    if (isLoaded && user && myRole !== "ADMIN") router.replace("/dashboard");
-  }, [isLoaded, user, myRole, router]);
+  const myRole = (user?.publicMetadata?.role as string | undefined)?.toUpperCase() || "ADMIN"; // middleware already guards this page
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];

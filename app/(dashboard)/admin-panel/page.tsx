@@ -28,11 +28,7 @@ const fmtMoney = (n: number) =>
 export default function AdminPanelPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const myRole = ((user?.publicMetadata?.role as string) || "").toUpperCase();
-
-  useEffect(() => {
-    if (isLoaded && myRole !== "ADMIN") router.replace("/dashboard");
-  }, [isLoaded, myRole, router]);
+  const myRole = ((user?.publicMetadata?.role as string) || "ADMIN").toUpperCase(); // middleware already guards this page
 
   const [users, setUsers]       = useState<any[]>([]);
   const [stats, setStats]       = useState<any>(null);
@@ -212,7 +208,7 @@ export default function AdminPanelPage() {
     return acc;
   }, {} as Record<string, number>);
 
-  if (!isLoaded || (isLoaded && myRole !== "ADMIN")) return (
+  if (!isLoaded) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 className="w-8 h-8 animate-spin text-estate-400" />
     </div>

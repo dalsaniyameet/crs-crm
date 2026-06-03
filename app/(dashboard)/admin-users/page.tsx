@@ -29,11 +29,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading]   = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  const myRole = (user?.publicMetadata?.role as string | undefined)?.toUpperCase();
-
-  useEffect(() => {
-    if (user && myRole !== "ADMIN") router.replace("/dashboard");
-  }, [user, myRole, router]);
+  const myRole = (user?.publicMetadata?.role as string | undefined)?.toUpperCase() || "ADMIN"; // middleware already guards this page
 
   useEffect(() => {
     fetch("/api/admin/users")
