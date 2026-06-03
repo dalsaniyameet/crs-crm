@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Users, Building2, GitBranch, Bot, MoreHorizontal,
 } from "lucide-react";
 import NotificationBell from "@/components/ui/notification-bell";
-import { getNavForRole, UserRole } from "@/lib/roles";
+import { getNavWithOverride, UserRole } from "@/lib/roles";
 import { useUser, useClerk } from "@clerk/nextjs";
 import toast from "react-hot-toast";
 
@@ -91,7 +91,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const userName  = clerkName || userEmail.split("@")[0] || "User";
   const userImage = dbAvatar || user?.imageUrl || "";
-  const navItems  = getNavForRole(isLoaded ? role : "BROKER");
+  const [allowedPages, setAllowedPages] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (role === "ADMIN") return; // admin gets all pages
+    fetch("/api/auth/me")
+      .then(r => r.ok ? r.json() : null)
+      .then((me: any) => {
+        const pages = me?.notifPrefs?.allowedPages;
+        setAllowedPages(Array.isArray(pages) ? pages : null);
+      })
+      .catch(() => {});
+  }, [isLoaded, role]);
+
+  const navItems  = getNavWithOverride(isLoaded ? role : "BROKER", role === "ADMIN" ? null : allowedPages);
 
   const handleSignOut = async () => {
     try { await signOut(); } catch {}
