@@ -93,6 +93,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userImage = dbAvatar || user?.imageUrl || "";
   const [allowedPages, setAllowedPages] = useState<string[] | null>(null);
 
+  // ── Heartbeat: ping every 30s so admin can see live activity ──
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    const ping = () => {
+      fetch("/api/admin/active-users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page: pathname, allTabs: [pathname] }),
+      }).catch(() => {});
+    };
+    ping();
+    const id = setInterval(ping, 30_000);
+    const onUnload = () => {
+      navigator.sendBeacon("/api/admin/active-users",
+        JSON.stringify({ page: pathname, allTabs: [], closedTab: pathname })
+      );
+    };
+    window.addEventListener("beforeunload", onUnload);
+    return () => { clearInterval(id); window.removeEventListener("beforeunload", onUnload); };
+  }, [isLoaded, user, pathname]);
+
   useEffect(() => {
     if (!isLoaded) return;
     if (role === "ADMIN") return; // admin gets all pages
@@ -106,6 +127,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isLoaded, role]);
 
   const navItems  = getNavWithOverride(isLoaded ? role : "BROKER", role === "ADMIN" ? null : allowedPages);
+
+  // ── Live Location: har 30s GPS update → Live Location panel ──
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    if (!navigator.geolocation) return;
+    async function sendLocation(lat: number, lng: number) {
+      let address = "";
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, { headers: { "Accept-Language": "en" } });
+        const d = await r.json();
+        address = d.display_name?.split(",").slice(0, 3).join(",") || "";
+      } catch {}
+      fetch("/api/location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude: lat, longitude: lng, address }),
+      }).catch(() => {});
+    }
+    navigator.geolocation.getCurrentPosition(
+      p => sendLocation(p.coords.latitude, p.coords.longitude),
+      () => {}, { enableHighAccuracy: true }
+    );
+    const geoId = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        p => sendLocation(p.coords.latitude, p.coords.longitude),
+        () => {}, { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }, 30_000);
+    return () => clearInterval(geoId);
+  }, [isLoaded, user]);
 
   const handleSignOut = async () => {
     try { await signOut(); } catch {}

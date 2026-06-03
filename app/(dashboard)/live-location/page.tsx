@@ -127,11 +127,16 @@ export default function LiveLocationPage() {
                   </div>
                 )}
 
-                {/* Coordinates */}
-                <div className="px-4 py-2 border-t border-white/10">
+                {/* CRM Page + Coordinates */}
+                <div className="px-4 py-2 border-t border-white/10 flex items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground">
                     📍 {u.liveLatitude?.toFixed(5)}, {u.liveLongitude?.toFixed(5)}
                   </span>
+                  {u.currentPage && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-estate-500/15 border border-estate-500/25 text-estate-300 truncate max-w-[140px]">
+                      🖥️ {u.currentPage.replace(/^\//,"").replace(/-/g," ") || "dashboard"}
+                    </span>
+                  )}
                 </div>
 
                 {/* OpenStreetMap embed — click opens Google Maps */}
