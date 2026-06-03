@@ -1,4 +1,4 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const isPublic = createRouteMatcher([
@@ -68,9 +68,24 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(new URL("/sign-in", req.url));
   }
 
-  const role  = ((sessionClaims?.metadata as any)?.role || "").toUpperCase();
-  const email = ((sessionClaims?.email as string) || "").toLowerCase();
-  const isAdmin = role === "ADMIN" || ADMIN_EMAILS.includes(email);
+  // Clerk stores publicMetadata under `metadata` key in sessionClaims
+  const meta = (sessionClaims as any)?.metadata || (sessionClaims as any)?.publicMetadata || {};
+  const role  = (meta?.role || "").toUpperCase();
+  const email = (meta?.email || (sessionClaims as any)?.email || "").toLowerCase();
+
+  // Primary check: role from JWT claims
+  // Fallback: fetch live from Clerk (catches stale JWT)
+  let isAdmin = role === "ADMIN" || ADMIN_EMAILS.includes(email);
+
+  if (!isAdmin) {
+    try {
+      const client = await clerkClient();
+      const clerkUser = await client.users.getUser(userId);
+      const liveRole  = ((clerkUser.publicMetadata as any)?.role || "").toUpperCase();
+      const liveEmail = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase() || "";
+      isAdmin = liveRole === "ADMIN" || ADMIN_EMAILS.includes(liveEmail);
+    } catch {}
+  }
 
   // Admin bypasses everything
   if (isAdmin) return NextResponse.next();
