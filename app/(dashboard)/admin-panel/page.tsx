@@ -38,11 +38,82 @@ export default function AdminPanelPage() {
   const [stats, setStats]       = useState<any>(null);
   const [loading, setLoading]   = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "live" | "system">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "live" | "access" | "system">("overview");
   const [liveUsers, setLiveUsers]   = useState<any[]>([]);
   const [todayUsers, setTodayUsers]  = useState<any[]>([]);
   const [liveLoading, setLiveLoading] = useState(false);
   const [sourceData, setSourceData] = useState<any[]>([]);
+
+  const [pageAccessUsers, setPageAccessUsers] = useState<any[]>([]);
+  const [accessLoading, setAccessLoading]     = useState(false);
+  const [savingAccess, setSavingAccess]       = useState<string | null>(null);
+
+  const ALL_PAGES_LIST = [
+    { href: "/dashboard",        label: "Dashboard" },
+    { href: "/employee",         label: "My Panel" },
+    { href: "/employee/daily-report", label: "Daily Report" },
+    { href: "/leads",            label: "Leads" },
+    { href: "/properties",       label: "Properties" },
+    { href: "/owners",           label: "Property Owners" },
+    { href: "/deals",            label: "Deal Pipeline" },
+    { href: "/visits",           label: "Site Visits" },
+    { href: "/calendar",         label: "Calendar" },
+    { href: "/agreements",       label: "Agreements" },
+    { href: "/commissions",      label: "Commissions" },
+    { href: "/marketing",        label: "Marketing" },
+    { href: "/reports",          label: "Reports" },
+    { href: "/team-chat",        label: "Team Chat" },
+    { href: "/ai-assistant",     label: "AI Assistant" },
+    { href: "/attendance/me",    label: "My Attendance" },
+    { href: "/attendance",       label: "Attendance (Full)" },
+    { href: "/admin-employees",  label: "Employees" },
+    { href: "/admin-users",      label: "User Management" },
+    { href: "/admin-panel",      label: "Admin Panel" },
+    { href: "/settings",         label: "Settings" },
+  ];
+
+  async function fetchPageAccess() {
+    setAccessLoading(true);
+    const res  = await fetch("/api/admin/page-access").catch(() => null);
+    const data = res?.ok ? await res.json() : [];
+    setPageAccessUsers(Array.isArray(data) ? data : []);
+    setAccessLoading(false);
+  }
+
+  useEffect(() => { if (activeTab === "access") fetchPageAccess(); }, [activeTab]);
+
+  async function saveAccess(userId: string, pages: string[]) {
+    setSavingAccess(userId);
+    await fetch("/api/admin/page-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, allowedPages: pages }),
+    });
+    setPageAccessUsers(prev => prev.map(u => u.id === userId ? { ...u, allowedPages: pages } : u));
+    toast.success("Access saved!");
+    setSavingAccess(null);
+  }
+
+  async function resetAccess(userId: string) {
+    setSavingAccess(userId);
+    await fetch("/api/admin/page-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, allowedPages: null }),
+    });
+    setPageAccessUsers(prev => prev.map(u => u.id === userId ? { ...u, allowedPages: null } : u));
+    toast.success("Reset to role defaults!");
+    setSavingAccess(null);
+  }
+
+  function togglePage(userId: string, href: string) {
+    setPageAccessUsers(prev => prev.map(u => {
+      if (u.id !== userId) return u;
+      const current: string[] = u.allowedPages ?? ALL_PAGES_LIST.map(p => p.href);
+      const updated = current.includes(href) ? current.filter((p: string) => p !== href) : [...current, href];
+      return { ...u, allowedPages: updated };
+    }));
+  }
 
   async function fetchLive() {
     setLiveLoading(true);
@@ -165,7 +236,7 @@ export default function AdminPanelPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
-        {(["overview", "users", "live", "system"] as const).map(t => (
+        {(["overview", "users", "live", "access", "system"] as const).map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
               activeTab === t ? "bg-red-500/20 border border-red-500/30 text-red-300" : "text-muted-foreground hover:text-white"
@@ -178,7 +249,7 @@ export default function AdminPanelPage() {
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{liveUsers.length}</span>
                 )}
               </span>
-            ) : t}
+            ) : t === "access" ? "Page Access" : t}
           </button>
         ))}
       </div>
@@ -548,6 +619,86 @@ export default function AdminPanelPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── PAGE ACCESS TAB ── */}
+      {activeTab === "access" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-white">Page Access Control</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Har employee ko specific pages ka access do. Default = role ke hisab se.</p>
+            </div>
+            <button onClick={fetchPageAccess} disabled={accessLoading}
+              className="p-2 rounded-lg bg-white/5 border border-white/10 text-muted-foreground hover:text-white transition-all">
+              <RefreshCw className={`w-4 h-4 ${accessLoading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+
+          {accessLoading ? (
+            <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-yellow-400" /></div>
+          ) : pageAccessUsers.length === 0 ? (
+            <div className="glass-card p-10 text-center text-muted-foreground">No employees found</div>
+          ) : (
+            <div className="space-y-4">
+              {pageAccessUsers.map(u => {
+                const current: string[] = u.allowedPages ?? ALL_PAGES_LIST.map(p => p.href);
+                const isCustom = u.allowedPages !== null;
+                return (
+                  <div key={u.id} className={`glass-card p-4 space-y-3 ${ isCustom ? "border-yellow-500/30" : "" }`}>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-estate-600 to-estate-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                          {u.name?.[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">{u.name}</p>
+                          <p className="text-xs text-muted-foreground">{u.email}</p>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${ROLE_COLORS[u.role] ?? "bg-white/10 text-white border-white/10"}`}>
+                          {u.role?.replace("_", " ")}
+                        </span>
+                        {isCustom && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30 text-yellow-400">Custom</span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        {isCustom && (
+                          <button onClick={() => resetAccess(u.id)} disabled={savingAccess === u.id}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-muted-foreground hover:text-white transition-all">
+                            Reset to Default
+                          </button>
+                        )}
+                        <button onClick={() => saveAccess(u.id, current)} disabled={savingAccess === u.id}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30 transition-all flex items-center gap-1.5 disabled:opacity-50">
+                          {savingAccess === u.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                          Save
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {ALL_PAGES_LIST.map(page => {
+                        const enabled = current.includes(page.href);
+                        return (
+                          <button key={page.href} onClick={() => togglePage(u.id, page.href)}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all text-left ${
+                              enabled
+                                ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                : "bg-white/5 border-white/10 text-muted-foreground hover:border-white/20"
+                            }`}>
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${ enabled ? "bg-emerald-400" : "bg-white/20" }`} />
+                            {page.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -326,7 +326,10 @@ export default function NotificationBell() {
                         animate={{ opacity: 1, x: 0  }}
                         exit={{   opacity: 0, x: -20 }}
                         transition={{ delay: i * 0.03 }}
-                        onClick={() => !n.isRead && markOneRead(n.id)}
+                        onClick={() => {
+                          if (!n.isRead) markOneRead(n.id);
+                          if (n.leadId) { setOpen(false); window.location.href = `/leads?id=${n.leadId}`; }
+                        }}
                         className="flex gap-3 px-4 py-3 border-b cursor-pointer group transition-colors hover:bg-white/5"
                         style={{
                           borderColor: "rgba(255,255,255,0.04)",

@@ -248,6 +248,91 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Employee: Next Follow-up Hero Card */}
+      {isBroker && !isLoading && todayFollowUps.length > 0 && (() => {
+        const next = todayFollowUps[0] as any;
+        const leadName  = next?.lead?.name  || "your lead";
+        const leadPhone = next?.lead?.phone || "";
+        const dueTime   = new Date(next?.dueAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+        const isOverdue = new Date(next?.dueAt) < new Date();
+        const hr        = new Date(next?.dueAt).getHours();
+        const suggestions = [
+          `Start by recapping ${leadName}'s requirement — ask: "Is your requirement still the same?"`,
+          `Morning calls have a 40% higher connect rate. Reach ${leadName} before noon.`,
+          `If ${leadName} doesn't answer, send a short WhatsApp voice note instead of text.`,
+          `Mention a new property match for ${leadName} to re-spark their interest.`,
+          `Keep it under 3 minutes — ${leadName} is more likely to stay engaged on a short call.`,
+        ];
+        const suggestion = suggestions[new Date().getMinutes() % suggestions.length];
+        return (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl overflow-hidden"
+            style={{ background: "linear-gradient(135deg, rgba(234,179,8,0.12) 0%, rgba(14,165,233,0.08) 100%)", border: "1px solid rgba(234,179,8,0.3)" }}>
+            <div className="p-5">
+              {/* Label */}
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5"
+                  style={{ background: isOverdue ? "rgba(239,68,68,0.2)" : "rgba(234,179,8,0.2)", color: isOverdue ? "#fca5a5" : "#fde047", border: isOverdue ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(234,179,8,0.3)" }}>
+                  <Clock className="w-3 h-3" />
+                  {isOverdue ? "Overdue Follow-up" : "Your Next Follow-up"}
+                </span>
+                <span className="text-xs text-muted-foreground">{isOverdue ? "Was due at" : "Due at"} {dueTime}</span>
+              </div>
+
+              {/* Main content */}
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold text-white flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg,#1e3a5f,#0f2744)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  {leadName[0]?.toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg font-bold text-white">{leadName}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{next?.title}</p>
+                  {leadPhone && (
+                    <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>{leadPhone}</p>
+                  )}
+                </div>
+                {/* Quick action buttons */}
+                <div className="flex flex-col gap-2 flex-shrink-0">
+                  {leadPhone && (
+                    <a href={`tel:${leadPhone}`}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                      style={{ background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.35)", color: "#6ee7b7" }}>
+                      <Users className="w-3.5 h-3.5" /> Call Now
+                    </a>
+                  )}
+                  {leadPhone && (
+                    <a href={`https://wa.me/91${leadPhone.replace(/\D/g,"").slice(-10)}`} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                      style={{ background: "rgba(37,211,102,0.15)", border: "1px solid rgba(37,211,102,0.3)", color: "#86efac" }}>
+                      <Calendar className="w-3.5 h-3.5" /> WhatsApp
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Suggestion */}
+              <div className="mt-4 p-3 rounded-xl flex items-start gap-2.5"
+                style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(234,179,8,0.15)" }}>
+                <Zap className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs leading-relaxed" style={{ color: "#e2e8f0" }}>
+                  <span className="text-yellow-400 font-semibold">AI Tip: </span>
+                  {suggestion}
+                </p>
+              </div>
+
+              {/* Remaining follow-ups count */}
+              {todayFollowUps.length > 1 && (
+                <Link href="/leads" className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-white transition-colors">
+                  +{todayFollowUps.length - 1} more follow-up{todayFollowUps.length - 1 > 1 ? "s" : ""} today
+                  <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              )}
+            </div>
+          </motion.div>
+        );
+      })()}
+
       {/* Attendance Widget */}
       {attLoaded && (
         <div className="glass-card p-4 flex items-center gap-4 flex-wrap">
@@ -493,10 +578,11 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Today's Follow-ups */}
+        {/* Today's Follow-ups — Admin only */}
+        {!isBroker && (
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-white">📋 Today&apos;s Follow-ups</h3>
+            <h3 className="font-semibold text-white">📋 All Follow-ups</h3>
             <span className="text-xs px-2 py-0.5 rounded-full text-purple-400"
               style={{ background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.25)" }}>
               {todayFollowUps.length} due
@@ -506,7 +592,7 @@ export default function DashboardPage() {
             <div className="space-y-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
           ) : todayFollowUps.length > 0 ? (
             <div className="space-y-2">
-              {todayFollowUps.map((t: { id: string; title: string; dueAt: string; priority: string; lead?: { id: string; name: string; phone: string } }) => (
+              {todayFollowUps.map((t: { id: string; title: string; dueAt: string; priority: string; assignedTo?: { name: string }; lead?: { id: string; name: string; phone: string } }) => (
                 <Link key={t.id} href={t.lead?.id ? `/leads?id=${t.lead.id}` : "/leads"}
                   className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer"
                   style={{ background: "rgba(30,58,95,0.3)", border: "1px solid rgba(168,85,247,0.1)" }}>
@@ -516,7 +602,10 @@ export default function DashboardPage() {
                   }`} />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold text-white truncate">{t.title}</div>
-                    <div className="text-xs text-muted-foreground truncate">{t.lead?.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {t.lead?.name}
+                      {t.assignedTo && <span className="ml-1 text-blue-400">→ {t.assignedTo.name}</span>}
+                    </div>
                   </div>
                   <div className="text-xs text-purple-400 flex-shrink-0 font-medium">
                     {new Date(t.dueAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })}
@@ -528,6 +617,7 @@ export default function DashboardPage() {
             <div className="text-center py-10 text-muted-foreground text-sm">No follow-ups due today 🎉</div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

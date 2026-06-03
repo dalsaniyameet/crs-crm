@@ -6,16 +6,39 @@ async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
 }
 
-// GET /api/leads/tasks?leadId=xxx
+// GET /api/leads/tasks?leadId=xxx  OR  /api/leads/tasks (admin - all due follow-ups)
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const leadId = new URL(req.url).searchParams.get("leadId");
+  const user = await getUser(userId);
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  const { searchParams } = new URL(req.url);
+  const leadId = searchParams.get("leadId");
+  const allDue = searchParams.get("allDue"); // admin: get all due follow-ups
+
+  if (allDue && user.role === "ADMIN") {
+    // Admin: sab employees ke pending follow-ups
+    const tasks = await prisma.task.findMany({
+      where: { isCompleted: false, leadId: { not: null } },
+      include: {
+        assignedTo: { select: { id: true, name: true, avatar: true } },
+        lead: { select: { id: true, name: true, phone: true, status: true } },
+      },
+      orderBy: { dueAt: "asc" },
+    });
+    return NextResponse.json(tasks);
+  }
+
   if (!leadId) return NextResponse.json([], { status: 200 });
 
+  const where: any = { leadId };
+  // Non-admin: sirf apni assigned tasks
+  if (user.role !== "ADMIN") where.assignedToId = user.id;
+
   const tasks = await prisma.task.findMany({
-    where:   { leadId },
+    where,
     include: { assignedTo: { select: { id: true, name: true, avatar: true } } },
     orderBy: { dueAt: "asc" },
   });

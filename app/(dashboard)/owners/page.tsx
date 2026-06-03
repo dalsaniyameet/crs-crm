@@ -148,7 +148,8 @@ interface Client {
 
 export default function OwnersPage() {
   const { user } = useUser();
-  const isAdmin = ["ADMIN","SALES_MANAGER"].includes(((user?.publicMetadata?.role as string) || "BROKER").toUpperCase());
+  const userRole = ((user?.publicMetadata?.role as string) || "BROKER").toUpperCase();
+  const isAdmin = ["ADMIN","SALES_MANAGER"].includes(userRole);
   const [activeTab, setActiveTab]   = useState<"owners" | "clients" | "store">("owners");
   const [owners, setOwners]         = useState<Owner[]>([]);
   const router = useRouter();
@@ -2254,16 +2255,22 @@ export default function OwnersPage() {
                       👤 {owner.assignedTo.name.split(" ")[0]}
                     </span>
                   )}
-                  <button onClick={() => { setAssignOwnerId(owner.id); setAssigningTo(owner.assignedToId || ""); setShowAssign(true); }}
-                    className="p-1.5 rounded-lg hover:bg-blue-500/10 text-muted-foreground hover:text-blue-400 transition-colors" title="Assign to Employee">
-                    <UserPlus className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => openEdit(owner)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors">
-                    <Edit className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => handleDelete(owner.id, owner.name)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {isAdmin && (
+                    <button onClick={() => { setAssignOwnerId(owner.id); setAssigningTo(owner.assignedToId || ""); setShowAssign(true); }}
+                      className="p-1.5 rounded-lg hover:bg-blue-500/10 text-muted-foreground hover:text-blue-400 transition-colors" title="Assign to Employee">
+                      <UserPlus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => openEdit(owner)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors">
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => handleDelete(owner.id, owner.name)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
 

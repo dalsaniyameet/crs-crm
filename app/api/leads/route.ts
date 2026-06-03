@@ -67,11 +67,11 @@ export async function GET(req: NextRequest) {
     if (source)                      where.source = source;
     if (assignedTo)                  where.assignedToId = assignedTo;
 
-    if (user.role === "BROKER" || user.role === "SALES_MANAGER") {
-      // Sirf admin-assigned leads dikhao — unassigned ya doosre broker ke leads nahi
+    if (user.role !== "ADMIN") {
+      // Non-admin: sirf apni assigned leads
       where.assignedToId = user.id;
     }
-    // ADMIN, MARKETING — see all leads
+    // ADMIN — see all leads
 
     const [leads, total] = await Promise.all([
       prisma.lead.findMany({

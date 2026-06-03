@@ -17,7 +17,7 @@ const ALL_NAV = [
   { href: "/visits",          label: "Site Visits",       icon: Calendar,        roles: ["ADMIN","BROKER","SALES_MANAGER"] },
   { href: "/calendar",        label: "Calendar",          icon: CalendarDays,    roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/agreements",      label: "Agreements",        icon: FileSignature,   roles: ["ADMIN"] },
-  { href: "/owners",          label: "Property Owners",   icon: UserSquare2,     roles: ["ADMIN"] },
+  { href: "/owners",          label: "Property Owners",   icon: UserSquare2,     roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/commissions",     label: "Commissions",       icon: DollarSign,      roles: ["ADMIN","SALES_MANAGER"] },
   { href: "/attendance",      label: "Attendance",        icon: UserCheck,       roles: ["ADMIN"] },
   { href: "/attendance/me",   label: "My Attendance",     icon: UserCheck,       roles: ["BROKER","SALES_MANAGER","MARKETING"] },
@@ -37,3 +37,14 @@ const ALL_NAV = [
 export function getNavForRole(role: UserRole) {
   return ALL_NAV.filter(item => item.roles.includes(role));
 }
+
+// With per-user page-access override from admin
+export function getNavWithOverride(role: UserRole, allowedPages: string[] | null) {
+  if (!allowedPages) return getNavForRole(role);
+  // Admin ne jo pages diye hain woh sab dikhao (dashboard always included)
+  return ALL_NAV.filter(item =>
+    item.href === "/dashboard" || allowedPages.includes(item.href)
+  );
+}
+
+export const ALL_PAGES = ALL_NAV.map(({ href, label, roles }) => ({ href, label, roles }));

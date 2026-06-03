@@ -249,6 +249,78 @@ export async function runLeadAutomation(params: {
   }
 }
 
+// ── Lead Miss Prevention — 48hr no-contact alert ────────────────────────────
+// Call from dashboard API or a cron job
+export async function checkUncontactedLeads() {
+  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
+
+  const staleLeads = await prisma.lead.findMany({
+    where: {
+      status:         { in: ["NEW", "CONTACTED"] },
+      assignedToId:   { not: null },
+      OR: [
+        { lastContactedAt: null },
+        { lastContactedAt: { lt: cutoff } },
+      ],
+    },
+    include: { assignedTo: { select: { id: true, name: true } } },
+    take: 100,
+  });
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  for (const lead of staleLeads) {
+    if (!lead.assignedTo) continue;
+
+    // Don't spam — one notification per lead per day
+    const existing = await prisma.notification.findFirst({
+      where: {
+        leadId:    lead.id,
+        type:      "FOLLOW_UP_DUE",
+        createdAt: { gte: today },
+      },
+    });
+    if (existing) continue;
+
+    const hoursAgo = lead.lastContactedAt
+      ? Math.floor((Date.now() - lead.lastContactedAt.getTime()) / 3600000)
+      : null;
+    const msg = hoursAgo
+      ? `You haven't contacted ${lead.name} in ${hoursAgo} hours. Don't let this lead go cold!`
+      : `${lead.name} is a new lead assigned to you. Contact them now before they go elsewhere!`;
+
+    // Notify employee
+    await prisma.notification.create({
+      data: {
+        userId:  lead.assignedTo.id,
+        type:    "FOLLOW_UP_DUE",
+        title:   `⚠️ Don't miss ${lead.name}!`,
+        message: msg,
+        leadId:  lead.id,
+      },
+    });
+
+    // Notify all admins too
+    const admins = await prisma.user.findMany({
+      where: { role: "ADMIN", isActive: true },
+      select: { id: true },
+    });
+    await Promise.all(admins.map(a =>
+      prisma.notification.create({
+        data: {
+          userId:  a.id,
+          type:    "FOLLOW_UP_DUE",
+          title:   `⚠️ Lead Not Contacted: ${lead.name}`,
+          message: `${lead.assignedTo!.name} hasn't contacted ${lead.name} in ${hoursAgo ?? "0"} hours.`,
+          leadId:  lead.id,
+        },
+      })
+    ));
+  }
+
+  return staleLeads.length;
+}
+
 // ── Score-based follow-up reminder ───────────────────────────────────────────
 // Call this from a cron job or on dashboard load
 export async function checkOverdueFollowUps() {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { checkOverdueFollowUps } from "@/lib/leadAutomation";
+import { checkOverdueFollowUps, checkUncontactedLeads } from "@/lib/leadAutomation";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +17,11 @@ export async function GET() {
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const isBroker = user.role === "BROKER" || user.role === "SALES_MANAGER";
-    const isAdmin   = user.role === "ADMIN" || user.role === "MARKETING";
+    const isBroker = user.role !== "ADMIN";
+    const isAdmin   = user.role === "ADMIN";
 
     checkOverdueFollowUps().catch(() => {});
+    checkUncontactedLeads().catch(() => {});
 
     // IST = UTC+5:30
     const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
@@ -73,12 +74,13 @@ export async function GET() {
         where: {
           dueAt: { gte: todayStart, lte: todayEnd },
           isCompleted: false,
-          ...(isBroker ? { lead: { assignedToId: user.id } } : {}),
+          ...(isBroker ? { assignedToId: user.id } : {}),
         },
         take: 10,
         orderBy: { dueAt: "asc" },
         select: {
           id: true, title: true, dueAt: true, priority: true,
+          assignedTo: { select: { id: true, name: true } },
           lead: { select: { id: true, name: true, phone: true } },
         },
       }),

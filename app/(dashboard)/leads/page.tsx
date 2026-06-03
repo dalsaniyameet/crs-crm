@@ -89,6 +89,7 @@ export default function LeadsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [brokers, setBrokers]          = useState<any[]>([]);
   const [updatingLead, setUpdatingLead] = useState(false);
+  const [allDueTasks, setAllDueTasks]  = useState<any[]>([]);
 
   const [detailTab, setDetailTab]      = useState<"overview"|"calls"|"followups"|"notes">("overview");
   const [callLogs, setCallLogs]         = useState<any[]>([]);
@@ -139,6 +140,13 @@ export default function LeadsPage() {
   useEffect(() => {
     fetch("/api/brokers?assign=1").then(r => r.json()).then(d => setBrokers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/leads/tasks?allDue=1")
+      .then(r => r.json())
+      .then(d => setAllDueTasks(Array.isArray(d) ? d.filter((t: any) => new Date(t.dueAt) <= new Date()) : []))
+      .catch(() => {});
+  }, [isAdmin]);
 
   const openDetail = async (id: string) => {
     setDetailLead({});
@@ -490,7 +498,7 @@ We have genuine properties matching your requirement. Let's connect! 🤝
           <h1 className="text-xl md:text-2xl font-bold text-white">Lead Management</h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1">
             {isAdmin
-              ? <>{total} leads · <span className="text-red-400">{hotCount} hot</span> · <span className="text-yellow-400">{followUps} due</span></>
+              ? <>{total} leads · <span className="text-red-400">{hotCount} hot</span> · <span className="text-yellow-400">{followUps} due follow-ups</span> · <span className="text-orange-400">{allDueTasks.length} overdue tasks</span></>
               : <>My Leads: {total} · <span className="text-red-400">{hotCount} hot</span> · <span className="text-yellow-400">{followUps} due</span></>
             }
           </p>
@@ -570,6 +578,40 @@ We have genuine properties matching your requirement. Let's connect! 🤝
           <Zap className="w-3 h-3" /> Active
         </div>
       </motion.div>
+
+      {/* Admin: Overdue Follow-up Tasks Panel */}
+      {isAdmin && allDueTasks.length > 0 && (
+        <div className="glass-card p-4 border-orange-500/30 bg-orange-500/5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-orange-400 flex items-center gap-2">
+              <Clock className="w-4 h-4" /> Overdue Follow-ups ({allDueTasks.length})
+            </h3>
+            <span className="text-xs text-muted-foreground">Admin view — all employees</span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {allDueTasks.map((task: any) => (
+              <div key={task.id}
+                className="flex items-center gap-3 p-2.5 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-all"
+                onClick={() => task.lead?.id && openDetail(task.lead.id)}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-white truncate">{task.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {task.lead?.name} · {task.assignedTo?.name || "Unassigned"}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xs text-orange-400 font-medium">{fmtDate(task.dueAt)}</p>
+                  <p className={`text-xs px-1.5 py-0.5 rounded mt-0.5 ${
+                    task.priority === "HIGH" ? "bg-red-500/20 text-red-400" :
+                    task.priority === "MEDIUM" ? "bg-orange-500/20 text-orange-400" :
+                    "bg-white/10 text-muted-foreground"
+                  }`}>{task.priority}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bulk Action Bar */}
       <AnimatePresence>

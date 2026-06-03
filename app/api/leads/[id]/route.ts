@@ -13,8 +13,9 @@ export async function GET(
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // If called as /api/leads/tasks?leadId=... (tasks sub-route won't reach here)
-  // This handles /api/leads/[id] — fetch full lead detail
+  const user = await getUser(userId);
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
   const leadId = params.id;
 
   try {
@@ -53,6 +54,12 @@ export async function GET(
     });
 
     if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+    // Non-admin: only see assigned leads
+    if (user.role !== "ADMIN" && lead.assignedToId !== user.id) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
     return NextResponse.json(lead);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -106,22 +113,47 @@ export async function PATCH(
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const user = await getUser(userId);
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
   const leadId = params.id;
   const body = await req.json();
 
+  // Non-admin: can only update notes & status on their assigned lead
+  if (user.role !== "ADMIN") {
+    const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { assignedToId: true } });
+    if (!lead || lead.assignedToId !== user.id) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+    // Employee can only update status and notes — not reassign
+    const allowedFields = ["status", "notes", "nextFollowUpAt", "lastContactedAt"];
+    const patchData: any = {};
+    for (const f of allowedFields) {
+      if (body[f] !== undefined) patchData[f] = body[f];
+    }
+    const updated = await prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        ...patchData,
+        ...(patchData.nextFollowUpAt && { nextFollowUpAt: new Date(patchData.nextFollowUpAt) }),
+      },
+      include: { assignedTo: { select: { id: true, name: true, avatar: true } } },
+    });
+    return NextResponse.json(updated);
+  }
+
+  // Admin: full update
   try {
     const updated = await prisma.lead.update({
       where: { id: leadId },
       data: {
-        ...(body.status        !== undefined && { status: body.status }),
-        ...(body.assignedToId  !== undefined && { assignedToId: body.assignedToId }),
+        ...(body.status         !== undefined && { status: body.status }),
+        ...(body.assignedToId   !== undefined && { assignedToId: body.assignedToId }),
         ...(body.nextFollowUpAt !== undefined && { nextFollowUpAt: body.nextFollowUpAt ? new Date(body.nextFollowUpAt) : null }),
-        ...(body.notes         !== undefined && { notes: body.notes }),
-        ...(body.score         !== undefined && { score: body.score }),
+        ...(body.notes          !== undefined && { notes: body.notes }),
+        ...(body.score          !== undefined && { score: body.score }),
       },
-      include: {
-        assignedTo: { select: { id: true, name: true, avatar: true } },
-      },
+      include: { assignedTo: { select: { id: true, name: true, avatar: true } } },
     });
     return NextResponse.json(updated);
   } catch (err: any) {
@@ -135,6 +167,11 @@ export async function DELETE(
 ) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const user = await getUser(userId);
+  if (!user || user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Only admin can delete leads" }, { status: 403 });
+  }
 
   try {
     await prisma.lead.delete({ where: { id: params.id } });

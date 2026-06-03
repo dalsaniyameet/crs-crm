@@ -6,7 +6,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X, ChevronRight, Zap, Search, LogOut, LogIn, LogOut as PunchOut, Coffee, Users, Building2, TrendingUp, CalendarDays, UserCircle, FileText, Home } from "lucide-react";
 import NotificationBell from "@/components/ui/notification-bell";
-import { getNavForRole, UserRole } from "@/lib/roles";
+import { getNavWithOverride, UserRole } from "@/lib/roles";
 import { useUser, useClerk } from "@clerk/nextjs";
 import toast from "react-hot-toast";
 
@@ -128,6 +128,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const clerkName = user?.fullName || user?.firstName || "";
   const userEmail = user?.primaryEmailAddress?.emailAddress || "";
   const [dbAvatar, setDbAvatar] = useState("");
+  const [allowedPages, setAllowedPages] = useState<string[] | null>(null);
+  const [accessLoaded, setAccessLoaded] = useState(false);
 
   // ── Employee live location — har 30 sec update ──
   useEffect(() => {
@@ -242,9 +244,22 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       .catch(() => {});
   }, [userEmail]);
 
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (role === "ADMIN") { setAccessLoaded(true); return; }
+    fetch("/api/auth/me")
+      .then(r => r.ok ? r.json() : null)
+      .then((me: any) => {
+        const pages = me?.notifPrefs?.allowedPages;
+        setAllowedPages(Array.isArray(pages) ? pages : null);
+      })
+      .catch(() => {})
+      .finally(() => setAccessLoaded(true));
+  }, [isLoaded, role]);
+
   const userName = clerkName || userEmail.split("@")[0] || "User";
   const userImage = dbAvatar || user?.imageUrl || "";
-  const navItems = getNavForRole(isLoaded ? role : "BROKER");
+  const navItems = accessLoaded ? getNavWithOverride(isLoaded ? role : "BROKER", role === "ADMIN" ? null : allowedPages) : [];
 
   const handleSignOut = async () => {
     try { await signOut(); } catch { /* ignore */ }
