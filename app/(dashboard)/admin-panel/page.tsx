@@ -44,6 +44,34 @@ export default function AdminPanelPage() {
   const [accessLoading, setAccessLoading]     = useState(false);
   const [savingAccess, setSavingAccess]       = useState<string | null>(null);
 
+  const ALL_NAV_FOR_ACCESS = [
+    { href: "/dashboard",             roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
+    { href: "/employee",              roles: ["BROKER","SALES_MANAGER","MARKETING"] },
+    { href: "/employee/daily-report", roles: ["BROKER","SALES_MANAGER","MARKETING"] },
+    { href: "/leads",                 roles: ["ADMIN","BROKER","SALES_MANAGER"] },
+    { href: "/properties",            roles: ["ADMIN","SALES_MANAGER","MARKETING"] },
+    { href: "/owners",                roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
+    { href: "/deals",                 roles: ["ADMIN","BROKER","SALES_MANAGER"] },
+    { href: "/visits",                roles: ["ADMIN","BROKER","SALES_MANAGER"] },
+    { href: "/calendar",              roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
+    { href: "/agreements",            roles: ["ADMIN"] },
+    { href: "/commissions",           roles: ["ADMIN","SALES_MANAGER"] },
+    { href: "/marketing",             roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
+    { href: "/reports",               roles: ["ADMIN","SALES_MANAGER"] },
+    { href: "/team-chat",             roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
+    { href: "/ai-assistant",          roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
+    { href: "/attendance/me",         roles: ["BROKER","SALES_MANAGER","MARKETING"] },
+    { href: "/attendance",            roles: ["ADMIN"] },
+    { href: "/admin-employees",       roles: ["ADMIN"] },
+    { href: "/admin-users",           roles: ["ADMIN"] },
+    { href: "/admin-panel",           roles: ["ADMIN"] },
+    { href: "/settings",              roles: ["ADMIN"] },
+  ];
+
+  function getRoleDefaults(role: string): string[] {
+    return ALL_NAV_FOR_ACCESS.filter(n => n.roles.includes(role)).map(n => n.href);
+  }
+
   const ALL_PAGES_LIST = [
     { href: "/dashboard",        label: "Dashboard" },
     { href: "/employee",         label: "My Panel" },
@@ -105,7 +133,7 @@ export default function AdminPanelPage() {
   function togglePage(userId: string, href: string) {
     setPageAccessUsers(prev => prev.map(u => {
       if (u.id !== userId) return u;
-      const current: string[] = u.allowedPages ?? ALL_PAGES_LIST.map(p => p.href);
+      const current: string[] = u.allowedPages ?? getRoleDefaults(u.role);
       const updated = current.includes(href) ? current.filter((p: string) => p !== href) : [...current, href];
       return { ...u, allowedPages: updated };
     }));
@@ -641,7 +669,8 @@ export default function AdminPanelPage() {
           ) : (
             <div className="space-y-4">
               {pageAccessUsers.map(u => {
-                const current: string[] = u.allowedPages ?? ALL_PAGES_LIST.map(p => p.href);
+                const roleDefaults = getRoleDefaults(u.role);
+                const current: string[] = u.allowedPages ?? roleDefaults;
                 const isCustom = u.allowedPages !== null;
                 return (
                   <div key={u.id} className={`glass-card p-4 space-y-3 ${ isCustom ? "border-yellow-500/30" : "" }`}>
