@@ -375,61 +375,78 @@ export default function SignInPage() {
                   <AnimatePresence mode="wait">
                     {otpSuccess ? (
                       <motion.div key="otp-success"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                        className="flex flex-col items-center gap-3 py-4"
+                        initial={{ opacity: 0, scale: 0.85, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                        className="flex flex-col items-center gap-4 py-6"
                       >
-                        <motion.div
-                          initial={{ scale: 0, rotate: -30 }}
-                          animate={{ scale: 1, rotate: 0 }}
-                          transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.1 }}
-                          className="relative"
-                        >
-                          <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                            <CheckCircle2 className="w-9 h-9 text-emerald-400" />
-                          </div>
+                        {/* Triple ripple rings */}
+                        <div className="relative flex items-center justify-center">
+                          {[0, 1, 2].map(i => (
+                            <motion.div key={i}
+                              className="absolute rounded-full border border-emerald-400/40"
+                              initial={{ width: 56, height: 56, opacity: 0.7 }}
+                              animate={{ width: 56 + i * 36, height: 56 + i * 36, opacity: 0 }}
+                              transition={{ duration: 1.2, delay: i * 0.22, repeat: Infinity, ease: "easeOut" }}
+                            />
+                          ))}
                           <motion.div
-                            initial={{ scale: 1, opacity: 0.6 }}
-                            animate={{ scale: 2.2, opacity: 0 }}
-                            transition={{ duration: 0.8, repeat: 1, repeatDelay: 0.1 }}
-                            className="absolute inset-0 rounded-full bg-emerald-400/30"
+                            initial={{ scale: 0, rotate: -45 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            transition={{ type: "spring", stiffness: 320, damping: 16 }}
+                            className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center backdrop-blur-sm"
+                          >
+                            <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                          </motion.div>
+                        </div>
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="text-center">
+                          <p className="text-emerald-400 font-bold text-base">OTP Verified!</p>
+                          <p className="text-muted-foreground text-xs mt-0.5">Signing you in...</p>
+                        </motion.div>
+                        {/* Progress bar */}
+                        <motion.div className="w-40 h-1 rounded-full bg-white/10 overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300"
+                            initial={{ width: "0%" }}
+                            animate={{ width: "100%" }}
+                            transition={{ duration: 1.1, ease: "easeInOut" }}
                           />
                         </motion.div>
-                        <motion.p
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.25 }}
-                          className="text-emerald-400 text-sm font-semibold"
-                        >
-                          OTP Verified! Signing you in...
-                        </motion.p>
-                        <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
                       </motion.div>
                     ) : (
                       <motion.div key="otp-input"
-                        initial={{ opacity: 0, y: 16 }}
+                        initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -16 }}
-                        transition={{ duration: 0.3 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.96 }}
+                        transition={{ duration: 0.28 }}
                       >
+                        {/* Header banner */}
                         <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
+                          initial={{ opacity: 0, scale: 0.94 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          className="flex items-center justify-center gap-2 mb-4 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20"
+                          transition={{ delay: 0.05 }}
+                          className="flex items-center gap-2 mb-5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25"
                         >
-                          <span className="text-emerald-400 text-xs font-medium">✅ Password verified — Enter OTP sent to your email</span>
+                          <span className="text-lg">🔐</span>
+                          <div>
+                            <p className="text-emerald-400 text-xs font-semibold">Password verified</p>
+                            <p className="text-muted-foreground text-[11px]">6-digit OTP sent to your email</p>
+                          </div>
                         </motion.div>
-                        <div className="flex gap-2 justify-center mb-4">
+
+                        {/* OTP boxes */}
+                        <div className="flex gap-2.5 justify-center mb-2">
                           {otp.map((digit, idx) => (
                             <motion.div key={idx}
-                              initial={{ opacity: 0, y: 20, scale: 0.7 }}
+                              initial={{ opacity: 0, y: 24, scale: 0.6 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
-                              transition={{ type: "spring", stiffness: 300, damping: 20, delay: idx * 0.06 }}
+                              transition={{ type: "spring", stiffness: 380, damping: 22, delay: idx * 0.055 }}
                             >
-                              <input
+                              <motion.input
                                 ref={el => otpInputs.current[idx] = el}
                                 type="text" inputMode="numeric" maxLength={1} value={digit}
+                                animate={error ? { x: [-6, 6, -5, 5, -3, 3, 0] } : {}}
+                                transition={{ duration: 0.4 }}
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   if (!/^\d*$/.test(val)) return;
@@ -437,15 +454,32 @@ export default function SignInPage() {
                                   if (val && idx < 5) otpInputs.current[idx + 1]?.focus();
                                 }}
                                 onKeyDown={(e) => { if (e.key === "Backspace" && !otp[idx] && idx > 0) otpInputs.current[idx - 1]?.focus(); }}
-                                className={`w-12 h-14 bg-white/5 border-2 rounded-xl text-center text-2xl font-bold text-white focus:outline-none transition-all duration-200 ${
-                                  digit ? "border-gold-500 bg-gold-500/10 scale-105 shadow-[0_0_12px_rgba(234,179,8,0.3)]" : "border-white/10 focus:border-estate-400 focus:shadow-[0_0_12px_rgba(99,102,241,0.3)]"
+                                className={`w-11 h-13 bg-white/5 border-2 rounded-xl text-center text-xl font-bold text-white focus:outline-none transition-all duration-150 ${
+                                  error
+                                    ? "border-red-500 bg-red-500/10 shadow-[0_0_14px_rgba(239,68,68,0.35)]"
+                                    : digit
+                                    ? "border-gold-500 bg-gold-500/10 shadow-[0_0_16px_rgba(234,179,8,0.4)] scale-105"
+                                    : "border-white/10 focus:border-estate-400 focus:bg-estate-500/5 focus:shadow-[0_0_14px_rgba(99,102,241,0.35)]"
                                 }`}
+                                style={{ width: 44, height: 52 }}
                               />
                             </motion.div>
                           ))}
                         </div>
+
+                        {/* Dot progress indicator */}
+                        <div className="flex justify-center gap-1.5 mb-4">
+                          {otp.map((d, i) => (
+                            <motion.div key={i}
+                              animate={{ scale: d ? 1.3 : 1, backgroundColor: d ? "rgb(234,179,8)" : "rgba(255,255,255,0.15)" }}
+                              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                              className="w-1.5 h-1.5 rounded-full"
+                            />
+                          ))}
+                        </div>
+
                         <button type="button" onClick={() => { setOtpStep(false); setOtp(["","","","","",""]); setError(""); setOtpSuccess(false); }}
-                          className="text-xs text-muted-foreground hover:text-white underline mx-auto block">
+                          className="text-xs text-muted-foreground hover:text-white underline mx-auto block transition-colors">
                           ← Back / Resend OTP
                         </button>
                       </motion.div>
