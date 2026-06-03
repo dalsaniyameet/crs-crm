@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { useSignIn, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Loader2, LogIn, Lock, Mail, Shield, Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, LogIn, Lock, Mail, Shield, Clock, CheckCircle2 } from "lucide-react";
 
 type Tab = "admin" | "employee";
 
@@ -32,14 +33,16 @@ export default function SignInPage() {
   // Admin
   const [adminEmail, setAdminEmail]       = useState("");
   const [adminPassword, setAdminPassword] = useState("");
-  const [adminMode, setAdminMode]         = useState<"oauth" | "password" | "otp">("oauth");
-  const [otpSent, setOtpSent]             = useState(false);
+  const [adminMode, setAdminMode]         = useState<"oauth" | "password">("oauth");
+  const [otpStep, setOtpStep]             = useState(false); // password verified → show OTP
   const [otp, setOtp]                     = useState(["", "", "", "", "", ""]);
   const otpInputs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Employee
   const [empEmail, setEmpEmail]       = useState("");
   const [empPassword, setEmpPassword] = useState("");
+
+  const [otpSuccess, setOtpSuccess] = useState(false);
 
   // After-hours approval waiting
   const [approvalId, setApprovalId]         = useState<string | null>(null);
@@ -101,24 +104,53 @@ export default function SignInPage() {
     const mode = forceMode ?? adminMode;
     setError(""); setLoading(true);
     try {
+      if (mode === "password") {
+        if (otpStep) {
+          // Step 2: Verify OTP → login
+          const otpCode = otp.join("");
+          const verifyRes = await fetch("/api/auth/verify-otp", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: adminEmail, otp: otpCode }),
+          });
+          const verifyData = await verifyRes.json();
+          if (!verifyRes.ok) { setError(verifyData.error || "Invalid OTP"); setLoading(false); return; }
+          setOtpSuccess(true);
+          await new Promise(r => setTimeout(r, 1200));
+          const result = await signIn!.create({ strategy: "ticket", ticket: verifyData.token });
+          if (result.status === "complete") { await setActive!({ session: result.createdSessionId }); router.push("/dashboard"); return; }
+          setError("Login failed. Try again.");
+          setLoading(false); return;
+        }
+        // Step 1: Verify password → send OTP
+        const adminCheck = await fetch("/api/auth/check-admin", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: adminEmail }),
+        });
+        if (!adminCheck.ok) { setError("You are not authorized as admin."); setLoading(false); return; }
+        const passRes = await fetch("/api/auth/employee-signin", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: adminEmail, password: adminPassword, isAdmin: true, checkOnly: true }),
+        });
+        const passData = await passRes.json();
+        if (!passRes.ok) { setError(passData.error || "Incorrect email or password."); setLoading(false); return; }
+        // Password correct → send OTP
+        const otpRes = await fetch("/api/auth/send-otp", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: adminEmail }),
+        });
+        const otpData = await otpRes.json();
+        if (!otpRes.ok) { setError(otpData.error || "Failed to send OTP"); setLoading(false); return; }
+        setOtpStep(true); setOtpSuccess(false); setOtp(["", "", "", "", "", ""]);
+        setLoading(false);
+        setTimeout(() => otpInputs.current[0]?.focus(), 300);
+        return;
+      }
+      // OAuth
       const res = await fetch("/api/auth/check-admin", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: adminEmail }),
       });
       if (!res.ok) { setError("You are not authorized as admin."); setLoading(false); return; }
-
-      if (mode === "password") {
-        const tokenRes  = await fetch("/api/auth/employee-signin", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: adminEmail, password: adminPassword, isAdmin: true }),
-        });
-        const tokenData = await tokenRes.json();
-        if (!tokenRes.ok) { setError(tokenData.error || "Incorrect email or password."); setLoading(false); return; }
-        const result = await signIn!.create({ strategy: "ticket", ticket: tokenData.token });
-        if (result.status === "complete") { await setActive!({ session: result.createdSessionId }); router.push("/dashboard"); return; }
-        setError("Login failed. Try again.");
-        setLoading(false); return;
-      }
       await signIn!.authenticateWithRedirect({ strategy: "oauth_google", redirectUrl: "/sso-callback", redirectUrlComplete: "/dashboard" });
     } catch (err: any) {
       const code = err?.errors?.[0]?.code || "";
@@ -309,52 +341,26 @@ export default function SignInPage() {
                 <p className="text-muted-foreground text-sm">Sign in with Google or password</p>
               </div>
               <div className="flex rounded-lg bg-white/5 border border-white/10 p-1 mb-4">
-                <button type="button" onClick={() => { setAdminMode("oauth"); setError(""); setOtpSent(false); }}
+                <button type="button" onClick={() => { setAdminMode("oauth"); setError(""); setOtpStep(false); setOtp(["","","","","",""]); }}
                   className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${adminMode === "oauth" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"}`}>
                   OAuth
                 </button>
-                <button type="button" onClick={() => { setAdminMode("password"); setError(""); setOtpSent(false); }}
+                <button type="button" onClick={() => { setAdminMode("password"); setError(""); setOtpStep(false); setOtp(["","","","","",""]); }}
                   className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${adminMode === "password" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"}`}>
                   Password
                 </button>
-                <button type="button" onClick={() => { setAdminMode("otp"); setError(""); setOtpSent(false); setOtp(["", "", "", "", "", ""]); }}
-                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${adminMode === "otp" ? "bg-white/10 text-white" : "text-muted-foreground hover:text-white"}`}>
-                  OTP
-                </button>
               </div>
-              <form onSubmit={adminMode === "otp" ? async (e) => {
-                e.preventDefault();
-                if (!isLoaded) return;
-                setError(""); setLoading(true);
-                try {
-                  if (!otpSent) {
-                    const res = await fetch("/api/auth/send-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: adminEmail }) });
-                    const data = await res.json();
-                    if (!res.ok) { setError(data.error || "Failed to send OTP"); setLoading(false); return; }
-                    setOtpSent(true);
-                    setLoading(false);
-                    setTimeout(() => otpInputs.current[0]?.focus(), 100);
-                  } else {
-                    const otpCode = otp.join("");
-                    const verifyRes = await fetch("/api/auth/verify-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: adminEmail, otp: otpCode }) });
-                    const verifyData = await verifyRes.json();
-                    if (!verifyRes.ok) { setError(verifyData.error || "Invalid OTP"); setLoading(false); return; }
-                    const result = await signIn!.create({ strategy: "ticket", ticket: verifyData.token });
-                    if (result.status === "complete") { await setActive!({ session: result.createdSessionId }); router.push("/dashboard"); return; }
-                    setError("Login failed");
-                  }                } catch { setError("Something went wrong"); }
-                setLoading(false);
-              } : handleAdminLogin} className="space-y-4">
+              <form onSubmit={handleAdminLogin} className="space-y-4">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Admin Email</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input type="email" required value={adminEmail} onChange={e => setAdminEmail(e.target.value)} disabled={adminMode === "otp" && otpSent}
+                    <input type="email" required value={adminEmail} onChange={e => setAdminEmail(e.target.value)} disabled={adminMode === "password" && otpStep}
                       placeholder="admin@cityrealspace.com"
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50 disabled:opacity-50" />
                   </div>
                 </div>
-                {adminMode === "password" && (
+                {adminMode === "password" && !otpStep && (
                   <div>
                     <label className="text-xs text-muted-foreground mb-1.5 block">Password</label>
                     <div className="relative">
@@ -365,52 +371,93 @@ export default function SignInPage() {
                     </div>
                   </div>
                 )}
-                {adminMode === "otp" && otpSent && (
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-2 block text-center">Enter 6-digit OTP sent to your email</label>
-                    <div className="flex gap-2 justify-center mb-3">
-                      {otp.map((digit, idx) => (
-                        <input
-                          key={idx}
-                          ref={el => otpInputs.current[idx] = el}
-                          type="text"
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (!/^\d*$/.test(val)) return;
-                            const newOtp = [...otp];
-                            newOtp[idx] = val;
-                            setOtp(newOtp);
-                            if (val && idx < 5) otpInputs.current[idx + 1]?.focus();
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Backspace" && !otp[idx] && idx > 0) {
-                              otpInputs.current[idx - 1]?.focus();
-                            }
-                          }}
-                          className="w-12 h-14 bg-white/5 border-2 border-white/10 rounded-xl text-center text-2xl font-bold text-white focus:outline-none focus:border-gold-500 transition-all"
-                        />
-                      ))}
-                    </div>
-                    <button type="button" onClick={() => { setOtpSent(false); setOtp(["", "", "", "", "", ""]); setError(""); }}
-                      className="text-xs text-gold-400 hover:text-gold-300 underline mx-auto block">
-                      Resend OTP
-                    </button>
-                  </div>
+                {adminMode === "password" && otpStep && (
+                  <AnimatePresence mode="wait">
+                    {otpSuccess ? (
+                      <motion.div key="otp-success"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                        className="flex flex-col items-center gap-3 py-4"
+                      >
+                        <motion.div
+                          initial={{ scale: 0, rotate: -30 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.1 }}
+                          className="relative"
+                        >
+                          <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                            <CheckCircle2 className="w-9 h-9 text-emerald-400" />
+                          </div>
+                          <motion.div
+                            initial={{ scale: 1, opacity: 0.6 }}
+                            animate={{ scale: 2.2, opacity: 0 }}
+                            transition={{ duration: 0.8, repeat: 1, repeatDelay: 0.1 }}
+                            className="absolute inset-0 rounded-full bg-emerald-400/30"
+                          />
+                        </motion.div>
+                        <motion.p
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.25 }}
+                          className="text-emerald-400 text-sm font-semibold"
+                        >
+                          OTP Verified! Signing you in...
+                        </motion.p>
+                        <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                      </motion.div>
+                    ) : (
+                      <motion.div key="otp-input"
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -16 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="flex items-center justify-center gap-2 mb-4 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20"
+                        >
+                          <span className="text-emerald-400 text-xs font-medium">✅ Password verified — Enter OTP sent to your email</span>
+                        </motion.div>
+                        <div className="flex gap-2 justify-center mb-4">
+                          {otp.map((digit, idx) => (
+                            <motion.div key={idx}
+                              initial={{ opacity: 0, y: 20, scale: 0.7 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              transition={{ type: "spring", stiffness: 300, damping: 20, delay: idx * 0.06 }}
+                            >
+                              <input
+                                ref={el => otpInputs.current[idx] = el}
+                                type="text" inputMode="numeric" maxLength={1} value={digit}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (!/^\d*$/.test(val)) return;
+                                  const n = [...otp]; n[idx] = val; setOtp(n);
+                                  if (val && idx < 5) otpInputs.current[idx + 1]?.focus();
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Backspace" && !otp[idx] && idx > 0) otpInputs.current[idx - 1]?.focus(); }}
+                                className={`w-12 h-14 bg-white/5 border-2 rounded-xl text-center text-2xl font-bold text-white focus:outline-none transition-all duration-200 ${
+                                  digit ? "border-gold-500 bg-gold-500/10 scale-105 shadow-[0_0_12px_rgba(234,179,8,0.3)]" : "border-white/10 focus:border-estate-400 focus:shadow-[0_0_12px_rgba(99,102,241,0.3)]"
+                                }`}
+                              />
+                            </motion.div>
+                          ))}
+                        </div>
+                        <button type="button" onClick={() => { setOtpStep(false); setOtp(["","","","","",""]); setError(""); setOtpSuccess(false); }}
+                          className="text-xs text-muted-foreground hover:text-white underline mx-auto block">
+                          ← Back / Resend OTP
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 )}
                 {error && <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
-                {adminMode === "otp" ? (
-                  <button type="submit" disabled={loading || !adminEmail || (otpSent && otp.join("").length !== 6)}
+                {adminMode === "password" ? (
+                  <button type="submit" disabled={loading || !adminEmail || (!otpStep && !adminPassword) || (otpStep && otp.join("").length !== 6)}
                     className="btn-primary w-full py-3 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-                    {loading ? (otpSent ? "Verifying..." : "Sending OTP...") : (otpSent ? "Verify & Sign In" : "Send OTP")}
-                  </button>
-                ) : adminMode === "password" ? (
-                  <button type="submit" disabled={loading || !adminEmail || !adminPassword}
-                    className="btn-primary w-full py-3 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-60">
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-                    {loading ? "Signing in..." : "Sign In"}
+                    {loading ? (otpStep ? "Verifying OTP..." : "Verifying...") : (otpStep ? "Verify & Sign In" : "Continue")}
                   </button>
                 ) : (
                   <div className="space-y-2">

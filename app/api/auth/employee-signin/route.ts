@@ -67,7 +67,7 @@ function checkEmployeeLoginHours(): string | null {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, isAdmin } = await req.json();
+    const { email, password, isAdmin, checkOnly } = await req.json();
     if (!email || !password)
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });
 
@@ -175,6 +175,9 @@ export async function POST(req: NextRequest) {
     const verify = await clerkREST("POST", `/v1/users/${clerkUser.id}/verify_password`, { password });
     if (!verify.verified)
       return NextResponse.json({ error: "Incorrect password. Please try again." }, { status: 401 });
+
+    // checkOnly = just verify password, don't create token (used before OTP step)
+    if (checkOnly) return NextResponse.json({ verified: true });
 
     // Create a sign-in token (Clerk's official way to bypass 2FA / custom auth)
     const tokenRes = await clerkREST("POST", `/v1/sign_in_tokens`, {
