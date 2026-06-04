@@ -89,15 +89,28 @@ export async function POST(req: NextRequest) {
           name, position,
         },
       });
-      if (avatarUrl !== undefined)
-        await prisma.user.updateMany({ where: { email }, data: { avatar: avatarUrl } });
-      if (role !== undefined) {
-        const res = await clerk.users.getUserList({ emailAddress: [email] });
-        const list = Array.isArray(res) ? res : (res as any).data ?? [];
-        if (list.length > 0)
-          await clerk.users.updateUser(list[0].id, { publicMetadata: { role } });
-        await prisma.user.updateMany({ where: { email }, data: { role } });
-      }
+      // Sync name + avatar to User table
+      await prisma.user.updateMany({
+        where: { email },
+        data: {
+          name,
+          ...(avatarUrl !== undefined && { avatar: avatarUrl }),
+          ...(role      !== undefined && { role }),
+        },
+      });
+      // Sync name + role to Clerk
+      try {
+        const clerkList = await clerk.users.getUserList({ emailAddress: [email] });
+        const clerkUsers = Array.isArray(clerkList) ? clerkList : (clerkList as any).data ?? [];
+        if (clerkUsers.length > 0) {
+          const [firstName, ...rest] = name.trim().split(" ");
+          await clerk.users.updateUser(clerkUsers[0].id, {
+            firstName,
+            lastName: rest.join(" ") || undefined,
+            ...(role !== undefined && { publicMetadata: { role } }),
+          });
+        }
+      } catch { /* non-critical */ }
       return NextResponse.json(updated);
     }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 // GET — fetch own employee profile
@@ -80,6 +80,12 @@ export async function PATCH(req: NextRequest) {
     if (name?.trim()) {
       updateData.name = name.trim();
       await prisma.user.updateMany({ where: { email: user.email }, data: { name: name.trim() } });
+      // Update Clerk name too
+      try {
+        const clerk = await clerkClient();
+        const [firstName, ...rest] = name.trim().split(" ");
+        await clerk.users.updateUser(userId, { firstName, lastName: rest.join(" ") || undefined });
+      } catch { /* non-critical */ }
     }
     if (dob) updateData.dob = new Date(dob);
 
