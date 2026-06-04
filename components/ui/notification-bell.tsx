@@ -198,8 +198,11 @@ export default function NotificationBell() {
 
   const markAllRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    await fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).catch(() => {});
-    // Update prevIds so poll doesn't re-trigger toasts
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAllRead: true }),
+    }).catch(() => {});
     notifications.forEach(n => prevIdsRef.current.add(n.id));
   };
 

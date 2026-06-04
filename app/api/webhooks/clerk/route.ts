@@ -63,16 +63,29 @@ export async function POST(req: NextRequest) {
     const email    = emailArr?.[0]?.email_address ?? "";
     const name     = [data.first_name, data.last_name].filter(Boolean).join(" ") || "User";
     const phone    = phoneArr?.[0]?.phone_number ?? undefined;
+    const metaRole = (data.public_metadata as any)?.role as string | undefined;
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    const isAdminEmail = adminEmails.includes(email.toLowerCase());
+
+    // Find existing to preserve role if not in metadata
+    const existing = await prisma.user.findFirst({
+      where: { OR: [{ clerkId: data.id as string }, { email }] },
+      select: { role: true },
+    }).catch(() => null);
+
+    const role = isAdminEmail ? "ADMIN"
+      : metaRole ? metaRole
+      : existing?.role || "BROKER";
 
     await prisma.user.upsert({
       where:  { clerkId: data.id as string },
-      update: { email, name, avatar: data.image_url as string, phone },
+      update: { email, name, avatar: data.image_url as string, phone, role },
       create: {
         clerkId: data.id as string,
         email, name,
         avatar: data.image_url as string,
         phone,
-        role: "BROKER",
+        role,
       },
     });
 
