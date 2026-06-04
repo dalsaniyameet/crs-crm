@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
         const role  = (cu.publicMetadata?.role as string) || "BROKER";
         await prisma.user.upsert({
           where:  { clerkId: userId },
-          update: { lastSeen: new Date(), currentPage: page },
-          create: { clerkId: userId, email, name, role, avatar: cu.imageUrl || null, lastSeen: new Date(), currentPage: page },
+          update: { lastSeen: new Date(), currentPage: page, isActive: true },
+          create: { clerkId: userId, email, name, role, avatar: cu.imageUrl || null, lastSeen: new Date(), currentPage: page, isActive: true },
         });
       } catch { /* non-critical */ }
       return NextResponse.json({ ok: true, isNewLogin: true });
@@ -96,12 +96,12 @@ export async function GET(req: NextRequest) {
 
     const [liveUsers, todayUsers] = await Promise.all([
       prisma.user.findMany({
-        where:   { isActive: true, lastSeen: { gte: ago10 } },
+        where:   { lastSeen: { gte: ago10 } },
         select:  { id: true, clerkId: true, name: true, email: true, role: true, avatar: true, lastSeen: true, currentPage: true, openTabs: true, loginCount: true, loginHistory: true, liveLatitude: true, liveLongitude: true, liveAddress: true, liveUpdatedAt: true },
         orderBy: { lastSeen: "desc" },
       }),
       prisma.user.findMany({
-        where:   { isActive: true, lastSeen: { gte: startDay } },
+        where:   { lastSeen: { gte: startDay } },
         select:  { id: true, clerkId: true, name: true, email: true, role: true, avatar: true, lastSeen: true, currentPage: true, openTabs: true, loginCount: true, loginHistory: true, liveLatitude: true, liveLongitude: true, liveAddress: true, liveUpdatedAt: true },
         orderBy: { lastSeen: "desc" },
       }),
