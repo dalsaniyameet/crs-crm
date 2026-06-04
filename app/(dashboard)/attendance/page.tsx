@@ -166,6 +166,18 @@ export default function AttendancePage() {
   const [fixTime, setFixTime]   = useState({ punchIn: "", punchOut: "" });
   const [fixing, setFixing]     = useState(false);
 
+  function to12(val: string) {
+    if (!val) return { h: "", min: "00", ampm: "am" };
+    const [hStr, min] = val.split(":");
+    const h24 = parseInt(hStr);
+    return { h: (h24 % 12 || 12).toString(), min: min || "00", ampm: h24 >= 12 ? "pm" : "am" };
+  }
+  function to24(h: string, min: string, ampm: string) {
+    let h24 = parseInt(h) % 12;
+    if (ampm === "pm") h24 += 12;
+    return `${String(h24).padStart(2, "0")}:${min}`;
+  }
+
   const handleFixPunch = async () => {
     if (!fixModal) return;
     setFixing(true);
@@ -817,20 +829,36 @@ export default function AttendancePage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Punch In Time</label>
-                  <input type="time" value={fixTime.punchIn}
-                    onChange={e => setFixTime(f => ({ ...f, punchIn: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Punch Out Time *</label>
-                  <input type="time" value={fixTime.punchOut}
-                    onChange={e => setFixTime(f => ({ ...f, punchOut: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]" />
-                </div>
-              </div>
+              {(["punchIn", "punchOut"] as const).map(field => {
+                const { h, min, ampm } = to12(fixTime[field]);
+                return (
+                  <div key={field}>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      {field === "punchIn" ? "Punch In Time" : "Punch Out Time *"}
+                    </label>
+                    <div className="flex gap-1 items-center">
+                      <select value={h}
+                        onChange={e => setFixTime(f => ({ ...f, [field]: to24(e.target.value, min, ampm) }))}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none [color-scheme:dark]">
+                        <option value="">--</option>
+                        {Array.from({length:12},(_,i)=>i+1).map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                      <span className="text-white text-sm">:</span>
+                      <select value={min}
+                        onChange={e => setFixTime(f => ({ ...f, [field]: to24(h||"12", e.target.value, ampm) }))}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none [color-scheme:dark]">
+                        {["00","05","10","15","20","25","30","35","40","45","50","55"].map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      <select value={ampm}
+                        onChange={e => setFixTime(f => ({ ...f, [field]: to24(h||"12", min, e.target.value) }))}
+                        className="bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none [color-scheme:dark]">
+                        <option value="am">AM</option>
+                        <option value="pm">PM</option>
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
 
               <div className="p-3 rounded-lg bg-orange-500/8 border border-orange-500/20 text-xs text-orange-400">
                 ⚠️ Yeh record directly approved ho jayega. Sirf sahi time dalo.
