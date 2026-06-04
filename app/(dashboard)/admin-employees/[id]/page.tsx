@@ -1200,9 +1200,15 @@ export default function EmployeeDetailPage() {
                     {d.adminNote && <p className="text-xs text-muted-foreground mt-0.5">Note: {d.adminNote}</p>}
                   </div>
                   <a
-                    href={d.url?.includes(".pdf") || d.url?.includes("/raw/") || d.url?.includes("application/pdf")
-                      ? `/api/pdf-proxy?url=${encodeURIComponent(d.url)}`
-                      : d.url}
+                    href={(() => {
+                      const u = d.url || "";
+                      // Cloudinary URLs — open directly (they are public)
+                      if (u.includes("cloudinary.com")) return u;
+                      // data: URLs or non-PDF — open directly
+                      if (u.startsWith("data:") || (!u.includes(".pdf") && !u.includes("/raw/"))) return u;
+                      // Other PDF URLs — use proxy
+                      return `/api/pdf-proxy?url=${encodeURIComponent(u)}`;
+                    })()}
                     target="_blank" rel="noreferrer"
                     className="p-1.5 rounded-lg hover:bg-estate-500/10 text-muted-foreground hover:text-estate-400 transition-colors flex-shrink-0">
                     <ExternalLink className="w-4 h-4" />
