@@ -15,66 +15,81 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const page: string = body.page || "/dashboard";
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const now = new Date();
 
     const existing = await prisma.user.findUnique({
       where: { clerkId: userId },
-      select: { openTabs: true, lastSeen: true, loginCount: true, loginHistory: true },
+      select: { id: true, email: true, name: true, role: true, avatar: true, openTabs: true, lastSeen: true, loginCount: true, loginHistory: true },
     });
 
-    // If user doesn't exist in DB yet, create them from Clerk
+    // If user doesn't exist — create from Clerk
     if (!existing) {
       try {
         const { clerkClient } = await import("@clerk/nextjs/server");
         const clerk = await clerkClient();
-        const cu = await clerk.users.getUser(userId);
+        const cu    = await clerk.users.getUser(userId);
         const email = cu.emailAddresses?.[0]?.emailAddress || "";
         const name  = [cu.firstName, cu.lastName].filter(Boolean).join(" ") || email.split("@")[0] || "User";
         const role  = (cu.publicMetadata?.role as string) || "BROKER";
         await prisma.user.upsert({
           where:  { clerkId: userId },
-          update: { lastSeen: new Date(), currentPage: page, isActive: true },
-          create: { clerkId: userId, email, name, role, avatar: cu.imageUrl || null, lastSeen: new Date(), currentPage: page, isActive: true },
+          update: { lastSeen: now, currentPage: page, isActive: true, name, avatar: cu.imageUrl || null },
+          create: { clerkId: userId, email, name, role, avatar: cu.imageUrl || null, lastSeen: now, currentPage: page, isActive: true },
         });
-      } catch { /* non-critical */ }
-      return NextResponse.json({ ok: true, isNewLogin: true });
+        return NextResponse.json({ ok: true, isNewLogin: true });
+      } catch (e: any) {
+        console.error("[heartbeat] create user failed:", e?.message);
+        return NextResponse.json({ ok: false, error: "user_create_failed" });
+      }
     }
 
-    let tabs: string[] = existing?.openTabs ?? [];
+    // Build tabs list
+    let tabs: string[] = Array.isArray(existing.openTabs) ? existing.openTabs : [];
     if (Array.isArray(body.allTabs) && body.allTabs.length > 0) {
       tabs = [...new Set(body.allTabs as string[])];
     } else {
       if (!tabs.includes(page)) tabs = [...tabs, page];
-      if (body.closedTab) tabs = tabs.filter(t => t !== body.closedTab);
+      if (body.closedTab) tabs = tabs.filter((t: string) => t !== body.closedTab);
     }
 
-    const now = new Date();
-
-    // Count as new login if lastSeen > 10 min ago (or never seen)
-    const isNewLogin = !existing?.lastSeen ||
+    const isNewLogin = !existing.lastSeen ||
       (now.getTime() - existing.lastSeen.getTime()) > ACTIVE_MS;
 
-    const loginHistory: any[] = Array.isArray(existing?.loginHistory)
-      ? existing.loginHistory as any[]
-      : [];
-
+    const loginHistory: any[] = Array.isArray(existing.loginHistory) ? [...existing.loginHistory] : [];
     if (isNewLogin) {
       loginHistory.unshift({ at: now.toISOString(), ip, page });
-      if (loginHistory.length > 20) loginHistory.pop(); // keep last 20
+      if (loginHistory.length > 20) loginHistory.pop();
     }
 
-    await prisma.user.update({
-      where: { clerkId: userId },
-      data: {
-        lastSeen:     now,
-        currentPage:  page,
-        openTabs:     tabs,
-        loginCount:   isNewLogin ? { increment: 1 } : undefined,
-        loginHistory: loginHistory,
+    // Use upsert so it never fails even if record somehow missing
+    await prisma.user.upsert({
+      where:  { clerkId: userId },
+      update: {
+        lastSeen:    now,
+        currentPage: page,
+        openTabs:    tabs,
+        loginHistory,
+        isActive:    true,
+        ...(isNewLogin ? { loginCount: { increment: 1 } } : {}),
+      },
+      create: {
+        clerkId:     userId,
+        email:       existing.email || "",
+        name:        existing.name  || "User",
+        role:        existing.role  || "BROKER",
+        avatar:      existing.avatar || null,
+        lastSeen:    now,
+        currentPage: page,
+        openTabs:    tabs,
+        loginHistory,
+        isActive:    true,
+        loginCount:  1,
       },
     });
 
     return NextResponse.json({ ok: true, isNewLogin });
-  } catch {
+  } catch (e: any) {
+    console.error("[heartbeat] POST error:", e?.message);
     return NextResponse.json({ ok: false });
   }
 }
@@ -138,6 +153,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       live:  liveUsers.map(format),
       today: todayUsers.map(format),
+      debug: {
+        now: now.toISOString(),
+        ago30: ago10.toISOString(),
+        startDay: startDay.toISOString(),
+        totalLive: liveUsers.length,
+        totalToday: todayUsers.length,
+      },
     });
   } catch (err: any) {
     console.error("active-users GET:", err.message);
