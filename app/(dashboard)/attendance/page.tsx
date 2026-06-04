@@ -161,7 +161,34 @@ export default function AttendancePage() {
     setBackdating(false);
   };
 
-  // Approve or reject a history record
+  // Fix missing punch out for a specific record
+  const [fixModal, setFixModal] = useState<{ record: any; empId: string } | null>(null);
+  const [fixTime, setFixTime]   = useState({ punchIn: "", punchOut: "" });
+  const [fixing, setFixing]     = useState(false);
+
+  const handleFixPunch = async () => {
+    if (!fixModal) return;
+    setFixing(true);
+    const { record } = fixModal;
+    const dateStr = new Date(record.punchIn).toISOString().split("T")[0];
+    const body: any = { id: record.id };
+    if (fixTime.punchIn)  body.fixPunchIn  = `${dateStr}T${fixTime.punchIn}:00`;
+    if (fixTime.punchOut) body.fixPunchOut = `${dateStr}T${fixTime.punchOut}:00`;
+    const res = await fetch("/api/attendance/guest", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      toast.success(`Punch fixed for ${record.name} ✅`);
+      setFixModal(null);
+      setEmpHistory(prev => { const n = { ...prev }; delete n[fixModal.empId]; return n; });
+      setTimeout(() => loadEmpHistory(fixModal.empId), 300);
+      fetchAll();
+    } else toast.error("Failed to fix");
+    setFixing(false);
+  };
+
   const handleApproveRecord = async (recordId: string, empId: string, approve: boolean, reason?: string) => {
     const adminName = user?.fullName || user?.firstName || "Admin";
     const res = await fetch("/api/attendance/guest", {
@@ -495,7 +522,19 @@ export default function AttendancePage() {
                                 <span className={`font-medium ${h.workHours ? "text-estate-400" : "text-emerald-400"}`}>
                                   {h.workHours ? `${h.workHours.toFixed(1)}h` : "—"}
                                 </span>
-                                {/* Approve/Reject buttons for pending records */}
+                                {!h.punchOut && (
+                                  <button onClick={() => {
+                                    const d = new Date(h.punchIn);
+                                    setFixTime({
+                                      punchIn: `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`,
+                                      punchOut: "",
+                                    });
+                                    setFixModal({ record: h, empId: emp.id });
+                                  }}
+                                    className="px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 hover:bg-orange-500/30 transition-colors text-xs">
+                                    🔧 Fix
+                                  </button>
+                                )}
                                 {isPending && (
                                   <button onClick={() => setApproveModal({ record: h, empId: emp.id })}
                                     className="px-2 py-0.5 rounded bg-estate-500/20 text-estate-300 border border-estate-500/30 hover:bg-estate-500/30 transition-colors text-xs">
@@ -744,6 +783,65 @@ export default function AttendancePage() {
                   {backdating ? "Saving..." : "Save & Pending Approval"}
                 </button>
                 <button onClick={() => setBackdateModal(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 text-muted-foreground border border-white/10 hover:text-white text-sm transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Fix Punch Modal ── */}
+      <AnimatePresence>
+        {fixModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+            onClick={() => setFixModal(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm rounded-2xl p-5 space-y-4"
+              style={{ background: "#0d0d14", border: "1px solid rgba(249,115,22,0.35)" }}
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-white flex items-center gap-2">
+                    🔧 Fix Missed Punch
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {fixModal.record.name} · {new Date(fixModal.record.punchIn).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  </div>
+                </div>
+                <button onClick={() => setFixModal(null)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Punch In Time</label>
+                  <input type="time" value={fixTime.punchIn}
+                    onChange={e => setFixTime(f => ({ ...f, punchIn: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Punch Out Time *</label>
+                  <input type="time" value={fixTime.punchOut}
+                    onChange={e => setFixTime(f => ({ ...f, punchOut: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]" />
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-orange-500/8 border border-orange-500/20 text-xs text-orange-400">
+                ⚠️ Yeh record directly approved ho jayega. Sirf sahi time dalo.
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={handleFixPunch} disabled={fixing || !fixTime.punchOut}
+                  className="flex-1 py-2.5 rounded-xl bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30 text-sm font-medium transition-colors disabled:opacity-50">
+                  {fixing ? "Saving..." : "🔧 Fix & Approve"}
+                </button>
+                <button onClick={() => setFixModal(null)}
                   className="px-4 py-2.5 rounded-xl bg-white/5 text-muted-foreground border border-white/10 hover:text-white text-sm transition-colors">
                   Cancel
                 </button>

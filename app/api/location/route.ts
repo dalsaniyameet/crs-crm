@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     if (!me || me.role !== "ADMIN") return NextResponse.json({ error: "Admin only" }, { status: 403 });
 
     // Last 10 min → 2 hours mein updated locations
-    const since = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const since = new Date(Date.now() - 5 * 60 * 1000);
     const users = await prisma.user.findMany({
       where: {
         isActive: true,

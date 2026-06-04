@@ -289,15 +289,59 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { id, approved, approvedBy, rejected, rejectReason } = await req.json();
+    const body = await req.json();
+    const { id, approved, approvedBy, rejected, rejectReason, fixPunchOut, fixPunchIn, selfFix } = body;
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+    // ── Fix missing punch out (or punch in) for a specific record ──
+    if (fixPunchOut || fixPunchIn) {
+      const record = await prisma.guestAttendance.findUnique({ where: { id } });
+      if (!record) return NextResponse.json({ error: "Record not found" }, { status: 404 });
+
+      const pIn  = fixPunchIn  ? new Date(fixPunchIn)  : record.punchIn;
+      const pOut = fixPunchOut ? new Date(fixPunchOut) : record.punchOut;
+
+      let workHours: number | null = record.workHours;
+      let lateMinutes = record.lateMinutes ?? 0;
+      let overtimeHours = record.overtimeHours ?? 0;
+
+      if (pIn && pOut) {
+        const isSun = pIn.getDay() === 0;
+        workHours = (pOut.getTime() - pIn.getTime()) / (1000 * 60 * 60);
+        const expectedInMin = isSun ? 11 * 60 : 10 * 60;
+        const actualInMin   = pIn.getHours() * 60 + pIn.getMinutes();
+        lateMinutes   = Math.max(0, actualInMin - expectedInMin);
+        const expectedH = isSun ? 5 : 9;
+        overtimeHours = Math.max(0, workHours - expectedH);
+      }
+
+      // selfFix = employee request, keep pending for admin approval
+      // admin fix = auto approve
+      const isSelfFix = selfFix === true;
+
+      const updated = await prisma.guestAttendance.update({
+        where: { id },
+        data: {
+          ...(fixPunchIn  ? { punchIn: pIn }   : {}),
+          ...(fixPunchOut ? { punchOut: pOut }  : {}),
+          workHours,
+          lateMinutes,
+          overtimeHours,
+          approved:   isSelfFix ? false : true,
+          approvedBy: isSelfFix ? null  : "Admin Fix",
+          approvedAt: isSelfFix ? null  : new Date(),
+        },
+        include: { location: true },
+      });
+      return NextResponse.json(updated);
+    }
+
     const updated = await prisma.guestAttendance.update({
       where: { id },
       data: {
         approved: rejected ? false : approved,
         approvedAt: (approved && !rejected) ? new Date() : null,
         approvedBy: approvedBy || null,
-        // store reject reason in approvedBy field with prefix if rejected
         ...(rejected ? { approvedBy: rejectReason ? `REJECTED: ${rejectReason}` : "REJECTED" } : {}),
       },
       include: { location: true },

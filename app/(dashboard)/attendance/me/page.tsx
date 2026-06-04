@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
-import { motion } from "framer-motion";
-import { LogIn, LogOut, Coffee, Clock, Calendar, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { LogIn, LogOut, Coffee, Clock, Calendar, ChevronDown, ChevronUp, Loader2, AlertTriangle, X, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 const MAX_BREAKS = 4;
-const EXPECTED_HOURS = { weekday: 9, sunday: 2 }; // Mon-Sat 10-19, Sun 16-18
+const EXPECTED_HOURS = { weekday: 9, sunday: 2 };
 
 function LiveTimer({ since, breakSecs = 0 }: { since: string; breakSecs?: number }) {
   const [secs, setSecs] = useState(0);
@@ -35,25 +35,28 @@ function getWorkDiff(punchIn: string, punchOut: string | null, breakSecs: number
   const expectedSecs = (isSun ? EXPECTED_HOURS.sunday : EXPECTED_HOURS.weekday) * 3600;
   const outTime = punchOut ? new Date(punchOut).getTime() : Date.now();
   const workedSecs = Math.max(0, Math.floor((outTime - new Date(punchIn).getTime()) / 1000) - breakSecs);
-  const diff = workedSecs - expectedSecs;
-  return { diff, workedSecs };
+  return { diff: workedSecs - expectedSecs, workedSecs };
 }
 
 export default function MyAttendancePage() {
   const { user, isLoaded } = useUser();
-  const [emp, setEmp] = useState<any>(null);
-  const [locations, setLocations] = useState<any[]>([]);
+  const [emp, setEmp]               = useState<any>(null);
+  const [locations, setLocations]   = useState<any[]>([]);
   const [todayRecord, setTodayRecord] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory]       = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
-  const [punching, setPunching] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [punching, setPunching]     = useState(false);
+  const [loading, setLoading]       = useState(true);
 
-  // Break state
+  // Fix punch request modal
+  const [fixModal, setFixModal]     = useState<{ record: any } | null>(null);
+  const [fixTime, setFixTime]       = useState("");
+  const [fixing, setFixing]         = useState(false);
+
   const [breakState, setBreakState] = useState<{ breaks: { start: number; end?: number }[]; onBreak: boolean }>({ breaks: [], onBreak: false });
 
   const breakSecs = breakState.breaks.reduce((acc, b) => {
-    const end = b.end ?? (breakState.onBreak ? Date.now() : b.end ?? Date.now());
+    const end = b.end ?? (breakState.onBreak ? Date.now() : Date.now());
     return acc + Math.floor((end - b.start) / 1000);
   }, 0);
 
@@ -71,11 +74,10 @@ export default function MyAttendancePage() {
     setHistory(Array.isArray(hist) ? hist.slice(0, 30) : []);
   }, []);
 
-  // Auto-login from Clerk session
   useEffect(() => {
     if (!isLoaded || !user) return;
     const email = user.primaryEmailAddress?.emailAddress || "";
-    const name = user.fullName || user.firstName || email.split("@")[0];
+    const name  = user.fullName || user.firstName || email.split("@")[0];
     setEmp({ name, email });
     fetchData(email).finally(() => setLoading(false));
   }, [isLoaded, user, fetchData]);
@@ -89,8 +91,7 @@ export default function MyAttendancePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: emp.name,
-          phone: emp.email,
+          name: emp.name, phone: emp.email,
           locationId: locations[0].id,
           bypass: true,
           action: type === "OUT" ? "OUT" : undefined,
@@ -117,7 +118,7 @@ export default function MyAttendancePage() {
   const toggleBreak = () => {
     if (!todayRecord || todayRecord.punchOut) return;
     if (!breakState.onBreak) {
-      if (breakState.breaks.length >= MAX_BREAKS) { toast.error(`Max ${MAX_BREAKS} breaks allowed per day`); return; }
+      if (breakState.breaks.length >= MAX_BREAKS) { toast.error(`Max ${MAX_BREAKS} breaks allowed`); return; }
       setBreakState(prev => ({ breaks: [...prev.breaks, { start: Date.now() }], onBreak: true }));
       toast("Break started ☕", { icon: "⏸️" });
     } else {
@@ -131,8 +132,37 @@ export default function MyAttendancePage() {
     }
   };
 
-  const isPunchedIn = todayRecord && !todayRecord.punchOut;
-  const breaksUsed = breakState.breaks.length;
+  // Employee submits fix request — admin will see it as pending
+  const handleFixRequest = async () => {
+    if (!fixModal || !fixTime) return;
+    setFixing(true);
+    const record  = fixModal.record;
+    const dateStr = new Date(record.punchIn).toISOString().split("T")[0];
+    const res = await fetch("/api/attendance/guest", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: record.id,
+        fixPunchOut: `${dateStr}T${fixTime}:00`,
+        selfFix: true, // marks as pending approval instead of auto-approve
+      }),
+    });
+    if (res.ok) {
+      toast.success("Fix request sent to admin ✅");
+      setFixModal(null);
+      setFixTime("");
+      await fetchData(emp.email);
+    } else toast.error("Failed to send request");
+    setFixing(false);
+  };
+
+  const isPunchedIn   = todayRecord && !todayRecord.punchOut;
+  const breaksUsed    = breakState.breaks.length;
+  // Records with missing punchOut (excluding today's active record)
+  const missingPunchouts = history.filter(h =>
+    !h.punchOut &&
+    new Date(h.punchIn).toDateString() !== new Date().toDateString()
+  );
 
   if (!isLoaded || loading) return (
     <div className="p-6 flex items-center justify-center min-h-64">
@@ -142,12 +172,40 @@ export default function MyAttendancePage() {
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-lg mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">My Attendance</h1>
-          <p className="text-sm text-muted-foreground">Welcome, {emp?.name?.split(" ")[0]} 👋</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-white">My Attendance</h1>
+        <p className="text-sm text-muted-foreground">Welcome, {emp?.name?.split(" ")[0]} 👋</p>
       </div>
+
+      {/* ── Missing punchout alert ── */}
+      {missingPunchouts.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="p-4 rounded-xl border border-orange-500/30 bg-orange-500/8 space-y-2">
+          <div className="flex items-center gap-2 text-orange-400 font-semibold text-sm">
+            <AlertTriangle className="w-4 h-4" />
+            {missingPunchouts.length} record{missingPunchouts.length > 1 ? "s" : ""} missing punch out
+          </div>
+          <div className="space-y-1.5">
+            {missingPunchouts.map(r => (
+              <div key={r.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-white">
+                  {new Date(r.punchIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                  {" · In: "}
+                  {new Date(r.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                </span>
+                <button
+                  onClick={() => {
+                    setFixModal({ record: r });
+                    setFixTime("19:00");
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-400 hover:bg-orange-500/30 transition-colors flex-shrink-0">
+                  🔧 Fix Punch Out
+                </button>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Today Status Card */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -164,7 +222,6 @@ export default function MyAttendancePage() {
               <span>In: <span className="text-white">{new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</span></span>
               <span className={getPunchStatus(todayRecord.punchIn).color}>{getPunchStatus(todayRecord.punchIn).label}</span>
             </div>
-            {/* Break info */}
             <div className="flex justify-center gap-2 text-xs">
               {Array.from({ length: MAX_BREAKS }).map((_, i) => (
                 <div key={i} className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${
@@ -182,7 +239,6 @@ export default function MyAttendancePage() {
               <span>In: <span className="text-white">{new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</span></span>
               <span>Out: <span className="text-white">{new Date(todayRecord.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</span></span>
             </div>
-            {/* Work hours diff */}
             {(() => {
               const { diff, workedSecs } = getWorkDiff(todayRecord.punchIn, todayRecord.punchOut, 0);
               const wH = Math.floor(workedSecs / 3600), wM = Math.floor((workedSecs % 3600) / 60);
@@ -202,7 +258,6 @@ export default function MyAttendancePage() {
           <div className="text-muted-foreground text-sm py-4">Not punched in yet today</div>
         )}
 
-        {/* Action Buttons */}
         <div className="flex gap-3 justify-center pt-2">
           {!isPunchedIn && !todayRecord?.punchOut && (
             <button onClick={() => handlePunch("IN")} disabled={punching}
@@ -240,37 +295,105 @@ export default function MyAttendancePage() {
           {showHistory ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </button>
         {showHistory && (
-          <div className="border-t border-white/5 divide-y divide-white/5 max-h-72 overflow-y-auto">
+          <div className="border-t border-white/5 divide-y divide-white/5 max-h-80 overflow-y-auto">
             {history.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground text-sm">No records</div>
             ) : history.map((h: any) => {
-              const isSun = new Date(h.punchIn).getDay() === 0;
-              const expH = isSun ? EXPECTED_HOURS.sunday : EXPECTED_HOURS.weekday;
-              const worked = h.workHours ?? 0;
-              const diff = worked - expH;
-              const status = getPunchStatus(h.punchIn);
+              const isSun   = new Date(h.punchIn).getDay() === 0;
+              const expH    = isSun ? EXPECTED_HOURS.sunday : EXPECTED_HOURS.weekday;
+              const worked  = h.workHours ?? 0;
+              const diff    = worked - expH;
+              const status  = getPunchStatus(h.punchIn);
+              const isMissingOut = !h.punchOut && new Date(h.punchIn).toDateString() !== new Date().toDateString();
+              const isRejected   = h.approvedBy?.startsWith("REJECTED");
+              const isPending    = !h.approved && !isRejected && h.punchOut;
               return (
-                <div key={h.id} className="flex items-center gap-3 px-4 py-2.5 text-xs">
-                  <span className="text-muted-foreground w-16 flex-shrink-0">
+                <div key={h.id} className={`flex items-center gap-3 px-4 py-2.5 text-xs ${isMissingOut ? "bg-orange-500/5" : ""}`}>
+                  <span className="text-muted-foreground w-14 flex-shrink-0">
                     {new Date(h.punchIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                   </span>
-                  <span className="text-white flex-1">
+                  <span className="text-white flex-1 min-w-0 truncate">
                     {new Date(h.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                    {h.punchOut && <> → {new Date(h.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</>}
+                    {h.punchOut
+                      ? <> → {new Date(h.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</>
+                      : <span className="text-orange-400"> → Missing ⚠️</span>
+                    }
                   </span>
-                  <span className={status.color}>{status.label.split(" ")[0]}</span>
-                  {h.punchOut && (
-                    <span className={diff >= 0 ? "text-emerald-400" : "text-red-400"}>
-                      {diff >= 0 ? `+${diff.toFixed(1)}h` : `${diff.toFixed(1)}h`}
-                    </span>
-                  )}
-                  {!h.punchOut && <span className="text-emerald-400">In Office</span>}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {h.punchOut && (
+                      <span className={diff >= 0 ? "text-emerald-400" : "text-red-400"}>
+                        {diff >= 0 ? `+${diff.toFixed(1)}h` : `${diff.toFixed(1)}h`}
+                      </span>
+                    )}
+                    {h.approved && <CheckCircle className="w-3 h-3 text-emerald-400" />}
+                    {isRejected && <span className="text-red-400">✗</span>}
+                    {isPending && <span className="text-yellow-400 text-[10px]">Pending</span>}
+                    {isMissingOut && (
+                      <button
+                        onClick={() => { setFixModal({ record: h }); setFixTime("19:00"); }}
+                        className="px-2 py-0.5 rounded bg-orange-500/20 border border-orange-500/30 text-orange-400 hover:bg-orange-500/30 transition-colors">
+                        🔧 Fix
+                      </button>
+                    )}
+                    {!h.punchOut && !isMissingOut && <span className="text-emerald-400">In Office</span>}
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* ── Fix Punch Out Modal ── */}
+      <AnimatePresence>
+        {fixModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+            onClick={() => setFixModal(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm rounded-2xl p-5 space-y-4"
+              style={{ background: "#0d0d14", border: "1px solid rgba(249,115,22,0.35)" }}
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-white">🔧 Fix Missed Punch Out</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {new Date(fixModal.record.punchIn).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                    {" · Punched in: "}
+                    {new Date(fixModal.record.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                  </div>
+                </div>
+                <button onClick={() => setFixModal(null)} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Punch Out Time *</label>
+                <input type="time" value={fixTime}
+                  onChange={e => setFixTime(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]" />
+              </div>
+
+              <div className="p-3 rounded-lg bg-orange-500/8 border border-orange-500/20 text-xs text-orange-400">
+                ⚠️ Aapki fix request admin ko jayegi approval ke liye. Approve hone ke baad record update hoga.
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={handleFixRequest} disabled={fixing || !fixTime}
+                  className="flex-1 py-2.5 rounded-xl bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30 text-sm font-medium transition-colors disabled:opacity-50">
+                  {fixing ? "Sending..." : "Send Fix Request to Admin"}
+                </button>
+                <button onClick={() => setFixModal(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 text-muted-foreground border border-white/10 hover:text-white text-sm transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
