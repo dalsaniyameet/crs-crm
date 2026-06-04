@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-const ONLINE_MS  = 90_000;        // green dot < 90s
-const ACTIVE_MS  = 10 * 60_000;  // show in live < 10 min
+const ONLINE_MS  = 90_000;         // green dot < 90s
+const ACTIVE_MS  = 30 * 60_000;   // show in live < 30 min
 
 // POST — heartbeat from any logged-in user (every 30s)
 export async function POST(req: NextRequest) {

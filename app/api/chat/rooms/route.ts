@@ -6,7 +6,6 @@ async function getMe(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
 }
 
-// GET /api/chat/rooms — list all rooms with last message
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,12 +22,22 @@ export async function GET() {
         },
       },
     },
-    orderBy: { lastRead: "desc" },
   });
 
-  const rooms = memberships.map(m => {
+  const rooms = await Promise.all(memberships.map(async m => {
     const other   = m.room.members.find(mb => mb.userId !== me.id)?.user;
     const lastMsg = m.room.messages[0];
+
+    // Unread = messages after my lastRead sent by others
+    const unread = await prisma.chatMessage.count({
+      where: {
+        roomId:    m.room.id,
+        senderId:  { not: me.id },
+        isRead:    false,
+        createdAt: { gt: m.lastRead },
+      },
+    });
+
     return {
       id:       m.room.id,
       name:     m.room.name || other?.name || "Unknown",
@@ -37,13 +46,21 @@ export async function GET() {
       otherId:  other?.id,
       lastMsg:  lastMsg?.text || (lastMsg?.fileName ? `📎 ${lastMsg.fileName}` : null),
       lastTime: lastMsg?.createdAt,
+      lastMsgSenderId: lastMsg?.senderId,
+      unread,
     };
+  }));
+
+  // Sort by lastTime desc
+  rooms.sort((a, b) => {
+    if (!a.lastTime) return 1;
+    if (!b.lastTime) return -1;
+    return new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime();
   });
 
   return NextResponse.json(rooms);
 }
 
-// POST /api/chat/rooms — get or create DM room with another user
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,7 +70,6 @@ export async function POST(req: NextRequest) {
   const { targetUserId } = await req.json();
   if (!targetUserId) return NextResponse.json({ error: "targetUserId required" }, { status: 400 });
 
-  // Check if DM room already exists
   const existing = await prisma.chatRoom.findFirst({
     where: {
       isGroup: false,
@@ -69,9 +85,7 @@ export async function POST(req: NextRequest) {
   const room = await prisma.chatRoom.create({
     data: {
       isGroup: false,
-      members: {
-        create: [{ userId: me.id }, { userId: targetUserId }],
-      },
+      members: { create: [{ userId: me.id }, { userId: targetUserId }] },
     },
   });
 
