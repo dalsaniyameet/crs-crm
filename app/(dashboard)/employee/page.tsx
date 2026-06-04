@@ -871,9 +871,13 @@ export default function EmployeePanelPage() {
                     {d.notes && <div className="text-xs text-muted-foreground">{d.notes}</div>}
                   </div>
                   <a
-                    href={d.url?.includes(".pdf") || d.url?.includes("/raw/") || d.url?.includes("application/pdf")
-                      ? `/api/pdf-proxy?url=${encodeURIComponent(d.url)}`
-                      : d.url}
+                    href={(() => {
+                      const u = d.url || "";
+                      if (!u || u.startsWith("data:")) return u;
+                      if (u.includes("/raw/upload/")) return `/api/pdf-proxy?url=${encodeURIComponent(u)}`;
+                      if (u.includes(".pdf") || u.includes(".doc")) return `/api/pdf-proxy?url=${encodeURIComponent(u)}`;
+                      return u;
+                    })()}
                     target="_blank" rel="noreferrer"
                     className="p-1.5 rounded-lg hover:bg-estate-500/10 text-muted-foreground hover:text-estate-400 transition-colors">
                     <ExternalLink className="w-4 h-4" />

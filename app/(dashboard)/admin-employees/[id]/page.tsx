@@ -48,35 +48,127 @@ function SalarySlipPrint({ slip, employee, onClose, onSendToEmployee, sending }:
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    const content = printRef.current?.innerHTML;
     const win = window.open("", "_blank");
-    if (!win || !content) return;
+    if (!win) return;
+    const logoUrl = window.location.origin + "/logo.jpeg";
+    const workingDays = 26;
+    const absentDeduction = slip.absentDays * (slip.basicSalary / workingDays);
     win.document.write(`
-      <html><head><title>Salary Slip - ${employee.name} - ${slip.month}/${slip.year}</title>
+      <!DOCTYPE html><html><head>
+      <title>Salary Slip - ${employee.name} - ${MONTHS[slip.month-1]} ${slip.year}</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #000; }
-        .header { background: #1e3a5f; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .company { font-size: 20px; font-weight: bold; }
-        .subtitle { font-size: 12px; opacity: 0.8; margin-top: 4px; }
-        .slip-title { font-size: 16px; font-weight: bold; text-align: center; margin: 16px 0; color: #1e3a5f; border-bottom: 2px solid #1e3a5f; padding-bottom: 8px; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-        .info-box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; }
-        .info-label { font-size: 11px; color: #64748b; margin-bottom: 2px; }
-        .info-value { font-size: 13px; font-weight: 600; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th { background: #f1f5f9; padding: 8px 12px; text-align: left; font-size: 12px; border: 1px solid #e2e8f0; }
-        td { padding: 8px 12px; font-size: 13px; border: 1px solid #e2e8f0; }
-        .total-row { background: #f8fafc; font-weight: bold; }
-        .net-box { background: #1e3a5f; color: white; padding: 16px; border-radius: 8px; text-align: center; margin-top: 16px; }
-        .net-label { font-size: 12px; opacity: 0.8; }
-        .net-amount { font-size: 28px; font-weight: bold; margin-top: 4px; }
-        .footer { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-        .sign-line { border-top: 1px solid #000; padding-top: 4px; font-size: 11px; color: #64748b; margin-top: 40px; }
-        @media print { body { padding: 0; } }
-      </style></head><body>${content}</body></html>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;padding:24px;color:#1a202c}
+        .page{background:#fff;max-width:780px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12)}
+        .header{background:linear-gradient(135deg,#1e3a5f 0%,#0f2540 60%,#c9a227 100%);padding:28px 32px;display:flex;align-items:center;gap:20px}
+        .logo{width:64px;height:64px;border-radius:10px;object-fit:cover;border:2px solid rgba(255,255,255,0.3);background:#fff}
+        .company-info{flex:1}
+        .company-name{font-size:22px;font-weight:700;color:#fff;letter-spacing:0.3px}
+        .company-sub{font-size:11px;color:rgba(255,255,255,0.8);margin-top:3px;line-height:1.5}
+        .slip-badge{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:10px 18px;text-align:center;flex-shrink:0}
+        .slip-badge-title{font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px}
+        .slip-badge-month{font-size:15px;font-weight:700;color:#fff;margin-top:2px}
+        .divider-bar{height:4px;background:linear-gradient(90deg,#c9a227,#eab308,#1e3a5f)}
+        .body{padding:28px 32px}
+        .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#1e3a5f;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin-bottom:14px}
+        .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px}
+        .info-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px}
+        .info-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
+        .info-value{font-size:13px;font-weight:600;color:#1a202c;margin-top:3px}
+        .tables{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+        table{width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0}
+        thead tr{background:#1e3a5f}
+        thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:#fff;letter-spacing:0.5px}
+        tbody tr:nth-child(even){background:#f8fafc}
+        tbody tr:last-child{background:#eef2f7;font-weight:700}
+        td{padding:9px 14px;font-size:12px;color:#374151;border-bottom:1px solid #e2e8f0}
+        td:last-child{text-align:right;font-weight:500}
+        .net-box{background:linear-gradient(135deg,#1e3a5f,#0f2540);border-radius:10px;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+        .net-label{font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px}
+        .net-amount{font-size:32px;font-weight:800;color:#eab308;margin-top:4px}
+        .net-sub{font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px}
+        .net-right{text-align:right}
+        .net-month{font-size:13px;color:rgba(255,255,255,0.85);font-weight:600}
+        .signatures{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px;margin-top:32px}
+        .sign-box{text-align:center}
+        .sign-line{border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;color:#64748b}
+        .footer{background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 32px;text-align:center;font-size:10px;color:#94a3b8}
+        @media print{body{background:#fff;padding:0}.page{box-shadow:none;border-radius:0}}
+      </style></head><body>
+      <div class="page">
+        <div class="header">
+          <img src="${logoUrl}" class="logo" alt="Logo" onerror="this.style.display='none'" />
+          <div class="company-info">
+            <div class="company-name">City Real Space</div>
+            <div class="company-sub">A-708, Prahlad Nagar Trade Centre, Satellite, Ahmedabad - 380015</div>
+            <div class="company-sub">📞 +91 9825031247 &nbsp;|&nbsp; 🌐 cityrealspace.com</div>
+          </div>
+          <div class="slip-badge">
+            <div class="slip-badge-title">Salary Slip</div>
+            <div class="slip-badge-month">${MONTHS[slip.month-1].toUpperCase()}<br/>${slip.year}</div>
+          </div>
+        </div>
+        <div class="divider-bar"></div>
+        <div class="body">
+          <div class="section-title">Employee Details</div>
+          <div class="info-grid">
+            <div class="info-box"><div class="info-label">Employee Name</div><div class="info-value">${employee.name}</div></div>
+            <div class="info-box"><div class="info-label">Designation</div><div class="info-value">${employee.position || '—'}</div></div>
+            <div class="info-box"><div class="info-label">Department</div><div class="info-value">${employee.role || '—'}</div></div>
+            <div class="info-box"><div class="info-label">Email</div><div class="info-value">${employee.email}</div></div>
+            <div class="info-box"><div class="info-label">Working Days</div><div class="info-value">${workingDays} days</div></div>
+            <div class="info-box"><div class="info-label">Present / Absent</div><div class="info-value">${slip.presentDays || (workingDays - slip.absentDays)} / ${slip.absentDays} days</div></div>
+            <div class="info-box"><div class="info-label">Total Hours</div><div class="info-value">${slip.totalHours ? slip.totalHours.toFixed(1)+'h' : '—'}</div></div>
+            <div class="info-box"><div class="info-label">Pay Period</div><div class="info-value">${MONTHS[slip.month-1]} ${slip.year}</div></div>
+          </div>
+          <div class="tables">
+            <div>
+              <div class="section-title">Earnings</div>
+              <table><thead><tr><th>Component</th><th>Amount</th></tr></thead><tbody>
+                <tr><td>Basic Salary</td><td>₹${slip.basicSalary.toLocaleString('en-IN')}</td></tr>
+                <tr><td>HRA</td><td>₹${slip.hra.toLocaleString('en-IN')}</td></tr>
+                <tr><td>Conveyance</td><td>₹${slip.conveyance.toLocaleString('en-IN')}</td></tr>
+                <tr><td>Medical</td><td>₹${slip.medical.toLocaleString('en-IN')}</td></tr>
+                ${slip.bonus > 0 ? `<tr><td>Bonus</td><td>₹${slip.bonus.toLocaleString('en-IN')}</td></tr>` : ''}
+                <tr><td><strong>Gross Salary</strong></td><td><strong>₹${gross.toLocaleString('en-IN')}</strong></td></tr>
+              </tbody></table>
+            </div>
+            <div>
+              <div class="section-title">Deductions</div>
+              <table><thead><tr><th>Component</th><th>Amount</th></tr></thead><tbody>
+                <tr><td>PF (12%)</td><td>₹${pf.toLocaleString('en-IN')}</td></tr>
+                ${esi > 0 ? `<tr><td>ESI (0.75%)</td><td>₹${esi.toLocaleString('en-IN')}</td></tr>` : ''}
+                ${slip.absentDays > 0 ? `<tr><td>Absent (${slip.absentDays}d)</td><td>-₹${Math.round(absentDeduction).toLocaleString('en-IN')}</td></tr>` : ''}
+                ${slip.lateDeduct > 0 ? `<tr><td>Late (${slip.lateMinutes}min)</td><td>-₹${slip.lateDeduct.toLocaleString('en-IN')}</td></tr>` : ''}
+                ${slip.deductions > 0 ? `<tr><td>Other Deductions</td><td>₹${slip.deductions.toLocaleString('en-IN')}</td></tr>` : ''}
+                ${slip.otBonus > 0 ? `<tr><td>OT Bonus (${slip.otHours?.toFixed(1)}h)</td><td style="color:#10b981">+₹${slip.otBonus.toLocaleString('en-IN')}</td></tr>` : ''}
+                <tr><td><strong>Total Deductions</strong></td><td><strong>₹${(totalDeductions + Math.round(absentDeduction)).toLocaleString('en-IN')}</strong></td></tr>
+              </tbody></table>
+            </div>
+          </div>
+          <div class="net-box">
+            <div>
+              <div class="net-label">Net Salary Payable</div>
+              <div class="net-amount">₹${net.toLocaleString('en-IN')}</div>
+              <div class="net-sub">${MONTHS[slip.month-1]} ${slip.year} &nbsp;·&nbsp; ${slip.presentDays || (workingDays - slip.absentDays)}/${workingDays} days present</div>
+            </div>
+            <div class="net-right">
+              <div class="net-month">City Real Space</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:4px">Ahmedabad</div>
+            </div>
+          </div>
+          <div class="signatures">
+            <div class="sign-box"><div style="height:40px"></div><div class="sign-line">Employee Signature</div></div>
+            <div class="sign-box"><div style="height:40px"></div><div class="sign-line">HR Department</div></div>
+            <div class="sign-box"><div style="height:40px"></div><div class="sign-line">Authorized Signatory</div></div>
+          </div>
+        </div>
+        <div class="footer">This is a system-generated salary slip. No physical signature required. &nbsp;|&nbsp; Generated on ${new Date().toLocaleDateString('en-IN', {day:'numeric',month:'long',year:'numeric'})}</div>
+      </div>
+      </body></html>
     `);
     win.document.close();
-    win.print();
+    setTimeout(() => win.print(), 500);
   };
 
   const gross = slip.gross || (slip.basicSalary + slip.hra + slip.conveyance + slip.medical + slip.bonus);
@@ -109,8 +201,27 @@ function SalarySlipPrint({ slip, employee, onClose, onSendToEmployee, sending }:
           </div>
         </div>
 
-        {/* Slip content */}
-        <div ref={printRef} className="p-6">
+        {/* Slip preview (just info, actual print is via handlePrint) */}
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-4 p-4 rounded-xl" style={{background:"linear-gradient(135deg,#1e3a5f,#0f2540)"}}>
+            <img src="/logo.jpeg" alt="Logo" className="w-14 h-14 rounded-lg object-cover border-2 border-white/20" onError={(e:any)=>e.target.style.display='none'} />
+            <div>
+              <div className="font-bold text-white text-lg">City Real Space</div>
+              <div className="text-xs text-white/70">Salary Slip — {MONTHS[slip.month-1]} {slip.year}</div>
+            </div>
+            <div className="ml-auto text-right">
+              <div className="text-xs text-white/60">Net Payable</div>
+              <div className="text-2xl font-bold" style={{color:"#eab308"}}>₹{net.toLocaleString("en-IN")}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="p-3 rounded-lg bg-gray-50 border"><span className="text-gray-500 text-xs">Employee</span><div className="font-semibold text-gray-800">{employee.name}</div></div>
+            <div className="p-3 rounded-lg bg-gray-50 border"><span className="text-gray-500 text-xs">Period</span><div className="font-semibold text-gray-800">{MONTHS[slip.month-1]} {slip.year}</div></div>
+            <div className="p-3 rounded-lg bg-green-50 border border-green-200"><span className="text-gray-500 text-xs">Gross</span><div className="font-semibold text-green-700">₹{gross.toLocaleString("en-IN")}</div></div>
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200"><span className="text-gray-500 text-xs">Deductions</span><div className="font-semibold text-red-600">-₹{(totalDeductions+Math.round(absentDeduction)).toLocaleString("en-IN")}</div></div>
+          </div>
+          <p className="text-xs text-gray-400 text-center">Click "Print / Download PDF" to get full formatted salary slip with company letterhead</p>
+        </div>
           {/* Company Header */}
           <div className="header">
             <div className="company">City Real Space</div>
@@ -198,10 +309,6 @@ function SalarySlipPrint({ slip, employee, onClose, onSendToEmployee, sending }:
             </div>
           </div>
 
-          <p style={{ fontSize: 10, color: "#94a3b8", marginTop: 16, textAlign: "center" }}>
-            This is a computer generated salary slip. No signature required.
-          </p>
-        </div>
       </div>
     </div>
   );
@@ -455,15 +562,30 @@ export default function EmployeeDetailPage() {
     <div className="p-6 text-center text-muted-foreground">Employee not found</div>
   );
 
-  const uniqueAttDays = new Set(attendance.map((a: any) => new Date(a.punchIn).toDateString())).size;
-  const totalDays  = uniqueAttDays; // all records
-  const totalHours = attendance.filter((a:any) => a.punchOut).reduce((s: number, a: any) => s + (a.workHours || 0), 0);
+  // Deduplicate attendance: per day keep approved > has punchOut > latest punchIn
+  const dedupAtt: any[] = Object.values(
+    attendance.reduce((acc: Record<string, any>, a: any) => {
+      const day = new Date(a.punchIn).toDateString();
+      const prev = acc[day];
+      if (!prev) { acc[day] = a; return acc; }
+      // Prefer approved, then has punchOut, then latest punchIn
+      if (!prev.approved && a.approved) { acc[day] = a; return acc; }
+      if (prev.approved && !a.approved) return acc;
+      if (!prev.punchOut && a.punchOut) { acc[day] = a; return acc; }
+      if (prev.punchOut && !a.punchOut) return acc;
+      if (new Date(a.punchIn) > new Date(prev.punchIn)) acc[day] = a;
+      return acc;
+    }, {})
+  );
+
+  const totalDays   = dedupAtt.length;
+  const totalHours  = dedupAtt.filter((a: any) => a.punchOut).reduce((s: number, a: any) => s + (a.workHours || 0), 0);
   const pendingLeaves  = leaves.filter(l => l.status === "PENDING").length;
   const approvedLeaves = leaves.filter(l => l.status === "APPROVED").length;
-  const approvedAtt    = attendance.filter((a: any) => a.approved && a.punchOut);
+  const approvedAtt    = dedupAtt.filter((a: any) => a.approved && a.punchOut);
   const totalLateMin   = approvedAtt.reduce((s: number, a: any) => s + (a.lateMinutes || 0), 0);
   const totalOTHours   = approvedAtt.reduce((s: number, a: any) => s + (a.overtimeHours || 0), 0);
-  const pendingAttCount = attendance.filter((a: any) => a.punchOut && !a.approved).length;
+  const pendingAttCount = dedupAtt.filter((a: any) => a.punchOut && !a.approved).length;
 
   const DEAL_STAGE_COLOR: Record<string, string> = {
     LEAD:       "bg-blue-500/20 text-blue-400",
@@ -798,19 +920,12 @@ export default function EmployeeDetailPage() {
         {salaryMode === "auto" && (() => {
           const WORKING_DAYS = 26;
           // Filter attendance for selected month/year
-          const monthAtt = attendance.filter((a: any) => {
+          // Use already-deduped attendance, filter for month/year with punchOut
+          const monthAttUniq = (dedupAtt as any[]).filter((a: any) => {
             const d = new Date(a.punchIn);
             return d.getMonth() + 1 === slipMonth && d.getFullYear() === slipYear && a.punchOut;
           });
-          const presentDays = new Set(monthAtt.map((a: any) => new Date(a.punchIn).toDateString())).size;
-          // Deduplicate: one record per day (latest punch)
-          const monthAttUniq = Object.values(
-            monthAtt.reduce((acc: Record<string, any>, a: any) => {
-              const day = new Date(a.punchIn).toDateString();
-              if (!acc[day] || new Date(a.punchIn) > new Date(acc[day].punchIn)) acc[day] = a;
-              return acc;
-            }, {})
-          ) as any[];
+          const presentDays = monthAttUniq.length;
           const calcAbsent    = Math.max(0, WORKING_DAYS - presentDays);
           const totalHrsMonth = monthAttUniq.reduce((s: number, a: any) => s + (a.workHours || 0), 0);
           const lateMinTotal  = monthAttUniq.reduce((s: number, a: any) => s + (a.lateMinutes || 0), 0);
@@ -1037,11 +1152,11 @@ export default function EmployeeDetailPage() {
           <h2 className="font-semibold text-white">Attendance History</h2>
           <span className="text-xs text-muted-foreground ml-auto">Approve to include in salary</span>
         </div>
-        {attendance.length === 0 ? (
+        {dedupAtt.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">No attendance records</div>
         ) : (
           <div className="space-y-2">
-            {attendance.slice(0, 30).map((a: any) => (
+            {dedupAtt.slice(0, 30).map((a: any) => (
               <div key={a.id} className={`flex items-center gap-3 p-3 rounded-lg border ${
                 a.approved ? "bg-emerald-500/5 border-emerald-500/15" : "bg-white/5 border-white/5"
               }`}>
@@ -1202,12 +1317,14 @@ export default function EmployeeDetailPage() {
                   <a
                     href={(() => {
                       const u = d.url || "";
-                      // Cloudinary URLs — open directly (they are public)
+                      if (!u || u.startsWith("data:")) return u;
+                      // Cloudinary raw/upload (PDFs, docs) → proxy to avoid CORS
+                      if (u.includes("/raw/upload/")) return `/api/pdf-proxy?url=${encodeURIComponent(u)}`;
+                      // Cloudinary image uploads → direct
                       if (u.includes("cloudinary.com")) return u;
-                      // data: URLs or non-PDF — open directly
-                      if (u.startsWith("data:") || (!u.includes(".pdf") && !u.includes("/raw/"))) return u;
-                      // Other PDF URLs — use proxy
-                      return `/api/pdf-proxy?url=${encodeURIComponent(u)}`;
+                      // Any .pdf or non-image → proxy
+                      if (u.includes(".pdf") || u.includes(".doc")) return `/api/pdf-proxy?url=${encodeURIComponent(u)}`;
+                      return u;
                     })()}
                     target="_blank" rel="noreferrer"
                     className="p-1.5 rounded-lg hover:bg-estate-500/10 text-muted-foreground hover:text-estate-400 transition-colors flex-shrink-0">
