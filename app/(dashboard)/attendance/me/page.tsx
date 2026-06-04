@@ -196,7 +196,7 @@ export default function MyAttendancePage() {
                 <button
                   onClick={() => {
                     setFixModal({ record: r });
-                    setFixTime("19:00");
+                    setFixTime("18:00");
                   }}
                   className="px-2.5 py-1 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-400 hover:bg-orange-500/30 transition-colors flex-shrink-0">
                   🔧 Fix Punch Out
@@ -330,7 +330,7 @@ export default function MyAttendancePage() {
                     {isPending && <span className="text-yellow-400 text-[10px]">Pending</span>}
                     {isMissingOut && (
                       <button
-                        onClick={() => { setFixModal({ record: h }); setFixTime("19:00"); }}
+                        onClick={() => { setFixModal({ record: h }); setFixTime("18:00"); }}
                         className="px-2 py-0.5 rounded bg-orange-500/20 border border-orange-500/30 text-orange-400 hover:bg-orange-500/30 transition-colors">
                         🔧 Fix
                       </button>
@@ -371,9 +371,46 @@ export default function MyAttendancePage() {
 
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Punch Out Time *</label>
-                <input type="time" value={fixTime}
-                  onChange={e => setFixTime(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]" />
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={fixTime ? (parseInt(fixTime.split(":")[0]) % 12 || 12).toString() : "7"}
+                    onChange={e => {
+                      const [, min] = fixTime ? fixTime.split(":") : ["0","00"];
+                      const ampm = fixTime ? (parseInt(fixTime.split(":")[0]) >= 12 ? "pm" : "am") : "pm";
+                      let h = parseInt(e.target.value);
+                      if (ampm === "pm" && h !== 12) h += 12;
+                      if (ampm === "am" && h === 12) h = 0;
+                      setFixTime(`${String(h).padStart(2,"0")}:${min || "00"}`);
+                    }}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]">
+                    {Array.from({length:12},(_,i)=>i+1).map(h=><option key={h} value={h}>{h}</option>)}
+                  </select>
+                  <span className="text-white">:</span>
+                  <select
+                    value={fixTime ? fixTime.split(":")[1] : "00"}
+                    onChange={e => {
+                      const h = fixTime ? fixTime.split(":")[0] : "19";
+                      setFixTime(`${h}:${e.target.value}`);
+                    }}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]">
+                    {["00","05","10","15","20","25","30","35","40","45","50","55"].map(m=><option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <select
+                    value={fixTime ? (parseInt(fixTime.split(":")[0]) >= 12 ? "pm" : "am") : "pm"}
+                    onChange={e => {
+                      const [hStr, min] = fixTime ? fixTime.split(":") : ["7","00"];
+                      let h = parseInt(hStr) % 12;
+                      if (h === 0) h = 12;
+                      let h24 = h;
+                      if (e.target.value === "pm" && h !== 12) h24 = h + 12;
+                      if (e.target.value === "am" && h === 12) h24 = 0;
+                      setFixTime(`${String(h24).padStart(2,"0")}:${min || "00"}`);
+                    }}
+                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 [color-scheme:dark]">
+                    <option value="am">AM</option>
+                    <option value="pm">PM</option>
+                  </select>
+                </div>
               </div>
 
               <div className="p-3 rounded-lg bg-orange-500/8 border border-orange-500/20 text-xs text-orange-400">
