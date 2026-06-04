@@ -28,9 +28,19 @@ export async function POST(req: NextRequest) {
         const { clerkClient } = await import("@clerk/nextjs/server");
         const clerk = await clerkClient();
         const cu    = await clerk.users.getUser(userId);
-        const email = cu.emailAddresses?.[0]?.emailAddress || "";
+        const email = cu.emailAddresses?.[0]?.emailAddress?.toLowerCase() || "";
         const name  = [cu.firstName, cu.lastName].filter(Boolean).join(" ") || email.split("@")[0] || "User";
         const role  = (cu.publicMetadata?.role as string) || "BROKER";
+        // Try find by email too (case-insensitive)
+        const byEmail = email ? await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } }) : null;
+        if (byEmail && byEmail.clerkId !== userId) {
+          // Update existing record with correct clerkId
+          await prisma.user.update({
+            where: { id: byEmail.id },
+            data: { clerkId: userId, lastSeen: now, currentPage: page, isActive: true },
+          });
+          return NextResponse.json({ ok: true, isNewLogin: true });
+        }
         await prisma.user.upsert({
           where:  { clerkId: userId },
           update: { lastSeen: now, currentPage: page, isActive: true, name, avatar: cu.imageUrl || null },
@@ -74,7 +84,7 @@ export async function POST(req: NextRequest) {
       },
       create: {
         clerkId:     userId,
-        email:       existing.email || "",
+        email:       existing.email?.toLowerCase() || "",
         name:        existing.name  || "User",
         role:        existing.role  || "BROKER",
         avatar:      existing.avatar || null,
@@ -104,6 +114,26 @@ export async function GET(req: NextRequest) {
     const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
     const isAdmin = me?.role === "ADMIN" || adminEmails.includes((me?.email || "").toLowerCase());
     if (!isAdmin) return NextResponse.json({ live: [], today: [] });
+
+    // ?debug=1 — return all users in DB for diagnosis
+    const isDebug = new URL(req.url).searchParams.get("debug") === "1";
+    if (isDebug) {
+      const all = await prisma.user.findMany({
+        select: { name: true, email: true, role: true, isActive: true, lastSeen: true, currentPage: true, clerkId: true },
+        orderBy: { lastSeen: { sort: "desc", nulls: "last" } },
+      });
+      return NextResponse.json({
+        total: all.length,
+        now: new Date().toISOString(),
+        users: all.map(u => ({
+          name: u.name, email: u.email, role: u.role, isActive: u.isActive,
+          clerkId: u.clerkId?.slice(0, 15),
+          lastSeen: u.lastSeen?.toISOString() || null,
+          minsAgo: u.lastSeen ? Math.floor((Date.now() - u.lastSeen.getTime()) / 60000) : null,
+          currentPage: u.currentPage,
+        })),
+      });
+    }
 
     const now      = new Date();
     const ago10    = new Date(now.getTime() - ACTIVE_MS);
