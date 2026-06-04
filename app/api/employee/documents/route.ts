@@ -126,6 +126,24 @@ export async function PATCH(req: NextRequest) {
             },
           });
         }
+        // Email employee
+        const { sendEmployeeEmail } = await import("@/lib/email");
+        const APP = process.env.NEXT_PUBLIC_APP_URL || "https://cityrealspacecrm.com";
+        const approved = status === "APPROVED";
+        sendEmployeeEmail(
+          emp.email,
+          approved ? `✅ Document Approved — ${doc.name}` : `❌ Document Rejected — ${doc.name}`,
+          `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#f4f6fb;padding:20px;border-radius:10px">
+          <div style="background:#0f172a;padding:16px 24px;border-radius:8px 8px 0 0">
+            <div style="color:${approved ? '#16a34a' : '#dc2626'};font-size:16px;font-weight:bold">${approved ? '✅ Document Approved' : '❌ Document Rejected'}</div>
+            <div style="color:#94a3b8;font-size:13px">City Real Space CRM</div>
+          </div>
+          <div style="background:#fff;padding:20px;border-radius:0 0 8px 8px;border:1px solid #e2e8f0">
+            <p style="color:#1e293b;font-size:14px">Hi <strong>${emp.name}</strong>, your document <strong>"${doc.name}"</strong> has been <strong style="color:${approved ? '#16a34a' : '#dc2626'}">${approved ? 'approved ✅' : 'rejected ❌'}</strong>.</p>
+            ${adminNote ? `<p style="color:#64748b;font-size:13px">Note: <em>${adminNote}</em></p>` : ''}
+            <div style="margin-top:16px"><a href="${APP}/employee" style="padding:10px 22px;background:${approved ? '#16a34a' : '#dc2626'};color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:bold">View My Documents →</a></div>
+          </div></div>`
+        ).catch(() => {});
       }
     } catch { }
     return NextResponse.json(doc);

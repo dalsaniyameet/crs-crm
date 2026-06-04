@@ -333,6 +333,40 @@ export async function PATCH(req: Request) {
         },
         include: { location: true },
       });
+
+      // Email employee about fix
+      try {
+        const { sendEmployeeEmail } = await import("@/lib/email");
+        const empProfile = await prisma.employeeProfile.findFirst({
+          where: { OR: [{ email: record.phone }, { name: { contains: record.name, mode: "insensitive" } }] },
+          select: { email: true },
+        });
+        const empEmail = empProfile?.email || (record.phone.includes("@") ? record.phone : null);
+        if (empEmail) {
+          const dateStr = new Date(pIn).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+          const pInStr  = pIn  ? new Date(pIn).toLocaleTimeString("en-IN",  { hour: "2-digit", minute: "2-digit", hour12: true }) : "—";
+          const pOutStr = pOut ? new Date(pOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—";
+          sendEmployeeEmail(empEmail,
+            isSelfFix ? `🔧 Fix Request Received — ${dateStr}` : `✅ Attendance Fixed — ${dateStr}`,
+            `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#f4f6fb;padding:20px;border-radius:10px">
+            <div style="background:#0f172a;padding:16px 24px;border-radius:8px 8px 0 0">
+              <div style="color:#f59e0b;font-size:16px;font-weight:bold">${isSelfFix ? "🔧 Fix Request Received" : "✅ Attendance Fixed"}</div>
+              <div style="color:#94a3b8;font-size:13px">City Real Space CRM</div>
+            </div>
+            <div style="background:#fff;padding:20px;border-radius:0 0 8px 8px;border:1px solid #e2e8f0">
+              <p style="color:#1e293b;font-size:14px">Hi <strong>${record.name}</strong>, ${isSelfFix ? "your fix request has been received and is <strong>pending admin approval</strong>." : "your attendance has been <strong style='color:#16a34a'>fixed and approved</strong> by admin."}</p>
+              <table style="width:100%;border-collapse:collapse">
+                <tr><td style="padding:6px 10px;color:#64748b;font-size:13px">Date</td><td style="padding:6px 10px;color:#1e293b;font-size:14px"><strong>${dateStr}</strong></td></tr>
+                <tr style="background:#f8fafc"><td style="padding:6px 10px;color:#64748b;font-size:13px">Punch In</td><td style="padding:6px 10px;font-size:14px">${pInStr}</td></tr>
+                <tr><td style="padding:6px 10px;color:#64748b;font-size:13px">Punch Out</td><td style="padding:6px 10px;font-size:14px">${pOutStr}</td></tr>
+                ${workHours ? `<tr style="background:#f8fafc"><td style="padding:6px 10px;color:#64748b;font-size:13px">Work Hours</td><td style="padding:6px 10px;color:#2563eb;font-size:14px"><strong>${workHours.toFixed(1)}h</strong></td></tr>` : ""}
+              </table>
+              <div style="margin-top:16px"><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://cityrealspacecrm.com"}/employee" style="padding:10px 22px;background:#f59e0b;color:#0f172a;text-decoration:none;border-radius:6px;font-size:14px;font-weight:bold">View My Attendance →</a></div>
+            </div></div>`
+          ).catch(() => {});
+        }
+      } catch { /* non-critical */ }
+
       return NextResponse.json(updated);
     }
 
@@ -346,6 +380,54 @@ export async function PATCH(req: Request) {
       },
       include: { location: true },
     });
+
+    // Send email to employee
+    try {
+      const { sendEmployeeEmail } = await import("@/lib/email");
+      const empProfile = await prisma.employeeProfile.findFirst({
+        where: { OR: [{ email: updated.phone }, { name: { contains: updated.name, mode: "insensitive" } }] },
+        select: { email: true },
+      });
+      const empEmail = empProfile?.email || (updated.phone.includes("@") ? updated.phone : null);
+      if (empEmail) {
+        const dateStr = new Date(updated.punchIn).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+        const punchInStr = new Date(updated.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+        const punchOutStr = updated.punchOut ? new Date(updated.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—";
+        if (!rejected && approved) {
+          sendEmployeeEmail(empEmail, `✅ Attendance Approved — ${dateStr}`,
+            `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#f4f6fb;padding:20px;border-radius:10px">
+            <div style="background:#0f172a;padding:16px 24px;border-radius:8px 8px 0 0">
+              <div style="color:#f59e0b;font-size:16px;font-weight:bold">✅ Attendance Approved</div>
+              <div style="color:#94a3b8;font-size:13px">City Real Space CRM</div>
+            </div>
+            <div style="background:#fff;padding:20px;border-radius:0 0 8px 8px;border:1px solid #e2e8f0">
+              <p style="color:#1e293b;font-size:14px">Hi <strong>${updated.name}</strong>, your attendance has been <strong style="color:#16a34a">approved</strong>.</p>
+              <table style="width:100%;border-collapse:collapse">
+                <tr><td style="padding:6px 10px;color:#64748b;font-size:13px">Date</td><td style="padding:6px 10px;color:#1e293b;font-size:14px"><strong>${dateStr}</strong></td></tr>
+                <tr style="background:#f8fafc"><td style="padding:6px 10px;color:#64748b;font-size:13px">Punch In</td><td style="padding:6px 10px;color:#1e293b;font-size:14px">${punchInStr}</td></tr>
+                <tr><td style="padding:6px 10px;color:#64748b;font-size:13px">Punch Out</td><td style="padding:6px 10px;color:#1e293b;font-size:14px">${punchOutStr}</td></tr>
+                ${updated.workHours ? `<tr style="background:#f8fafc"><td style="padding:6px 10px;color:#64748b;font-size:13px">Work Hours</td><td style="padding:6px 10px;color:#2563eb;font-size:14px"><strong>${updated.workHours.toFixed(1)}h</strong></td></tr>` : ""}
+              </table>
+              <div style="margin-top:16px"><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://cityrealspacecrm.com"}/employee" style="padding:10px 22px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:bold">View My Attendance →</a></div>
+            </div></div>`
+          ).catch(() => {});
+        } else if (rejected) {
+          sendEmployeeEmail(empEmail, `❌ Attendance Rejected — ${dateStr}`,
+            `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#f4f6fb;padding:20px;border-radius:10px">
+            <div style="background:#0f172a;padding:16px 24px;border-radius:8px 8px 0 0">
+              <div style="color:#ef4444;font-size:16px;font-weight:bold">❌ Attendance Rejected</div>
+              <div style="color:#94a3b8;font-size:13px">City Real Space CRM</div>
+            </div>
+            <div style="background:#fff;padding:20px;border-radius:0 0 8px 8px;border:1px solid #e2e8f0">
+              <p style="color:#1e293b;font-size:14px">Hi <strong>${updated.name}</strong>, your attendance for <strong>${dateStr}</strong> has been <strong style="color:#dc2626">rejected</strong>.</p>
+              ${rejectReason ? `<p style="color:#64748b;font-size:13px">Reason: <em>${rejectReason}</em></p>` : ""}
+              <div style="margin-top:16px"><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://cityrealspacecrm.com"}/employee" style="padding:10px 22px;background:#dc2626;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:bold">View My Attendance →</a></div>
+            </div></div>`
+          ).catch(() => {});
+        }
+      }
+    } catch { /* non-critical */ }
+
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json({ error: "Failed" }, { status: 500 });
