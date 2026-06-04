@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-const ONLINE_MS  = 90_000;         // green dot < 90s
-const ACTIVE_MS  = 30 * 60_000;   // show in live < 30 min
+const ONLINE_MS  = 90_000;
+const ACTIVE_MS  = 30 * 60_000;
+const TODAY_MS   = 24 * 60 * 60_000;
 
 // POST — heartbeat from any logged-in user (every 30s)
 export async function POST(req: NextRequest) {
@@ -19,6 +20,24 @@ export async function POST(req: NextRequest) {
       where: { clerkId: userId },
       select: { openTabs: true, lastSeen: true, loginCount: true, loginHistory: true },
     });
+
+    // If user doesn't exist in DB yet, create them from Clerk
+    if (!existing) {
+      try {
+        const { clerkClient } = await import("@clerk/nextjs/server");
+        const clerk = await clerkClient();
+        const cu = await clerk.users.getUser(userId);
+        const email = cu.emailAddresses?.[0]?.emailAddress || "";
+        const name  = [cu.firstName, cu.lastName].filter(Boolean).join(" ") || email.split("@")[0] || "User";
+        const role  = (cu.publicMetadata?.role as string) || "BROKER";
+        await prisma.user.upsert({
+          where:  { clerkId: userId },
+          update: { lastSeen: new Date(), currentPage: page },
+          create: { clerkId: userId, email, name, role, avatar: cu.imageUrl || null, lastSeen: new Date(), currentPage: page },
+        });
+      } catch { /* non-critical */ }
+      return NextResponse.json({ ok: true, isNewLogin: true });
+    }
 
     let tabs: string[] = existing?.openTabs ?? [];
     if (Array.isArray(body.allTabs) && body.allTabs.length > 0) {
@@ -77,12 +96,12 @@ export async function GET(req: NextRequest) {
 
     const [liveUsers, todayUsers] = await Promise.all([
       prisma.user.findMany({
-        where:   { lastSeen: { gte: ago10 } },
+        where:   { isActive: true, lastSeen: { gte: ago10 } },
         select:  { id: true, clerkId: true, name: true, email: true, role: true, avatar: true, lastSeen: true, currentPage: true, openTabs: true, loginCount: true, loginHistory: true, liveLatitude: true, liveLongitude: true, liveAddress: true, liveUpdatedAt: true },
         orderBy: { lastSeen: "desc" },
       }),
       prisma.user.findMany({
-        where:   { lastSeen: { gte: startDay } },
+        where:   { isActive: true, lastSeen: { gte: startDay } },
         select:  { id: true, clerkId: true, name: true, email: true, role: true, avatar: true, lastSeen: true, currentPage: true, openTabs: true, loginCount: true, loginHistory: true, liveLatitude: true, liveLongitude: true, liveAddress: true, liveUpdatedAt: true },
         orderBy: { lastSeen: "desc" },
       }),

@@ -590,6 +590,15 @@ export default function AdminPanelPage() {
                           })}
                         </div>
                       )}
+                      {/* Current page highlight */}
+                      {u.currentPage && (
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">Now on:</span>
+                          <span className="text-xs font-semibold text-white px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/25">
+                            {u.currentPage.replace(/^\//, "").replace(/-/g, " ").replace(/\//g, " › ") || "dashboard"}
+                          </span>
+                        </div>
+                      )}
                       {/* Login count + times */}
                       <div className="mt-2 flex flex-wrap gap-1.5 items-center">
                         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/25 text-blue-300">
