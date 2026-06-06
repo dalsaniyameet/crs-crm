@@ -6,57 +6,98 @@ export async function notifyMatchingOwners(leadId: string) {
     const lead = await prisma.lead.findUnique({ where: { id: leadId } });
     if (!lead) return;
 
-    // Build filter to find matching owners via their properties
-    const propertyWhere: Record<string, any> = { ownerId: { not: null } };
+    // Only notify if lead has enough info
+    if (!lead.propertyType && !lead.transactionType && !lead.budget) return;
+
+    const propertyWhere: Record<string, any> = {
+      ownerId:  { not: null },
+      status:   { in: ["AVAILABLE", "UNDER_NEGOTIATION"] },
+    };
     if (lead.propertyType)    propertyWhere.type            = lead.propertyType;
     if (lead.transactionType) propertyWhere.transactionType = lead.transactionType;
-    if (lead.budget)          propertyWhere.price           = { lte: lead.budget * 1.3 };
+    if (lead.budget)          propertyWhere.price           = { lte: lead.budget * 1.4 };
 
-    // Get up to 50 unique owners with matching properties
+    // Preferred area filter
+    if (lead.preferredAreas?.length > 0) {
+      propertyWhere.locality = {
+        in: lead.preferredAreas,
+        mode: "insensitive",
+      };
+    }
+
     const properties = await prisma.property.findMany({
-      where:   propertyWhere,
-      select:  { ownerId: true, title: true, price: true, locality: true },
-      take:    100,
+      where:  propertyWhere,
+      select: { ownerId: true, title: true, price: true, locality: true },
+      take:   100,
     });
 
-    // Deduplicate owners, max 50
     const ownerIds = [...new Set(properties.map(p => p.ownerId).filter(Boolean))] as string[];
-    const top50 = ownerIds.slice(0, 50);
+    if (ownerIds.length === 0) return;
 
-    if (top50.length === 0) return;
+    // Check already notified in last 7 days for same lead type
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentlyNotified = await prisma.ownerMessage.findMany({
+      where: {
+        ownerId:   { in: ownerIds },
+        direction: "OUT",
+        createdAt: { gte: sevenDaysAgo },
+        message:   { contains: lead.propertyType || "property" },
+      },
+      select: { ownerId: true },
+    });
+    const alreadyNotified = new Set(recentlyNotified.map(m => m.ownerId));
+    const freshOwnerIds   = ownerIds.filter(id => !alreadyNotified.has(id)).slice(0, 20);
+    if (freshOwnerIds.length === 0) return;
 
     const owners = await prisma.propertyOwner.findMany({
-      where: { id: { in: top50 }, isActive: true },
+      where:  { id: { in: freshOwnerIds }, isActive: true },
       select: { id: true, name: true, phone: true },
     });
+    if (owners.length === 0) return;
 
-    const budget = lead.budget
-      ? `₹${lead.budget.toLocaleString("en-IN")}`
-      : "negotiable";
+    const isResidential = lead.category === "RESIDENTIAL" || !lead.category;
+    const budgetStr = lead.budget
+      ? lead.budget >= 10000000
+        ? `₹${(lead.budget / 10000000).toFixed(1)} Cr`
+        : lead.budget >= 100000
+        ? `₹${(lead.budget / 100000).toFixed(1)} L`
+        : `₹${lead.budget.toLocaleString("en-IN")}`
+      : "Negotiable";
+
+    const propTypeStr = lead.propertyType?.replace(/_/g, " ") || (isResidential ? "Residential" : "Commercial");
+    const areasStr    = lead.preferredAreas?.length > 0
+      ? lead.preferredAreas.join(", ")
+      : "Ahmedabad";
+    const txStr = lead.transactionType === "RENT" ? "Rent"
+      : lead.transactionType === "LEASE" ? "Lease"
+      : lead.transactionType === "BUY"   ? "Buy"   : "Sell";
 
     const msg =
-      `🏢 *New Client Requirement — City Real Space*\n\n` +
-      `Hi {NAME},\n\n` +
-      `We have a serious buyer/tenant looking for:\n` +
-      `• *Type:* ${lead.propertyType || "Any"}\n` +
-      `• *Transaction:* ${lead.transactionType || "Any"}\n` +
-      `• *Budget:* ${budget}\n` +
-      `• *Requirements:* ${lead.requirements || "—"}\n\n` +
-      `If you have a matching property, please reply on this number.\n\n` +
-      `📞 City Real Space | Ahmedabad`;
+      `⚜️ *CITY REAL SPACE*\n` +
+      `📞 Ahmedabad | +91 98250 31247\n\n` +
+      `Hello {NAME} ji! 🙏\n\n` +
+      `*We have a serious client requirement:*\n\n` +
+      `🏠 *Type:* ${propTypeStr}\n` +
+      `🔑 *Looking to:* ${txStr}\n` +
+      `📍 *Preferred Area:* ${areasStr}\n` +
+      `💰 *Budget:* ${budgetStr}\n` +
+      (lead.requirements ? `📝 *Requirements:* ${lead.requirements}\n` : "") +
+      `\n` +
+      `If your property matches, please share details.\n` +
+      `We handle everything — documentation, visits, deal closure.\n\n` +
+      `📞 City Real Space\n` +
+      `🏢 Prahlad Nagar Trade Centre, Satellite, Ahmedabad\n` +
+      `🌐 cityrealspace.com`;
 
-    // Send WP to each owner & save message log
     await Promise.all(
       owners.map(async (owner) => {
         const personalMsg = msg.replace("{NAME}", owner.name);
-        await sendWhatsApp(owner.phone, personalMsg);
+        try {
+          await sendWhatsApp(owner.phone, personalMsg);
+        } catch { /* non-critical */ }
         await prisma.ownerMessage.create({
-          data: {
-            ownerId:   owner.id,
-            direction: "OUT",
-            message:   personalMsg,
-          },
-        });
+          data: { ownerId: owner.id, direction: "OUT", message: personalMsg },
+        }).catch(() => {});
       })
     );
 

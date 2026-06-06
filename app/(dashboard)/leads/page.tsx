@@ -24,6 +24,10 @@ interface Lead {
   score: number;
   budget?: number;
   requirements?: string;
+  propertyType?: string;
+  transactionType?: string;
+  category?: string;
+  preferredAreas?: string[];
   assignedTo?: { id: string; name: string };
   nextFollowUpAt?: string;
   lastContactedAt?: string;
@@ -767,6 +771,39 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                 <span className="text-xs" style={{ color: "#94a3b8" }}>{lead.source.replace(/_/g, " ")}</span>
                 {lead.budget && (
                   <span className="text-xs font-bold" style={{ color: "#facc15" }}>{fmtBudget(lead.budget)}</span>
+                )}
+              </div>
+
+              {/* Category + Type + Areas chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {lead.category && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                    lead.category === "RESIDENTIAL"
+                      ? "bg-blue-500/15 border-blue-500/30 text-blue-300"
+                      : "bg-orange-500/15 border-orange-500/30 text-orange-300"
+                  }`}>
+                    {lead.category === "RESIDENTIAL" ? "🏠" : "🏢"} {lead.category}
+                  </span>
+                )}
+                {lead.propertyType && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-white/8 border border-white/15 text-white/70">
+                    {lead.propertyType.replace(/_/g," ")}
+                  </span>
+                )}
+                {lead.transactionType && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/25 text-purple-300">
+                    {lead.transactionType}
+                  </span>
+                )}
+                {lead.preferredAreas?.slice(0,2).map(a => (
+                  <span key={a} className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                    📍 {a}
+                  </span>
+                ))}
+                {(lead.preferredAreas?.length ?? 0) > 2 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">
+                    +{(lead.preferredAreas?.length ?? 0) - 2} more
+                  </span>
                 )}
               </div>
 
