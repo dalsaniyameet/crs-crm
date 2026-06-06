@@ -106,12 +106,54 @@ export default function EmployeePanelPage() {
   const [editText, setEditText]       = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
 
+  // ── Call Reference Cards ──
+  const [callCards, setCallCards]     = useState<any[]>([]);
+  const [showCallForm, setShowCallForm] = useState(false);
+  const [callSaving, setCallSaving]   = useState(false);
+  const [callForm, setCallForm]       = useState({
+    clientName: "", phone: "", altPhone: "",
+    propertyTitle: "", budget: "", locality: "",
+    category: "", notes: "",
+  });
+
+  const loadCallCards = async () => {
+    const data = await fetch("/api/employee/sticky-notes?type=call").then(r => r.json()).catch(() => []);
+    setCallCards(Array.isArray(data) ? data.filter((n: any) => n.color === "call") : []);
+  };
+
+  const saveCallCard = async () => {
+    if (!callForm.clientName.trim() || !callForm.phone.trim()) return;
+    setCallSaving(true);
+    const content = JSON.stringify(callForm);
+    const res = await fetch("/api/employee/sticky-notes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content, color: "call", isPinned: true }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setCallCards(prev => [data, ...prev]);
+      setCallForm({ clientName: "", phone: "", altPhone: "", propertyTitle: "", budget: "", locality: "", category: "", notes: "" });
+      setShowCallForm(false);
+    }
+    setCallSaving(false);
+  };
+
+  const deleteCallCard = async (id: string) => {
+    await fetch("/api/employee/sticky-notes", {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setCallCards(prev => prev.filter(c => c.id !== id));
+  };
+
+  useEffect(() => { if (tab === "notes") { loadNotes(); loadCallCards(); } }, [tab]);
+
   const loadNotes = async () => {
     const data = await fetch("/api/employee/sticky-notes").then(r => r.json()).catch(() => []);
     setStickyNotes(Array.isArray(data) ? data : []);
   };
 
-  useEffect(() => { if (tab === "notes") loadNotes(); }, [tab]);
+
 
   // ── Chat ──
   const [chatRooms, setChatRooms]       = useState<any[]>([]);
@@ -1035,6 +1077,173 @@ export default function EmployeePanelPage() {
       {/* ── NOTES TAB ── */}
       {tab === "notes" && (
         <div className="space-y-4">
+
+          {/* ── CALL REFERENCE CARDS ── */}
+          <div className="glass-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📞</span>
+                <span className="text-sm font-semibold text-white">Call Reference Cards</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">{callCards.length} cards</span>
+              </div>
+              <button onClick={() => setShowCallForm(v => !v)}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-all">
+                <Plus className="w-3.5 h-3.5" /> New Card
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {showCallForm && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden">
+                  <div className="pt-1 space-y-3 border-t border-white/10">
+                    <p className="text-xs text-muted-foreground pt-2">Fill client/owner details for quick reference during calls</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Client / Owner Name *</label>
+                        <input value={callForm.clientName} onChange={e => setCallForm(f => ({...f, clientName: e.target.value}))}
+                          placeholder="e.g. Ramesh Patel" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Phone *</label>
+                        <input value={callForm.phone} onChange={e => setCallForm(f => ({...f, phone: e.target.value}))}
+                          placeholder="+91 98765 43210" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Alt Phone</label>
+                        <input value={callForm.altPhone} onChange={e => setCallForm(f => ({...f, altPhone: e.target.value}))}
+                          placeholder="Optional" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Property / Project</label>
+                        <input value={callForm.propertyTitle} onChange={e => setCallForm(f => ({...f, propertyTitle: e.target.value}))}
+                          placeholder="e.g. 3BHK Apartment, SG Highway" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Budget</label>
+                        <input value={callForm.budget} onChange={e => setCallForm(f => ({...f, budget: e.target.value}))}
+                          placeholder="e.g. ₹50L–₹80L" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Locality / Area</label>
+                        <input value={callForm.locality} onChange={e => setCallForm(f => ({...f, locality: e.target.value}))}
+                          placeholder="e.g. Bopal, Satellite" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Category</label>
+                        <select value={callForm.category} onChange={e => setCallForm(f => ({...f, category: e.target.value}))} className={inputCls}>
+                          <option value="">— Select —</option>
+                          {["Buyer","Seller","Tenant","Owner","Investor"].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Quick Notes</label>
+                        <input value={callForm.notes} onChange={e => setCallForm(f => ({...f, notes: e.target.value}))}
+                          placeholder="e.g. Interested in corner flat" className={inputCls} />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={saveCallCard} disabled={!callForm.clientName.trim() || !callForm.phone.trim() || callSaving}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-40 transition-all">
+                        {callSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save Card
+                      </button>
+                      <button onClick={() => setShowCallForm(false)} className="px-4 py-2 text-xs text-muted-foreground hover:text-white border border-white/10 rounded-xl">Cancel</button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {callCards.length === 0 ? (
+              <div className="text-center py-5 text-muted-foreground text-sm">No call cards yet — add one before your next call!</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {callCards.map(card => {
+                  let d: any = {};
+                  try { d = JSON.parse(card.content); } catch {}
+                  return (
+                    <div key={card.id}
+                      className="rounded-2xl p-4 space-y-3"
+                      style={{ background: "linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03))", border: "1.5px solid rgba(16,185,129,0.25)" }}>
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">👤</span>
+                            <span className="text-sm font-bold text-white">{d.clientName}</span>
+                            {d.category && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/20">{d.category}</span>
+                            )}
+                          </div>
+                        </div>
+                        <button onClick={() => deleteCallCard(card.id)} className="p-1 rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-400 transition-all flex-shrink-0">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Phone numbers */}
+                      <div className="flex flex-wrap gap-2">
+                        <a href={`tel:${d.phone}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-all">
+                          📞 {d.phone}
+                        </a>
+                        {d.altPhone && (
+                          <a href={`tel:${d.altPhone}`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/8 text-muted-foreground border border-white/10 hover:text-white transition-all">
+                            📞 {d.altPhone}
+                          </a>
+                        )}
+                        <a href={`https://wa.me/${d.phone?.replace(/\D/g,"")}`} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-green-600/15 text-green-400 border border-green-500/25 hover:bg-green-600/25 transition-all">
+                          💬 WhatsApp
+                        </a>
+                      </div>
+
+                      {/* Details grid */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {d.propertyTitle && (
+                          <div className="col-span-2 flex items-start gap-1.5">
+                            <span className="text-muted-foreground flex-shrink-0">🏠</span>
+                            <span className="text-white font-medium">{d.propertyTitle}</span>
+                          </div>
+                        )}
+                        {d.budget && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground">💰</span>
+                            <span className="text-gold-300 font-semibold">{d.budget}</span>
+                          </div>
+                        )}
+                        {d.locality && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground">📍</span>
+                            <span className="text-white">{d.locality}</span>
+                          </div>
+                        )}
+                        {d.notes && (
+                          <div className="col-span-2 flex items-start gap-1.5 p-2 rounded-lg bg-white/5">
+                            <span className="text-muted-foreground flex-shrink-0">📝</span>
+                            <span className="text-muted-foreground">{d.notes}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-muted-foreground opacity-50">
+                        Added {new Date(card.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── divider ── */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-xs text-muted-foreground">Personal Sticky Notes</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
           {/* Add new note */}
           <div className="glass-card p-4 space-y-3">
             <div className="flex items-center gap-2">

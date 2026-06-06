@@ -9,6 +9,7 @@ import NotificationBell from "@/components/ui/notification-bell";
 import { getNavWithOverride, UserRole } from "@/lib/roles";
 import { useUser, useClerk } from "@clerk/nextjs";
 import toast from "react-hot-toast";
+import FacePunch from "@/components/attendance/FacePunch";
 
 function NavProgress() {
   const pathname = usePathname();
@@ -311,8 +312,13 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [onBreak, setOnBreak]           = useState(false);
   const [breakStart, setBreakStart]     = useState(0);
   const [breakUsed, setBreakUsed]       = useState(0);
+  const [showFacePunch, setShowFacePunch] = useState(false);
+  const [facePunchAction, setFacePunchAction] = useState<"IN"|"OUT">("IN");
   const BREAK_LIMIT = 3600;
   const isEmployee = isLoaded && role !== "ADMIN";
+
+  // Detect mobile
+  const isMobile = typeof window !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
   useEffect(() => {
     if (!isEmployee || !userEmail) return;
@@ -353,12 +359,25 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
   const handlePunch = async () => {
     if (!locations[0]) { toast.error("No office location set"); return; }
+    const isPunchedIn = !!todayRecord;
+    // Mobile = face punch required, PC = manual direct
+    if (isMobile) {
+      setFacePunchAction(isPunchedIn ? "OUT" : "IN");
+      setShowFacePunch(true);
+      return;
+    }
+    await doPunch(undefined);
+  };
+
+  const doPunch = async (faceImage?: string) => {
+    if (!locations[0]) { toast.error("No office location set"); return; }
     setPunching(true);
     const isPunchedIn = !!todayRecord;
     const res = await fetch("/api/attendance/guest", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: userName, phone: userEmail, locationId: locations[0].id,
+        faceImage: faceImage || undefined,
         ...(isPunchedIn ? { action: "OUT", breakSeconds: breakUsed } : {}),
       }),
     });
@@ -796,6 +815,19 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       </div>
       </>
       }
+
+      {/* Face Punch Modal — mobile only */}
+      {showFacePunch && isEmployee && (
+        <FacePunch
+          employeeName={userName}
+          action={facePunchAction}
+          onSuccess={async (faceImage) => {
+            setShowFacePunch(false);
+            await doPunch(faceImage);
+          }}
+          onClose={() => setShowFacePunch(false)}
+        />
+      )}
     </div>
   );
 }

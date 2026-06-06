@@ -101,21 +101,35 @@ export async function POST(req: NextRequest) {
     const log: string[] = [];
 
     // First get total pages
-    const firstRes  = await fetch(`${WEBSITE_API}?page=1&limit=50`, { cache: "no-store" });
-    if (!firstRes.ok) throw new Error(`Website API error: ${firstRes.status}`);
-    const firstData = await firstRes.json();
-    const firstProps = firstData.properties || [];
-    const totalPages = firstData.pages || 1;
+    const firstRes  = await fetch(`${WEBSITE_API}?page=1&limit=50`, {
+      cache: "no-store",
+      redirect: "follow",
+      headers: { "Accept": "application/json", "User-Agent": "CRS-CRM/1.0" },
+    });
+    if (!firstRes.ok) throw new Error(`Website API error: ${firstRes.status} ${firstRes.statusText}`);
+    const rawText = await firstRes.text();
+    let firstData: any;
+    try {
+      firstData = JSON.parse(rawText);
+    } catch {
+      throw new Error(`Website API did not return JSON. Response: ${rawText.slice(0, 200)}`);
+    }
+    const firstProps = firstData.properties || firstData.data || (Array.isArray(firstData) ? firstData : []);
+    const totalPages = firstData.pages || firstData.totalPages || 1;
 
     // Fetch remaining pages in parallel
     let allProps: any[] = [...firstProps];
     if (totalPages > 1) {
       const pageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
       const results = await Promise.all(
-        pageNums.map(p =>
-          fetch(`${WEBSITE_API}?page=${p}&limit=50`, { cache: "no-store" })
-            .then(r => r.json())
-            .then(d => d.properties || [])
+        pageNums.map(pg =>
+          fetch(`${WEBSITE_API}?page=${pg}&limit=50`, {
+            cache: "no-store",
+            redirect: "follow",
+            headers: { "Accept": "application/json", "User-Agent": "CRS-CRM/1.0" },
+          })
+            .then(r => r.text())
+            .then(t => { try { const d = JSON.parse(t); return d.properties || d.data || (Array.isArray(d) ? d : []); } catch { return []; } })
             .catch(() => [])
         )
       );
@@ -175,10 +189,18 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
-    const res  = await fetch(`${WEBSITE_API}?page=1&limit=1`, { cache: "no-store" });
+    const res  = await fetch(`${WEBSITE_API}?page=1&limit=1`, {
+      cache: "no-store",
+      redirect: "follow",
+      headers: { "Accept": "application/json", "User-Agent": "CRS-CRM/1.0" },
+    });
     if (!res.ok) return NextResponse.json({ error: `Website API returned ${res.status}` }, { status: 502 });
-    const data = await res.json();
-    return NextResponse.json({ total: data.total || 0, pages: data.pages || 0, ok: true });
+    const text = await res.text();
+    let data: any;
+    try { data = JSON.parse(text); } catch {
+      return NextResponse.json({ error: `Website API not returning JSON. Check: ${WEBSITE_API}` }, { status: 502 });
+    }
+    return NextResponse.json({ total: data.total || 0, pages: data.pages || data.totalPages || 0, ok: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
