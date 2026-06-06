@@ -10,6 +10,7 @@ import {
   Plus, Loader2, TrendingUp, Users, X, LogIn, LogOut, Coffee,
   Camera, Mail, Briefcase, Shield, User, LogOut as SignOutIcon,
   FileText, Upload, Trash2, ExternalLink, ScanLine, MessageCircle, Send, ScanFace,
+  StickyNote, Pin, PinOff,
 } from "lucide-react";
 import FacePunch from "@/components/attendance/FacePunch";
 
@@ -65,6 +66,7 @@ const TABS = [
   { id: "attendance", label: "Attendance", icon: Clock },
   { id: "leaves",     label: "Leaves",     icon: CalendarDays },
   { id: "documents",  label: "Documents",  icon: FileText },
+  { id: "notes",      label: "Notes",      icon: StickyNote },
   { id: "chat",       label: "Chat",       icon: MessageCircle },
 ];
 
@@ -95,6 +97,21 @@ export default function EmployeePanelPage() {
   const [showDocForm, setShowDocForm] = useState(false);
   const docFileRef                    = useRef<HTMLInputElement>(null);
   const docCamRef                     = useRef<HTMLInputElement>(null);
+
+  // ── Sticky Notes ──
+  const [stickyNotes, setStickyNotes] = useState<any[]>([]);
+  const [noteText, setNoteText]       = useState("");
+  const [noteColor, setNoteColor]     = useState("yellow");
+  const [editingId, setEditingId]     = useState<string | null>(null);
+  const [editText, setEditText]       = useState("");
+  const [notesSaving, setNotesSaving] = useState(false);
+
+  const loadNotes = async () => {
+    const data = await fetch("/api/employee/sticky-notes").then(r => r.json()).catch(() => []);
+    setStickyNotes(Array.isArray(data) ? data : []);
+  };
+
+  useEffect(() => { if (tab === "notes") loadNotes(); }, [tab]);
 
   // ── Chat ──
   const [chatRooms, setChatRooms]       = useState<any[]>([]);
@@ -380,6 +397,54 @@ export default function EmployeePanelPage() {
   const handleSignOut = async () => {
     try { await signOut(); } catch { /* ignore */ }
     router.push("/sign-in");
+  };
+
+  const saveNote = async () => {
+    if (!noteText.trim()) return;
+    setNotesSaving(true);
+    try {
+      const res  = await fetch("/api/employee/sticky-notes", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: noteText.trim(), color: noteColor }),
+      });
+      const data = await res.json();
+      if (res.ok) { setStickyNotes(prev => [data, ...prev]); setNoteText(""); }
+    } catch {}
+    setNotesSaving(false);
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editText.trim()) return;
+    try {
+      const res  = await fetch("/api/employee/sticky-notes", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, content: editText.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) { setStickyNotes(prev => prev.map(n => n.id === id ? data : n)); setEditingId(null); }
+    } catch {}
+  };
+
+  const deleteNote = async (id: string) => {
+    await fetch("/api/employee/sticky-notes", {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setStickyNotes(prev => prev.filter(n => n.id !== id));
+  };
+
+  const togglePin = async (note: any) => {
+    const res  = await fetch("/api/employee/sticky-notes", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: note.id, isPinned: !note.isPinned }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setStickyNotes(prev =>
+        [...prev.map(n => n.id === note.id ? data : n)]
+          .sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0))
+      );
+    }
   };
 
   const totalDays      = attendance.length; // all records shown to employee
@@ -967,6 +1032,151 @@ export default function EmployeePanelPage() {
           )}
         </div>
       )}
+      {/* ── NOTES TAB ── */}
+      {tab === "notes" && (
+        <div className="space-y-4">
+          {/* Add new note */}
+          <div className="glass-card p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <StickyNote className="w-4 h-4 text-yellow-400" />
+              <span className="text-sm font-semibold text-white">Sticky Notes</span>
+              <span className="text-xs text-muted-foreground ml-auto">{stickyNotes.length} notes</span>
+            </div>
+
+            {/* Color picker */}
+            <div className="flex gap-2">
+              {[
+                { val: "yellow", bg: "#fef08a", border: "#eab308" },
+                { val: "blue",   bg: "#bfdbfe", border: "#3b82f6" },
+                { val: "green",  bg: "#bbf7d0", border: "#22c55e" },
+                { val: "pink",   bg: "#fbcfe8", border: "#ec4899" },
+                { val: "purple", bg: "#e9d5ff", border: "#a855f7" },
+              ].map(c => (
+                <button key={c.val} type="button"
+                  onClick={() => setNoteColor(c.val)}
+                  className="w-7 h-7 rounded-full transition-all"
+                  style={{
+                    background: c.bg,
+                    border: noteColor === c.val ? `3px solid ${c.border}` : "2px solid transparent",
+                    transform: noteColor === c.val ? "scale(1.2)" : "scale(1)",
+                  }} />
+              ))}
+            </div>
+
+            <textarea
+              rows={3}
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && e.ctrlKey) {
+                  e.preventDefault();
+                  if (noteText.trim()) saveNote();
+                }
+              }}
+              placeholder="Write your note here... (Ctrl+Enter to save)"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-yellow-500/50 resize-none"
+            />
+            <button
+              onClick={saveNote}
+              disabled={!noteText.trim() || notesSaving}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+              style={{ background: "linear-gradient(135deg,#1e3a5f,#eab308)", color: "#fff" }}>
+              {notesSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Add Note
+            </button>
+          </div>
+
+          {/* Notes grid */}
+          {stickyNotes.length === 0 ? (
+            <div className="glass-card p-10 text-center">
+              <StickyNote className="w-12 h-12 mx-auto mb-3 opacity-20" />
+              <p className="text-muted-foreground text-sm">No notes yet. Add your first sticky note!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {stickyNotes.map(note => {
+                const colors: Record<string, { bg: string; border: string; text: string }> = {
+                  yellow: { bg: "#fef9c3", border: "#eab308", text: "#713f12" },
+                  blue:   { bg: "#dbeafe", border: "#3b82f6", text: "#1e3a8a" },
+                  green:  { bg: "#dcfce7", border: "#22c55e", text: "#14532d" },
+                  pink:   { bg: "#fce7f3", border: "#ec4899", text: "#831843" },
+                  purple: { bg: "#f3e8ff", border: "#a855f7", text: "#581c87" },
+                };
+                const c = colors[note.color] || colors.yellow;
+                const isEditing = editingId === note.id;
+
+                return (
+                  <div key={note.id}
+                    className="rounded-2xl p-4 flex flex-col gap-2 shadow-lg transition-transform hover:scale-[1.01]"
+                    style={{ background: c.bg, border: `2px solid ${c.border}` }}>
+
+                    {/* Pin badge */}
+                    {note.isPinned && (
+                      <div className="flex items-center gap-1 text-xs font-bold" style={{ color: c.border }}>
+                        <Pin className="w-3 h-3" /> Pinned
+                      </div>
+                    )}
+
+                    {isEditing ? (
+                      <textarea
+                        rows={4}
+                        value={editText}
+                        onChange={e => setEditText(e.target.value)}
+                        autoFocus
+                        className="w-full bg-white/60 rounded-lg px-2 py-1.5 text-sm resize-none focus:outline-none"
+                        style={{ color: c.text }}
+                      />
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap flex-1" style={{ color: c.text }}>
+                        {note.content}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs opacity-50" style={{ color: c.text }}>
+                        {new Date(note.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </span>
+                      <div className="flex gap-1.5">
+                        {isEditing ? (
+                          <>
+                            <button onClick={() => saveEdit(note.id)}
+                              className="text-xs px-2 py-1 rounded-lg bg-white/60 font-semibold" style={{ color: c.border }}>
+                              Save
+                            </button>
+                            <button onClick={() => setEditingId(null)}
+                              className="text-xs px-2 py-1 rounded-lg bg-white/40" style={{ color: c.text }}>
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => togglePin(note)}
+                              title={note.isPinned ? "Unpin" : "Pin"}
+                              className="p-1.5 rounded-lg bg-white/40 hover:bg-white/60 transition-all">
+                              {note.isPinned
+                                ? <PinOff className="w-3.5 h-3.5" style={{ color: c.border }} />
+                                : <Pin    className="w-3.5 h-3.5" style={{ color: c.border }} />}
+                            </button>
+                            <button onClick={() => { setEditingId(note.id); setEditText(note.content); }}
+                              className="p-1.5 rounded-lg bg-white/40 hover:bg-white/60 transition-all">
+                              <span className="text-xs" style={{ color: c.text }}>✏️</span>
+                            </button>
+                            <button onClick={() => deleteNote(note.id)}
+                              className="p-1.5 rounded-lg bg-white/40 hover:bg-red-100 transition-all">
+                              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── CHAT TAB ── */}
       {tab === "chat" && (
         <div className="glass-card overflow-hidden" style={{ height: "65vh", display: "flex", flexDirection: "column" }}>

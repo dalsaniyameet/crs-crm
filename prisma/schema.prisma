@@ -538,6 +538,7 @@ model EmployeeProfile {
   documents    EmployeeDocument[]
   salarySlips  SalarySlip[]
   dailyReports DailyReport[]
+  stickyNotes  StickyNote[]
 
   @@map("employee_profiles")
 }
@@ -849,6 +850,21 @@ model OvertimeApproval {
   createdAt  DateTime  @default(now())
 
   @@map("overtime_approvals")
+}
+
+// ─── STICKY NOTES ────────────────────────────────────────────────────────────
+model StickyNote {
+  id         String   @id @default(cuid())
+  employeeId String
+  content    String
+  color      String   @default("yellow") // yellow, blue, green, pink, purple
+  isPinned   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("sticky_notes")
 }
 
 // ─── DAILY REPORT ────────────────────────────────────────────────────────────
