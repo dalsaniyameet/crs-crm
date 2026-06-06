@@ -1645,7 +1645,12 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                         if (!SR) { toast.error("Voice not supported in this browser"); return; }
                         const r = new SR(); r.lang = "en-IN"; r.continuous = true; r.interimResults = false;
                         r.onresult = (e: any) => { const t = Array.from(e.results).map((x: any) => x[0].transcript).join(" "); setForm(f => ({ ...f, requirements: f.requirements ? f.requirements + " " + t : t })); };
-                        r.onerror = () => { setIsRecording(false); toast.error("Mic error"); };
+                        r.onerror = (ev: any) => {
+                          if (ev.error === "no-speech" || ev.error === "aborted") return;
+                          setIsRecording(false);
+                          const msg = ev.error === "not-allowed" ? "Mic permission denied — allow mic in browser settings" : ev.error === "network" ? "Network error — check connection" : "Mic error: " + ev.error;
+                          toast.error(msg);
+                        };
                         r.onend = () => setIsRecording(false);
                         recognitionRef.current = r; r.start(); setIsRecording(true);
                         toast("🎤 Listening... tap mic to stop");
