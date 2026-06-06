@@ -266,27 +266,44 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     router.push("/sign-in");
   };
 
-  // ── Employee 10-min auto-logout on inactivity ──
+  // ── Auto-logout on inactivity: 5 min for employees, 5 min for admin ──
   useEffect(() => {
-    if (!isLoaded || !user || role === "ADMIN") return;
-    const TIMEOUT = 10 * 60 * 1000; // 10 minutes
+    if (!isLoaded || !user) return;
+    const TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    const WARN_BEFORE = 60 * 1000;  // warn 1 min before logout
     let timer: ReturnType<typeof setTimeout>;
+    let warnTimer: ReturnType<typeof setTimeout>;
+    let warnToastId: string;
+
     const reset = () => {
       clearTimeout(timer);
+      clearTimeout(warnTimer);
+      if (warnToastId) toast.dismiss(warnToastId);
+
+      warnTimer = setTimeout(() => {
+        warnToastId = toast("⚠️ You will be logged out in 1 minute — click anywhere to stay", {
+          duration: 60000,
+          icon: "🔒",
+        }) as string;
+      }, TIMEOUT - WARN_BEFORE);
+
       timer = setTimeout(async () => {
-        toast("Session expired — logging out for security 🔒", { icon: "⚠️", duration: 3000 });
+        toast.dismiss(warnToastId);
+        toast("Session expired — you have been logged out 🔒", { icon: "⚠️", duration: 3000 });
         await signOut().catch(() => {});
-        router.push("/sign-in");
+        router.push("/sign-in?reason=inactivity");
       }, TIMEOUT);
     };
+
     const events = ["mousemove", "keydown", "click", "touchstart", "scroll"];
     events.forEach(e => window.addEventListener(e, reset, { passive: true }));
     reset();
     return () => {
       clearTimeout(timer);
+      clearTimeout(warnTimer);
       events.forEach(e => window.removeEventListener(e, reset));
     };
-  }, [isLoaded, user, role, signOut, router]);
+  }, [isLoaded, user, signOut, router]);
 
   const [todayRecord, setTodayRecord]   = useState<any>(null);
   const [locations, setLocations]       = useState<any[]>([]);
@@ -353,9 +370,21 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       setBreakUsed(0); setOnBreak(false); setBreakStart(0);
       localStorage.setItem(`break_${userEmail}`, JSON.stringify({ onBreak: false, breakStart: 0, breakUsed: 0 }));
     } else {
+      // Punch OUT — auto logout after 30 seconds
       toast.success(`Punched out! ${data.record?.workHours?.toFixed(1) || 0}h worked 💪`);
       setTodayRecord(null); setOnBreak(false); setBreakUsed(0); setBreakStart(0);
       localStorage.removeItem(`break_${userEmail}`);
+      let secs = 30;
+      const id = setInterval(() => {
+        secs--;
+        if (secs > 0) {
+          toast(`🔒 Punched out — logging out in ${secs}s`, { id: "punchout-logout", duration: 31000 });
+        } else {
+          clearInterval(id);
+          toast.dismiss("punchout-logout");
+          signOut().then(() => router.push("/sign-in?reason=punchout")).catch(() => {});
+        }
+      }, 1000);
     }
     setPunching(false);
   };

@@ -173,31 +173,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const BREAK_LIMIT = 3600;
   const isEmployee  = isLoaded && role !== "ADMIN";
 
-  // ── SECURITY: Office hours + auto-logout for employees ──────────────────
+  // ── SECURITY: Office hours check for employees ──────────────────
   useEffect(() => {
     if (!isLoaded || !isEmployee) return;
-
-    function getISTHour() {
-      const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-      return ist.getUTCHours() * 60 + ist.getUTCMinutes(); // minutes since midnight IST
-    }
-
     function isOfficeHours() {
       const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-      const day = now.getUTCDay(); // 0=Sun
+      const day = now.getUTCDay();
       const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
-      if (day === 0) return false; // Sunday — no access
-      // Mon-Sat: 9:30 AM to 12:00 AM (midnight) IST
+      if (day === 0) return false;
       return cur >= 9 * 60 + 30 && cur <= 23 * 60 + 59;
     }
-
-    // Check immediately
     if (!isOfficeHours()) {
       signOut().then(() => router.push("/sign-in?reason=outside-hours")).catch(() => {});
       return;
     }
-
-    // Check every minute
     const interval = setInterval(() => {
       if (!isOfficeHours()) {
         toast.error("Office hours over. You have been logged out.", { duration: 5000 });
@@ -207,9 +196,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         clearInterval(interval);
       }
     }, 60 * 1000);
-
     return () => clearInterval(interval);
   }, [isLoaded, isEmployee, signOut, router]);
+
+  // ── 5-min inactivity auto-logout — admin + employee dono ke liye ──
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    const TIMEOUT = 5 * 60 * 1000;
+    const WARN_BEFORE = 60 * 1000;
+    let timer: ReturnType<typeof setTimeout>;
+    let warnTimer: ReturnType<typeof setTimeout>;
+    let warnToastId: string;
+    const reset = () => {
+      clearTimeout(timer);
+      clearTimeout(warnTimer);
+      if (warnToastId) toast.dismiss(warnToastId);
+      warnTimer = setTimeout(() => {
+        warnToastId = toast("⚠️ You will be logged out in 1 minute — click anywhere to stay", {
+          duration: 60000, icon: "🔒",
+        }) as string;
+      }, TIMEOUT - WARN_BEFORE);
+      timer = setTimeout(async () => {
+        toast.dismiss(warnToastId);
+        toast("Session expired — you have been logged out 🔒", { icon: "⚠️", duration: 3000 });
+        await signOut().catch(() => {});
+        router.push("/sign-in?reason=inactivity");
+      }, TIMEOUT);
+    };
+    const events = ["mousemove", "keydown", "click", "touchstart", "scroll"];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(warnTimer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [isLoaded, user, signOut, router]);
 
   useEffect(() => {
     if (!isEmployee || !userEmail) return;
@@ -267,9 +289,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setBreakUsed(0); setOnBreak(false); setBreakStart(0);
       localStorage.setItem(`break_${userEmail}`, JSON.stringify({ onBreak: false, breakStart: 0, breakUsed: 0 }));
     } else {
+      // Punch OUT — auto logout after 30 seconds
       toast.success(`Punched out! ${data.record?.workHours?.toFixed(1) || 0}h worked 💪`);
       setTodayRecord(null); setOnBreak(false); setBreakUsed(0); setBreakStart(0);
       localStorage.removeItem(`break_${userEmail}`);
+      let secs = 30;
+      const id = setInterval(() => {
+        secs--;
+        if (secs > 0) {
+          toast(`🔒 Punched out — logging out in ${secs}s`, { id: "punchout-logout", duration: 31000 });
+        } else {
+          clearInterval(id);
+          toast.dismiss("punchout-logout");
+          signOut().then(() => router.push("/sign-in?reason=punchout")).catch(() => {});
+        }
+      }, 1000);
     }
     setPunching(false);
   };

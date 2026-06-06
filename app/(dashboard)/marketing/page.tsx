@@ -217,7 +217,7 @@ export default function MarketingPage() {
   const copyPost = (id: string, text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedId(id);
-      toast.success("Post copied! Paste karo Instagram/Facebook pe 🚀");
+      toast.success("Post copied! Paste it on Instagram/Facebook 🚀");
       setTimeout(() => setCopiedId(null), 3000);
     });
   };

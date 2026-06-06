@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       prisma.deal.aggregate({ where: { ...dealWhere, stage: "CLOSED" }, _sum: { value: true } }),
       prisma.commission.aggregate({ where: { ...dealWhere, isPaid: true }, _sum: { amount: true } }),
       prisma.siteVisit.count({ where: { ...visitWhere, scheduledAt: { gte: startDate } } }),
-      // Broker ko source breakdown nahi dikhta
+      // Broker cannot see source breakdown
       isBroker ? Promise.resolve([]) : prisma.lead.groupBy({ by: ["source"], _count: { id: true } }),
       isBroker ? Promise.resolve([]) : prisma.deal.groupBy({ by: ["stage"],  _count: { id: true } }),
       isBroker ? Promise.resolve([]) : prisma.user.findMany({

@@ -414,7 +414,7 @@ export default function MyAttendancePage() {
               </div>
 
               <div className="p-3 rounded-lg bg-orange-500/8 border border-orange-500/20 text-xs text-orange-400">
-                ⚠️ Aapki fix request admin ko jayegi approval ke liye. Approve hone ke baad record update hoga.
+                ⚠️ Your correction request will be sent to admin for approval. Record will be updated once approved. Approve hone ke baad record update hoga.
               </div>
 
               <div className="flex gap-2">
