@@ -116,9 +116,9 @@ export default function LeadsPage() {
   const recognitionRef                    = useRef<any>(null);
   const [form, setForm] = useState({
     name: "", phone: "", email: "", source: "WEBSITE",
-    budget: "", requirements: "", propertyType: "", transactionType: "BUY",
+    budget: "", budgetMax: "", requirements: "", propertyType: "", transactionType: "BUY",
     category: "RESIDENTIAL", preferredAreas: [] as string[], furnishing: "",
-    bhk: "", assignedToId: "",
+    bhk: "", assignedToId: "", purpose: "", possession: "", areaMin: "", parking: "",
   });
 
   const AHMEDABAD_LOCALITIES = [
@@ -371,6 +371,10 @@ export default function LeadsPage() {
         form.bhk && `${form.bhk}`,
         form.propertyType && PROPERTY_LABELS[form.propertyType],
         form.furnishing && `${form.furnishing}`,
+        form.purpose && `Purpose: ${form.purpose}`,
+        form.possession && `Possession: ${form.possession}`,
+        form.areaMin && `Min Area: ${form.areaMin} sq.ft`,
+        form.parking && `Parking: ${form.parking}`,
         form.preferredAreas.length > 0 && `Preferred: ${form.preferredAreas.join(", ")}`,
         form.requirements,
       ].filter(Boolean).join(" | ");
@@ -382,6 +386,7 @@ export default function LeadsPage() {
           name: form.name, phone: form.phone, email: form.email || undefined,
           source: form.source,
           budget: form.budget ? parseFloat(form.budget) : undefined,
+          budgetMax: form.budgetMax ? parseFloat(form.budgetMax) : undefined,
           requirements: reqParts || undefined,
           propertyType: form.propertyType || undefined,
           transactionType: form.transactionType,
@@ -396,9 +401,9 @@ export default function LeadsPage() {
       } else if (res.ok) {
         toast.success(`Lead added! AI Score: ${data.aiScore?.score ?? "—"}`);
         setShowAddModal(false);
-        setForm({ name: "", phone: "", email: "", source: "WEBSITE", budget: "", requirements: "",
+        setForm({ name: "", phone: "", email: "", source: "WEBSITE", budget: "", budgetMax: "", requirements: "",
           propertyType: "", transactionType: "BUY", category: "RESIDENTIAL",
-          preferredAreas: [], furnishing: "", bhk: "", assignedToId: "" });
+          preferredAreas: [], furnishing: "", bhk: "", assignedToId: "", purpose: "", possession: "", areaMin: "", parking: "" });
         fetchLeads();
       } else {
         toast.error(data.error || "Failed to add lead");
@@ -1481,216 +1486,266 @@ We have genuine properties matching your requirement. Let's connect! 🤝
               </div>
 
               <form onSubmit={handleAddLead} className="space-y-4">
-                {/* Basic Info */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Full Name *</label>
-                    <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
-                      className={inputCls} placeholder="Rajesh Patel" />
+
+                {/* ─── CLIENT INFO ─── */}
+                <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/15 space-y-3">
+                  <p className="text-xs font-semibold text-blue-400">👤 Client Info</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Full Name *</label>
+                      <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} className={inputCls} placeholder="Rajesh Patel" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Phone *</label>
+                      <input required value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} className={inputCls} placeholder="9876543210" />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Phone *</label>
-                    <input required value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))}
-                      className={inputCls} placeholder="9876543210" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+                      <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={inputCls} placeholder="rajesh@email.com" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Source *</label>
+                      <select value={form.source} onChange={e => setForm(f => ({...f, source: e.target.value}))} className={inputCls}>
+                        <option value="WEBSITE">🌐 CityRealSpace.com</option>
+                        <option value="WHATSAPP">💬 WhatsApp</option>
+                        <option value="REFERRAL">🤝 Referral</option>
+                        <option value="FACEBOOK">📘 Facebook</option>
+                        <option value="GOOGLE_BUSINESS">📍 Google Business</option>
+                        <option value="ACRES99">🏠 99acres</option>
+                        <option value="MAGICBRICKS">🧱 Magicbricks</option>
+                        <option value="HOUSING">🏡 Housing.com</option>
+                        <option value="WALK_IN">🚶 Walk-in</option>
+                        <option value="COLD_CALL">📞 Cold Call</option>
+                        <option value="OTHER">📋 Other</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Email</label>
-                  <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
-                    className={inputCls} placeholder="rajesh@email.com" />
-                </div>
+                {/* ─── PROPERTY REQUIREMENT ─── */}
+                <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/15 space-y-3">
+                  <p className="text-xs font-semibold text-yellow-400">🏠 Property Requirement</p>
 
-                {/* Category toggle */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">Category *</label>
+                  {/* Category */}
                   <div className="grid grid-cols-2 gap-2">
                     {(["RESIDENTIAL","COMMERCIAL"] as const).map(cat => (
                       <button key={cat} type="button"
-                        onClick={() => setForm(f => ({...f, category: cat, propertyType: ""}))}
-                        className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                        onClick={() => setForm(f => ({...f, category: cat, propertyType: "", bhk: "", furnishing: ""}))}
+                        className={`py-2 rounded-xl text-sm font-semibold border transition-all ${
                           form.category === cat
-                            ? cat === "RESIDENTIAL"
-                              ? "bg-blue-500/25 border-blue-500/50 text-blue-300"
-                              : "bg-orange-500/25 border-orange-500/50 text-orange-300"
+                            ? cat === "RESIDENTIAL" ? "bg-blue-500/25 border-blue-500/50 text-blue-300" : "bg-orange-500/25 border-orange-500/50 text-orange-300"
                             : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
                         }`}>
                         {cat === "RESIDENTIAL" ? "🏠 Residential" : "🏢 Commercial"}
                       </button>
                     ))}
                   </div>
-                </div>
 
-                {/* Transaction + Property Type */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Transaction *</label>
-                    <select value={form.transactionType} onChange={e => setForm(f => ({...f, transactionType: e.target.value}))} className={inputCls}>
-                      <option value="BUY">Buy</option>
-                      <option value="RENT">Rent</option>
-                      <option value="LEASE">Lease</option>
-                      <option value="SELL">Sell</option>
-                    </select>
+                  {/* Transaction + Property Type */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Transaction *</label>
+                      <select value={form.transactionType} onChange={e => setForm(f => ({...f, transactionType: e.target.value, furnishing: "", possession: ""}))} className={inputCls}>
+                        {form.category === "RESIDENTIAL"
+                          ? <><option value="BUY">🔑 Buy</option><option value="RENT">🏠 Rent</option><option value="SELL">💰 Sell</option></>
+                          : <><option value="BUY">🔑 Buy</option><option value="RENT">🏢 Rent</option><option value="LEASE">📋 Lease</option><option value="SELL">💰 Sell</option></>
+                        }
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Property Type</label>
+                      <select value={form.propertyType} onChange={e => setForm(f => ({...f, propertyType: e.target.value, bhk: ""}))} className={inputCls}>
+                        <option value="">{form.category === "RESIDENTIAL" ? "Select type..." : "Select type..."}</option>
+                        {(form.category === "RESIDENTIAL" ? RESIDENTIAL_TYPES : COMMERCIAL_TYPES).map(t => (
+                          <option key={t} value={t}>{PROPERTY_LABELS[t]}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Property Type</label>
-                    <select value={form.propertyType} onChange={e => setForm(f => ({...f, propertyType: e.target.value}))} className={inputCls}>
-                      <option value="">
-                        {form.category === "RESIDENTIAL" ? "1BHK / 2BHK / Villa..." : "Office / Shop..."}
-                      </option>
-                      {(form.category === "RESIDENTIAL" ? RESIDENTIAL_TYPES : COMMERCIAL_TYPES).map(t => (
-                        <option key={t} value={t}>{PROPERTY_LABELS[t]}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
 
-                {/* Residential: BHK config */}
-                {form.category === "RESIDENTIAL" && form.propertyType === "APARTMENT" && (
+                  {/* BHK — Apartment/Penthouse/Villa */}
+                  {form.category === "RESIDENTIAL" && ["APARTMENT","PENTHOUSE","VILLA"].includes(form.propertyType) && (
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">BHK Configuration</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["1 RK","1 BHK","1.5 BHK","2 BHK","2.5 BHK","3 BHK","3.5 BHK","4 BHK","4+ BHK"].map(b => (
+                          <button key={b} type="button"
+                            onClick={() => setForm(f => ({...f, bhk: f.bhk === b ? "" : b}))}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                              form.bhk === b ? "bg-blue-500/30 border-blue-400 text-blue-200 font-bold" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                            }`}>{b}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Purpose */}
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Configuration</label>
-                    <div className="flex flex-wrap gap-2">
-                      {["1 BHK","1.5 BHK","2 BHK","2.5 BHK","3 BHK","4 BHK","4+ BHK"].map(b => (
-                        <button key={b} type="button"
-                          onClick={() => setForm(f => ({...f, bhk: f.bhk === b ? "" : b}))}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                            form.bhk === b
-                              ? "bg-blue-500/25 border-blue-500/50 text-blue-300"
-                              : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
-                          }`}>{b}</button>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Purpose</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { val: "Self Use", icon: "🏠" },
+                        { val: "Investment", icon: "💰" },
+                        { val: "Rental Income", icon: "🏢" },
+                      ].map(p => (
+                        <button key={p.val} type="button"
+                          onClick={() => setForm(f => ({...f, purpose: f.purpose === p.val ? "" : p.val}))}
+                          className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                            form.purpose === p.val ? "bg-purple-500/25 border-purple-400 text-purple-200 font-bold" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                          }`}>{p.icon} {p.val}</button>
                       ))}
                     </div>
                   </div>
-                )}
 
-                {/* Furnished status — only for rental */}
-                {(form.transactionType === "RENT" || form.transactionType === "LEASE") && (
+                  {/* Furnished — Rent/Lease only */}
+                  {(form.transactionType === "RENT" || form.transactionType === "LEASE") && (
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Furnished Status</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[{val:"Fully Furnished",icon:"🛋️"},{val:"Semi Furnished",icon:"🪑"},{val:"Unfurnished",icon:"🏗️"}].map(f => (
+                          <button key={f.val} type="button"
+                            onClick={() => setForm(prev => ({...prev, furnishing: prev.furnishing === f.val ? "" : f.val}))}
+                            className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                              form.furnishing === f.val ? "bg-emerald-500/25 border-emerald-400 text-emerald-200 font-bold" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                            }`}>{f.icon} {f.val}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Possession — Buy only */}
+                  {(form.transactionType === "BUY" || form.transactionType === "SELL") && form.category === "RESIDENTIAL" && (
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Possession</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[{val:"Ready to Move",icon:"✅"},{val:"Under Construction",icon:"🏗️"}].map(p => (
+                          <button key={p.val} type="button"
+                            onClick={() => setForm(f => ({...f, possession: f.possession === p.val ? "" : p.val}))}
+                            className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                              form.possession === p.val ? "bg-teal-500/25 border-teal-400 text-teal-200 font-bold" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                            }`}>{p.icon} {p.val}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Budget Range */}
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Furnished Status</label>
-                    <div className="flex gap-2">
-                      {["Furnished","Semi Furnished","Unfurnished"].map(f => (
-                        <button key={f} type="button"
-                          onClick={() => setForm(prev => ({...prev, furnishing: prev.furnishing === f ? "" : f}))}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                            form.furnishing === f
-                              ? "bg-emerald-500/25 border-emerald-500/50 text-emerald-300"
-                              : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
-                          }`}>{f}</button>
-                      ))}
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Budget Range (₹){(form.transactionType === "RENT" || form.transactionType === "LEASE") ? " / month" : ""}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="number" value={form.budget} onChange={e => setForm(f => ({...f, budget: e.target.value}))}
+                        className={inputCls} placeholder="Min" />
+                      <input type="number" value={form.budgetMax} onChange={e => setForm(f => ({...f, budgetMax: e.target.value}))}
+                        className={inputCls} placeholder="Max" />
                     </div>
                   </div>
-                )}
 
-                {/* Preferred Areas */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Preferred Areas (Ahmedabad)</label>
+                  {/* Area + Parking */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Min Area (sq.ft)</label>
+                      <input type="number" value={form.areaMin} onChange={e => setForm(f => ({...f, areaMin: e.target.value}))}
+                        className={inputCls} placeholder="e.g. 1000" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Parking</label>
+                      <div className="flex gap-2">
+                        {["1","2","2+"].map(p => (
+                          <button key={p} type="button"
+                            onClick={() => setForm(f => ({...f, parking: f.parking === p ? "" : p}))}
+                            className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-all ${
+                              form.parking === p ? "bg-amber-500/25 border-amber-400 text-amber-200 font-bold" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                            }`}>{p}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─── LOCATION ─── */}
+                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/15 space-y-2">
+                  <p className="text-xs font-semibold text-emerald-400">📍 Preferred Location — Ahmedabad</p>
                   <select className={inputCls}
                     onChange={e => {
                       const v = e.target.value;
-                      if (v && !form.preferredAreas.includes(v))
-                        setForm(f => ({...f, preferredAreas: [...f.preferredAreas, v]}));
+                      if (v && !form.preferredAreas.includes(v)) setForm(f => ({...f, preferredAreas: [...f.preferredAreas, v]}));
                       e.target.value = "";
                     }}>
-                    <option value="">+ Add locality...</option>
-                    {AHMEDABAD_LOCALITIES.map(l => (
-                      <option key={l} value={l}>{l}</option>
-                    ))}
+                    <option value="">+ Select locality...</option>
+                    {AHMEDABAD_LOCALITIES.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
                   {form.preferredAreas.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {form.preferredAreas.map(a => (
-                        <span key={a} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-estate-500/20 border border-estate-500/30 text-xs text-estate-300">
+                        <span key={a} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-xs text-emerald-300">
                           📍 {a}
                           <button type="button" onClick={() => setForm(f => ({...f, preferredAreas: f.preferredAreas.filter(x => x !== a)}))}
-                            className="text-muted-foreground hover:text-red-400 ml-0.5">✕</button>
+                            className="text-emerald-500 hover:text-red-400 ml-0.5 font-bold">×</button>
                         </span>
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* Budget + Source */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* ─── NOTES + ASSIGN ─── */}
+                <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Budget (₹)</label>
-                    <input type="number" value={form.budget} onChange={e => setForm(f => ({...f, budget: e.target.value}))}
-                      className={inputCls} placeholder={form.transactionType === "RENT" ? "e.g. 80000/mo" : "e.g. 5000000"} />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs text-muted-foreground">Additional Notes</label>
+                      <button type="button"
+                        onClick={() => {
+                          if (isRecording) { recognitionRef.current?.stop(); setIsRecording(false); return; }
+                          const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                          if (!SR) { toast.error("Voice not supported in this browser"); return; }
+                          const r = new SR();
+                          r.lang = "en-IN";
+                          r.continuous = false;
+                          r.interimResults = false;
+                          r.maxAlternatives = 1;
+                          r.onresult = (e: any) => {
+                            const t = Array.from(e.results).map((x: any) => x[0].transcript).join(" ");
+                            setForm(f => ({ ...f, requirements: f.requirements ? f.requirements + " " + t : t }));
+                          };
+                          r.onerror = (ev: any) => {
+                            if (ev.error === "no-speech" || ev.error === "aborted") return;
+                            setIsRecording(false);
+                            const msg = ev.error === "not-allowed" ? "Mic permission denied — allow mic in browser settings" : ev.error === "network" ? "Network error — check connection" : "Mic error: " + ev.error;
+                            toast.error(msg);
+                          };
+                          r.onend = () => setIsRecording(false);
+                          recognitionRef.current = r;
+                          r.start();
+                          setIsRecording(true);
+                          toast("🎤 Listening... speak now");
+                        }}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs border transition-all ${
+                          isRecording ? "bg-red-500/25 border-red-400 text-red-300 animate-pulse" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                        }`}>
+                        {isRecording ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                        {isRecording ? "Stop" : "Voice"}
+                      </button>
+                    </div>
+                    <textarea rows={2} value={form.requirements} onChange={e => setForm(f => ({...f, requirements: e.target.value}))}
+                      className={`${inputCls} resize-none`}
+                      placeholder={form.category === "RESIDENTIAL" ? "e.g. corner flat, east facing, school nearby..." : "e.g. ground floor, loading dock, 3-phase power..."} />
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Source</label>
-                    <select value={form.source} onChange={e => setForm(f => ({...f, source: e.target.value}))} className={inputCls}>
-                      <option value="WEBSITE">CityRealSpace.com</option>
-                      <option value="WHATSAPP">WhatsApp</option>
-                      <option value="FACEBOOK">Facebook</option>
-                      <option value="GOOGLE_BUSINESS">Google Business</option>
-                      <option value="ACRES99">99acres</option>
-                      <option value="MAGICBRICKS">Magicbricks</option>
-                      <option value="HOUSING">Housing.com</option>
-                      <option value="REFERRAL">Referral</option>
-                      <option value="WALK_IN">Walk-in</option>
-                      <option value="COLD_CALL">Cold Call</option>
-                      <option value="OTHER">Other</option>
-                    </select>
-                  </div>
-                </div>
 
-                {/* Requirements */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-muted-foreground">Special Requirements / Notes</label>
-                    <button type="button"
-                      onClick={() => {
-                        if (isRecording) { recognitionRef.current?.stop(); setIsRecording(false); return; }
-                        const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-                        if (!SR) { toast.error("Voice not supported in this browser"); return; }
-                        const r = new SR();
-                        r.lang = "en-IN";
-                        r.continuous = false;
-                        r.interimResults = false;
-                        r.maxAlternatives = 1;
-                        r.onresult = (e: any) => {
-                          const t = Array.from(e.results).map((x: any) => x[0].transcript).join(" ");
-                          setForm(f => ({ ...f, requirements: f.requirements ? f.requirements + " " + t : t }));
-                        };
-                        r.onerror = (ev: any) => {
-                          if (ev.error === "no-speech" || ev.error === "aborted") return;
-                          setIsRecording(false);
-                          const msg = ev.error === "not-allowed" ? "Mic permission denied — allow mic in browser settings" : ev.error === "network" ? "Network error — check connection" : "Mic error: " + ev.error;
-                          toast.error(msg);
-                        };
-                        r.onend = () => setIsRecording(false);
-                        recognitionRef.current = r;
-                        r.start();
-                        setIsRecording(true);
-                        toast("🎤 Listening... speak now");
-                      }}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs border transition-all ${
-                        isRecording ? "bg-red-500/25 border-red-400 text-red-300 animate-pulse" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
-                      }`}>
-                      {isRecording ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-                      {isRecording ? "Stop" : "Voice"}
-                    </button>
-                  </div>
-                  <textarea rows={3} value={form.requirements} onChange={e => setForm(f => ({...f, requirements: e.target.value}))}
-                    className={`${inputCls} resize-none`}
-                    placeholder={form.category === "RESIDENTIAL"
-                      ? "e.g. 2BHK semi-furnished in Bopal, near school, garden facing..."
-                      : "e.g. 2000sqft office in Prahlad Nagar, ground floor preferred, parking required..."
-                    } />
+                  {isAdmin && brokers.length > 0 && (
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Assign To</label>
+                      <select value={form.assignedToId} onChange={e => setForm(f => ({...f, assignedToId: e.target.value}))} className={inputCls}>
+                        <option value="">— Assign Employee —</option>
+                        {brokers.map((b: any) => (
+                          <option key={b.id} value={b.id}>{b.name} ({b.role?.replace("_"," ")})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
-
-                {/* Assign broker — admin only */}
-                {isAdmin && brokers.length > 0 && (
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Assign To</label>
-                    <select value={form.assignedToId} onChange={e => setForm(f => ({...f, assignedToId: e.target.value}))} className={inputCls}>
-                      <option value="">— Assign Employee —</option>
-                      {brokers.map((b: any) => (
-                        <option key={b.id} value={b.id}>{b.name} ({b.role?.replace("_"," ")})</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-gold-500/10 border border-gold-500/20">
                   <Bot className="w-4 h-4 text-gold-400 flex-shrink-0" />
