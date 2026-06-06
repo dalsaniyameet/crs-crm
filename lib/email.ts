@@ -104,6 +104,7 @@ function row(label: string, value: string, bg = "#fff") {
 
 // ── 1. New Lead ───────────────────────────────────────────────────────────────
 export function newLeadEmailHtml(lead: {
+  id?: string | null;
   name: string; phone: string; email?: string | null;
   source: string; propertyType?: string | null; budget?: number | null;
   requirements?: string | null; score: number; assignedTo?: string | null;
@@ -120,7 +121,8 @@ export function newLeadEmailHtml(lead: {
     row("AI Score",      `<strong style="color:#16a34a">${heat} — ${lead.score}/100</strong>`, "#f8fafc"),
     lead.assignedTo    ? row("Assigned To",   lead.assignedTo)                                     : "",
   ].join("");
-  return baseTemplate("New Lead Alert", "🏠", "#16a34a", rows, `${APP_URL}/leads`, "View Lead");
+  const leadUrl = lead.id ? `${APP_URL}/leads?id=${lead.id}` : `${APP_URL}/leads`;
+  return baseTemplate("New Lead Alert", "🏠", "#16a34a", rows, leadUrl, "View Lead");
 }
 
 // ── 2. New Property ───────────────────────────────────────────────────────────
