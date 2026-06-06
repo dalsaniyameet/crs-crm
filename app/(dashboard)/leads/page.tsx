@@ -1643,8 +1643,15 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                         if (isRecording) { recognitionRef.current?.stop(); setIsRecording(false); return; }
                         const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
                         if (!SR) { toast.error("Voice not supported in this browser"); return; }
-                        const r = new SR(); r.lang = "en-IN"; r.continuous = true; r.interimResults = false;
-                        r.onresult = (e: any) => { const t = Array.from(e.results).map((x: any) => x[0].transcript).join(" "); setForm(f => ({ ...f, requirements: f.requirements ? f.requirements + " " + t : t })); };
+                        const r = new SR();
+                        r.lang = "en-IN";
+                        r.continuous = false;
+                        r.interimResults = false;
+                        r.maxAlternatives = 1;
+                        r.onresult = (e: any) => {
+                          const t = Array.from(e.results).map((x: any) => x[0].transcript).join(" ");
+                          setForm(f => ({ ...f, requirements: f.requirements ? f.requirements + " " + t : t }));
+                        };
                         r.onerror = (ev: any) => {
                           if (ev.error === "no-speech" || ev.error === "aborted") return;
                           setIsRecording(false);
@@ -1652,8 +1659,10 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                           toast.error(msg);
                         };
                         r.onend = () => setIsRecording(false);
-                        recognitionRef.current = r; r.start(); setIsRecording(true);
-                        toast("🎤 Listening... tap mic to stop");
+                        recognitionRef.current = r;
+                        r.start();
+                        setIsRecording(true);
+                        toast("🎤 Listening... speak now");
                       }}
                       className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs border transition-all ${
                         isRecording ? "bg-red-500/25 border-red-400 text-red-300 animate-pulse" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
