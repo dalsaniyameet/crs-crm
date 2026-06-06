@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -47,20 +47,20 @@ const statusConfig: Record<LeadStatus, { label: string; color: string; bg: strin
 
 const scoreColor = (s: number) => s >= 80 ? "text-red-400" : s >= 60 ? "text-orange-400" : "text-blue-400";
 const scoreBg    = (s: number) => s >= 80 ? "bg-red-500/20 border-red-500/30" : s >= 60 ? "bg-orange-500/20 border-orange-500/30" : "bg-blue-500/20 border-blue-500/30";
-const scoreLabel = (s: number) => s >= 80 ? "ðŸ”¥ HOT" : s >= 60 ? "ðŸŒ¡ï¸ WARM" : "â„ï¸ COLD";
+const scoreLabel = (s: number) => s >= 80 ? "🔥 HOT" : s >= 60 ? "🌡️ WARM" : "❄️ COLD";
 
 const fmtBudget = (b?: number) => {
-  if (!b || b <= 0) return "â€”";
+  if (!b || b <= 0) return "—";
   // If stored as lakhs (e.g. 23.5 = 23.5L), values < 1000 are in lakhs
   const val = b < 1000 ? b * 100000 : b;
-  return val >= 10000000 ? `â‚¹${(val/10000000).toFixed(1)}Cr`
-    : val >= 100000 ? `â‚¹${(val/100000).toFixed(1)}L`
-    : `â‚¹${(val/1000).toFixed(0)}K`;
+  return val >= 10000000 ? `₹${(val/10000000).toFixed(1)}Cr`
+    : val >= 100000 ? `₹${(val/100000).toFixed(1)}L`
+    : `₹${(val/1000).toFixed(0)}K`;
 };
-const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "â€”";
+const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 const fmtDuration = (s?: number) => {
-  if (!s) return "â€”";
+  if (!s) return "—";
   const m = Math.floor(s / 60), sec = s % 60;
   return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
 };
@@ -70,7 +70,7 @@ const OUTCOME_CONFIG: Record<string, { label: string; color: string; icon: any }
   NO_ANSWER:            { label: "No Answer",          color: "text-red-400",     icon: PhoneMissed },
   BUSY:                 { label: "Busy",               color: "text-orange-400",  icon: PhoneOff },
   CALLBACK_REQUESTED:   { label: "Callback Requested", color: "text-yellow-400",  icon: PhoneIncoming },
-  INTERESTED:           { label: "Interested âœ“",       color: "text-green-400",   icon: CheckCircle2 },
+  INTERESTED:           { label: "Interested ✓",       color: "text-green-400",   icon: CheckCircle2 },
   NOT_INTERESTED:       { label: "Not Interested",     color: "text-red-400",     icon: AlertCircle },
 };
 
@@ -394,7 +394,7 @@ export default function LeadsPage() {
       if (res.status === 409) {
         toast.error("Duplicate lead! This phone number already exists.");
       } else if (res.ok) {
-        toast.success(`Lead added! AI Score: ${data.aiScore?.score ?? "â€”"}`);
+        toast.success(`Lead added! AI Score: ${data.aiScore?.score ?? "—"}`);
         setShowAddModal(false);
         setForm({ name: "", phone: "", email: "", source: "WEBSITE", budget: "", requirements: "",
           propertyType: "", transactionType: "BUY", category: "RESIDENTIAL",
@@ -466,71 +466,71 @@ export default function LeadsPage() {
 
   const getWAMsg = (lead: Lead) => {
     const src = lead.source;
-    const req = lead.requirements ? `\n\nðŸ“‹ *Requirement:* ${lead.requirements}` : "";
-    const bud = lead.budget ? `\nðŸ’° *Budget:* ${fmtBudget(lead.budget)}` : "";
+    const req = lead.requirements ? `\n\n📋 *Requirement:* ${lead.requirements}` : "";
+    const bud = lead.budget ? `\n💰 *Budget:* ${fmtBudget(lead.budget)}` : "";
 
     if (src === "MAGICBRICKS" || src === "HOUSING" || src === "ACRES99") {
       const portal = src === "MAGICBRICKS" ? "MagicBricks" : src === "HOUSING" ? "Housing.com" : "99acres";
-      return `Hello ${lead.name}! ðŸ‘‹
+      return `Hello ${lead.name}! 👋
 
 I'm *Meet* from *City Real Space*, Ahmedabad's trusted real estate brokerage.
 
 I saw your enquiry on *${portal}* and wanted to connect personally.${req}${bud}
 
-We have excellent properties matching your requirement. Can we schedule a quick call or site visit? ðŸ¢
+We have excellent properties matching your requirement. Can we schedule a quick call or site visit? 🏢
 
-ðŸ“ž +91 9825031247
-ðŸŒ cityrealspace.com
-ðŸ“ Prahlad Nagar, Ahmedabad`;
+📞 +91 9825031247
+🌐 cityrealspace.com
+📍 Prahlad Nagar, Ahmedabad`;
     }
     if (src === "FACEBOOK") {
-      return `Hello ${lead.name}! ðŸ‘‹
+      return `Hello ${lead.name}! 👋
 
 Thank you for showing interest via *Facebook*!
 
-I'm *Meet* from *City Real Space* â€” we specialize in Commercial & Residential properties in Ahmedabad.${req}${bud}
+I'm *Meet* from *City Real Space* — we specialize in Commercial & Residential properties in Ahmedabad.${req}${bud}
 
-Let's connect and find the perfect property for you! ðŸ 
+Let's connect and find the perfect property for you! 🏠
 
-ðŸ“ž +91 9825031247
-ðŸŒ cityrealspace.com`;
+📞 +91 9825031247
+🌐 cityrealspace.com`;
     }
     if (src === "WEBSITE") {
-      return `Hello ${lead.name}! ðŸ‘‹
+      return `Hello ${lead.name}! 👋
 
 Thank you for visiting *CityRealSpace.com*!
 
 I'm *Meet*, your dedicated property consultant. I noticed your enquiry and would love to help you find the right property.${req}${bud}
 
-Shall we schedule a call or site visit? ðŸ“…
+Shall we schedule a call or site visit? 📅
 
-ðŸ“ž +91 9825031247
-ðŸŒ cityrealspace.com`;
+📞 +91 9825031247
+🌐 cityrealspace.com`;
     }
     if (src === "REFERRAL") {
-      return `Hello ${lead.name}! ðŸ‘‹
+      return `Hello ${lead.name}! 👋
 
 I'm *Meet* from *City Real Space*. A mutual contact referred you to us!
 
 We specialize in premium Commercial & Residential properties across Ahmedabad.${req}${bud}
 
-Looking forward to helping you! ðŸ™
+Looking forward to helping you! 🙏
 
-ðŸ“ž +91 9825031247`;
+📞 +91 9825031247`;
     }
     // Default / WHATSAPP / WALK_IN / COLD_CALL
-    return `Hello ${lead.name}! ðŸ‘‹
+    return `Hello ${lead.name}! 👋
 
 Good Day!
 
 I'm *Meet* from *City Real Space*
-( Property Broker â€” Ahmedabad )${req}${bud}
+( Property Broker — Ahmedabad )${req}${bud}
 
-We have genuine properties matching your requirement. Let's connect! ðŸ¤
+We have genuine properties matching your requirement. Let's connect! 🤝
 
-ðŸ“ž +91 9825031247
-ðŸŒ cityrealspace.com
-ðŸ“ Prahlad Nagar Trade Centre, Satellite, Ahmedabad`;
+📞 +91 9825031247
+🌐 cityrealspace.com
+📍 Prahlad Nagar Trade Centre, Satellite, Ahmedabad`;
   };
   const hotCount  = leads.filter(l => l.score >= 80).length;
   const followUps = leads.filter(l => l.nextFollowUpAt && new Date(l.nextFollowUpAt) <= new Date()).length;
@@ -546,8 +546,8 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
           <h1 className="text-xl md:text-2xl font-bold text-white">Lead Management</h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1">
             {isAdmin
-              ? <>{total} leads Â· <span className="text-red-400">{hotCount} hot</span> Â· <span className="text-yellow-400">{followUps} due follow-ups</span> Â· <span className="text-orange-400">{allDueTasks.length} overdue tasks</span></>
-              : <>My Leads: {total} Â· <span className="text-red-400">{hotCount} hot</span> Â· <span className="text-yellow-400">{followUps} due</span></>
+              ? <>{total} leads · <span className="text-red-400">{hotCount} hot</span> · <span className="text-yellow-400">{followUps} due follow-ups</span> · <span className="text-orange-400">{allDueTasks.length} overdue tasks</span></>
+              : <>My Leads: {total} · <span className="text-red-400">{hotCount} hot</span> · <span className="text-yellow-400">{followUps} due</span></>
             }
           </p>
         </div>
@@ -586,16 +586,16 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
               {s === "ALL" ? "All" : statusConfig[s as LeadStatus]?.label || s}
             </button>
           ))}
-          {/* Select All / Clear â€” admin only */}
+          {/* Select All / Clear — admin only */}
           {isAdmin && (
             <div className="ml-auto flex items-center gap-1.5">
               <button onClick={selectAll}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium bg-estate-500/15 border border-estate-500/30 text-estate-400 hover:bg-estate-500/25 transition-all">
-                â˜‘ Select All ({filtered.length})
+                ☑ Select All ({filtered.length})
               </button>
               {selected.size > 0 && (
                 <button onClick={clearAll} className="px-2.5 py-1 rounded-lg text-xs text-muted-foreground border border-white/10 bg-white/5 hover:text-white transition-all">
-                  âœ• Clear
+                  ✕ Clear
                 </button>
               )}
             </div>
@@ -618,7 +618,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
               if (lead) { openDetail(lead.id); setDetailTab("overview"); }
               else toast("No leads yet. Add leads with requirements to auto-match.");
             }}
-            className="text-sm text-estate-400 hover:text-estate-300 underline">View matches â†’</button>
+            className="text-sm text-estate-400 hover:text-estate-300 underline">View matches →</button>
         </div>
         <div className="flex items-center gap-1 text-xs text-gold-400">
           <Zap className="w-3 h-3" /> Active
@@ -632,7 +632,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
             <h3 className="text-sm font-semibold text-orange-400 flex items-center gap-2">
               <Clock className="w-4 h-4" /> Overdue Follow-ups ({allDueTasks.length})
             </h3>
-            <span className="text-xs text-muted-foreground">Admin view â€” all employees</span>
+            <span className="text-xs text-muted-foreground">Admin view — all employees</span>
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {allDueTasks.map((task: any) => (
@@ -642,7 +642,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-white truncate">{task.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {task.lead?.name} Â· {task.assignedTo?.name || "Unassigned"}
+                    {task.lead?.name} · {task.assignedTo?.name || "Unassigned"}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
@@ -680,10 +680,10 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
               </button>
               <button onClick={handleBulkDelete} disabled={bulkSending}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-all disabled:opacity-50">
-                ðŸ—‘ Delete ({selected.size})
+                🗑 Delete ({selected.size})
               </button>
               {bulkSending && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-              <button onClick={clearAll} className="text-xs text-muted-foreground hover:text-white ml-1">âœ• Clear</button>
+              <button onClick={clearAll} className="text-xs text-muted-foreground hover:text-white ml-1">✕ Clear</button>
             </div>
           </motion.div>
         )}
@@ -732,7 +732,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                 </div>
               </div>
 
-              {/* Status bar â€” always visible */}
+              {/* Status bar — always visible */}
               <div className="flex items-center gap-1.5 p-2 rounded-lg" style={{
                 background: lead.status === "NEW" ? "rgba(59,130,246,0.12)" :
                   lead.status === "CONTACTED" ? "rgba(234,179,8,0.12)" :
@@ -783,7 +783,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                       ? "bg-blue-500/15 border-blue-500/30 text-blue-300"
                       : "bg-orange-500/15 border-orange-500/30 text-orange-300"
                   }`}>
-                    {lead.category === "RESIDENTIAL" ? "ðŸ " : "ðŸ¢"} {lead.category}
+                    {lead.category === "RESIDENTIAL" ? "🏠" : "🏢"} {lead.category}
                   </span>
                 )}
                 {lead.propertyType && (
@@ -798,7 +798,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                 )}
                 {lead.preferredAreas?.slice(0,2).map(a => (
                   <span key={a} className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                    ðŸ“ {a}
+                    📍 {a}
                   </span>
                 ))}
                 {(lead.preferredAreas?.length ?? 0) > 2 && (
@@ -829,12 +829,12 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                   last.outcome === "BUSY"               ? "#fb923c" :
                   last.outcome === "CALLBACK_REQUESTED" ? "#fbbf24" : "#94a3b8";
                 const outcomeLabel =
-                  last.outcome === "ANSWERED"           ? "âœ… Answered" :
-                  last.outcome === "INTERESTED"         ? "ðŸŸ¢ Interested" :
-                  last.outcome === "NO_ANSWER"          ? "ðŸ“µ No Answer" :
-                  last.outcome === "NOT_INTERESTED"     ? "âŒ Not Interested" :
-                  last.outcome === "BUSY"               ? "ðŸ”´ Busy" :
-                  last.outcome === "CALLBACK_REQUESTED" ? "ðŸ” Callback" : last.outcome || "ðŸ“ž Called";
+                  last.outcome === "ANSWERED"           ? "✅ Answered" :
+                  last.outcome === "INTERESTED"         ? "🟢 Interested" :
+                  last.outcome === "NO_ANSWER"          ? "📵 No Answer" :
+                  last.outcome === "NOT_INTERESTED"     ? "❌ Not Interested" :
+                  last.outcome === "BUSY"               ? "🔴 Busy" :
+                  last.outcome === "CALLBACK_REQUESTED" ? "🔁 Callback" : last.outcome || "📞 Called";
                 return (
                   <div className="flex items-start gap-2 px-2.5 py-2 rounded-lg"
                     style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -864,7 +864,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                     <div className="flex-1 min-w-0">
                       <p className="text-xs truncate" style={{ color: isOverdue ? "#fde047" : "#e2e8f0" }}>{task.title}</p>
                       <p className="text-xs" style={{ color: isOverdue ? "#fbbf24" : "#64748b" }}>
-                        {isOverdue ? "âš ï¸ Overdue: " : "ðŸ“… "}{fmtDate(task.dueAt)}
+                        {isOverdue ? "⚠️ Overdue: " : "📅 "}{fmtDate(task.dueAt)}
                       </p>
                     </div>
                     <span className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{
@@ -875,7 +875,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                 );
               })()}
 
-              {/* Assign broker â€” admin only inline */}
+              {/* Assign broker — admin only inline */}
               {isAdmin && (
                 <div className="relative">
                   <select
@@ -894,7 +894,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                       toast.success(val ? "Lead assigned!" : "Unassigned");
                     }}
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-estate-500/50 appearance-none cursor-pointer">
-                    <option value="">â€” Assign Employee â€”</option>
+                    <option value="">— Assign Employee —</option>
                     {brokers.map((b: any) => (
                       <option key={b.id} value={b.id}>{b.name} ({b.role.replace("_"," ")})</option>
                     ))}
@@ -1050,8 +1050,8 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                             { label: "AI Score",    value: <span className={`font-bold ${scoreColor(detailLead.score)}`}>{scoreLabel(detailLead.score)} {detailLead.score}</span> },
                             { label: "Budget",      value: fmtBudget(detailLead.budget) },
                             { label: "Source",      value: detailLead.source?.replace(/_/g, " ") },
-                            { label: "Property",    value: detailLead.propertyType?.replace(/_/g, " ") || "â€”" },
-                            { label: "Transaction", value: detailLead.transactionType || "â€”" },
+                            { label: "Property",    value: detailLead.propertyType?.replace(/_/g, " ") || "—" },
+                            { label: "Transaction", value: detailLead.transactionType || "—" },
                             { label: "Added",       value: fmtDate(detailLead.createdAt) },
                           ].map(item => (
                             <div key={item.label} className="p-3 rounded-lg bg-white/5">
@@ -1117,14 +1117,14 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                                   style={{ background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)" }}>
                                   <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
                                     style={{ background: "rgba(234,179,8,0.12)" }}>
-                                    {m.property?.type === "OFFICE" ? "ðŸ¢" : m.property?.type === "VILLA" ? "ðŸ¡" :
-                                     m.property?.type === "APARTMENT" ? "ðŸ " : m.property?.type === "SHOP" ? "ðŸ›ï¸" :
-                                     m.property?.type === "SHOWROOM" ? "ðŸŽ¨" : m.property?.type === "WAREHOUSE" ? "ðŸ“¦" : "ðŸ—ï¸"}
+                                    {m.property?.type === "OFFICE" ? "🏢" : m.property?.type === "VILLA" ? "🏡" :
+                                     m.property?.type === "APARTMENT" ? "🏠" : m.property?.type === "SHOP" ? "🛍️" :
+                                     m.property?.type === "SHOWROOM" ? "🎨" : m.property?.type === "WAREHOUSE" ? "📦" : "🏗️"}
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="text-sm font-medium text-white truncate">{m.property?.title}</div>
                                     <div className="text-xs" style={{ color: "#94a3b8" }}>
-                                      ðŸ“ {m.property?.locality} Â· {fmtBudget(m.property?.price)}
+                                      📍 {m.property?.locality} · {fmtBudget(m.property?.price)}
                                     </div>
                                   </div>
                                   <div className="flex-shrink-0 text-xs font-bold px-2 py-1 rounded-full"
@@ -1132,7 +1132,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                                       background: m.score >= 80 ? "rgba(16,185,129,0.2)" : m.score >= 60 ? "rgba(234,179,8,0.2)" : "rgba(255,255,255,0.08)",
                                       color: m.score >= 80 ? "#6ee7b7" : m.score >= 60 ? "#fde047" : "#94a3b8"
                                     }}>
-                                    {m.score}% â†—
+                                    {m.score}% ↗
                                   </div>
                                 </button>
                               ))}
@@ -1414,7 +1414,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                   <h2 className="text-lg font-bold text-white">Log Call</h2>
                   <p className="text-xs text-muted-foreground">Save call duration, outcome, recording and follow-up date.</p>
                 </div>
-                <button onClick={() => setShowCallModal(false)} className="text-muted-foreground hover:text-white">âœ•</button>
+                <button onClick={() => setShowCallModal(false)} className="text-muted-foreground hover:text-white">✕</button>
               </div>
               <div className="space-y-4">
                 <div className="grid gap-3">
@@ -1470,237 +1470,228 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-end md:items-center justify-center md:p-4"
             onClick={e => e.target === e.currentTarget && setShowAddModal(false)}>
             <motion.div
-              initial={{ y: "100%", opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: "100%", opacity: 0 }}
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="glass-card w-full md:max-w-lg rounded-t-2xl md:rounded-xl max-h-[92dvh] overflow-y-auto">
-
-              <div className="flex items-center justify-between p-5 border-b border-white/10 sticky top-0 z-10" style={{ background: "#060c18" }}>
-                <div>
-                  <h2 className="text-lg font-bold text-white">Add New Lead</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Client requirement details</p>
-                </div>
-                <button onClick={() => setShowAddModal(false)} className="text-muted-foreground hover:text-white p-1"><X className="w-5 h-5" /></button>
+              className="glass-card w-full md:max-w-lg p-5 md:p-6 rounded-t-2xl md:rounded-xl max-h-[92dvh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-white">Add New Lead</h2>
+                <button onClick={() => setShowAddModal(false)} className="text-muted-foreground hover:text-white">✕</button>
               </div>
 
-              <form onSubmit={handleAddLead} className="p-5 space-y-4">
-
-                {/* Client Info */}
-                <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/15">
-                  <p className="text-xs font-semibold text-blue-400 mb-3">ðŸ‘¤ Client Information</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Full Name *</label>
-                      <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} className={inputCls} placeholder="Rajesh Patel" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Phone *</label>
-                      <input required value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} className={inputCls} placeholder="9876543210" />
-                    </div>
+              <form onSubmit={handleAddLead} className="space-y-4">
+                {/* Basic Info */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Full Name *</label>
+                    <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
+                      className={inputCls} placeholder="Rajesh Patel" />
                   </div>
-                  <div className="mt-3">
-                    <label className="text-xs text-muted-foreground mb-1 block">Email</label>
-                    <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={inputCls} placeholder="rajesh@email.com" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Source *</label>
-                      <select value={form.source} onChange={e => setForm(f => ({...f, source: e.target.value}))} className={inputCls}>
-                        <option value="WEBSITE">ðŸŒ CityRealSpace.com</option>
-                        <option value="WHATSAPP">ðŸ’¬ WhatsApp</option>
-                        <option value="FACEBOOK">ðŸ“˜ Facebook</option>
-                        <option value="GOOGLE_BUSINESS">ðŸ” Google Business</option>
-                        <option value="ACRES99">ðŸ  99acres</option>
-                        <option value="MAGICBRICKS">ðŸ§± Magicbricks</option>
-                        <option value="HOUSING">ðŸ¡ Housing.com</option>
-                        <option value="REFERRAL">ðŸ¤ Referral</option>
-                        <option value="WALK_IN">ðŸš¶ Walk-in</option>
-                        <option value="COLD_CALL">ðŸ“ž Cold Call</option>
-                        <option value="OTHER">ðŸ“‹ Other</option>
-                      </select>
-                    </div>
-                    {isAdmin && brokers.length > 0 && (
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">Assign To</label>
-                        <select value={form.assignedToId} onChange={e => setForm(f => ({...f, assignedToId: e.target.value}))} className={inputCls}>
-                          <option value="">â€” Assign Employee â€”</option>
-                          {brokers.map((b: any) => (
-                            <option key={b.id} value={b.id}>{b.name} ({b.role?.replace("_"," ")})</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Phone *</label>
+                    <input required value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))}
+                      className={inputCls} placeholder="9876543210" />
                   </div>
                 </div>
 
-                {/* Property Requirement */}
-                <div className="p-3 rounded-xl bg-white/3 border border-white/8">
-                  <p className="text-xs font-semibold text-yellow-400 mb-3">ðŸ·ï¸ Property Requirement</p>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+                  <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
+                    className={inputCls} placeholder="rajesh@email.com" />
+                </div>
 
-                  {/* Category Toggle */}
-                  <div className="grid grid-cols-2 gap-2 mb-3">
+                {/* Category toggle */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Category *</label>
+                  <div className="grid grid-cols-2 gap-2">
                     {(["RESIDENTIAL","COMMERCIAL"] as const).map(cat => (
                       <button key={cat} type="button"
-                        onClick={() => setForm(f => ({...f, category: cat, propertyType: "", bhk: ""}))}
+                        onClick={() => setForm(f => ({...f, category: cat, propertyType: ""}))}
                         className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${
                           form.category === cat
-                            ? cat === "RESIDENTIAL" ? "bg-blue-500/25 border-blue-500/50 text-blue-300" : "bg-orange-500/25 border-orange-500/50 text-orange-300"
+                            ? cat === "RESIDENTIAL"
+                              ? "bg-blue-500/25 border-blue-500/50 text-blue-300"
+                              : "bg-orange-500/25 border-orange-500/50 text-orange-300"
                             : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
                         }`}>
-                        {cat === "RESIDENTIAL" ? "ðŸ  Residential" : "ðŸ¢ Commercial"}
+                        {cat === "RESIDENTIAL" ? "🏠 Residential" : "🏢 Commercial"}
                       </button>
                     ))}
                   </div>
+                </div>
 
-                  {/* Transaction + Property Type */}
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Transaction *</label>
-                      <select value={form.transactionType} onChange={e => setForm(f => ({...f, transactionType: e.target.value, furnishing: ""}))} className={inputCls}>
-                        {form.category === "RESIDENTIAL"
-                          ? <><option value="BUY">ðŸ”‘ Buy</option><option value="RENT">ðŸ  Rent</option><option value="SELL">ðŸ’° Sell</option></>
-                          : <><option value="BUY">ðŸ”‘ Buy</option><option value="RENT">ðŸ¢ Rent</option><option value="LEASE">ðŸ“‹ Lease</option><option value="SELL">ðŸ’° Sell</option></>
-                        }
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Property Type</label>
-                      <select value={form.propertyType} onChange={e => setForm(f => ({...f, propertyType: e.target.value, bhk: ""}))} className={inputCls}>
-                        <option value="">{form.category === "RESIDENTIAL" ? "Flat/Villa/Plot..." : "Office/Shop/Godown..."}</option>
-                        {(form.category === "RESIDENTIAL" ? RESIDENTIAL_TYPES : COMMERCIAL_TYPES).map(t => (
-                          <option key={t} value={t}>{PROPERTY_LABELS[t]}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* BHK â€” Apartment only */}
-                  {form.category === "RESIDENTIAL" && form.propertyType === "APARTMENT" && (
-                    <div className="mb-3">
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Configuration (BHK) *</label>
-                      <div className="flex flex-wrap gap-2">
-                        {["1 BHK","1.5 BHK","2 BHK","2.5 BHK","3 BHK","3.5 BHK","4 BHK","4+ BHK"].map(b => (
-                          <button key={b} type="button"
-                            onClick={() => setForm(f => ({...f, bhk: f.bhk === b ? "" : b}))}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                              form.bhk === b ? "bg-blue-500/30 border-blue-400 text-blue-200 font-bold" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
-                            }`}>{b}</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Furnished Status â€” Rent/Lease only */}
-                  {(form.transactionType === "RENT" || form.transactionType === "LEASE") && (
-                    <div className="mb-3">
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Furnished Status</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[{val:"Fully Furnished",icon:"ðŸ›‹ï¸"},{val:"Semi Furnished",icon:"ðŸª‘"},{val:"Unfurnished",icon:"ðŸ—ï¸"}].map(f => (
-                          <button key={f.val} type="button"
-                            onClick={() => setForm(prev => ({...prev, furnishing: prev.furnishing === f.val ? "" : f.val}))}
-                            className={`py-2 rounded-xl text-xs font-medium border transition-all ${
-                              form.furnishing === f.val ? "bg-emerald-500/25 border-emerald-400 text-emerald-200 font-bold" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
-                            }`}>{f.icon} {f.val}</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Budget */}
+                {/* Transaction + Property Type */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Budget (â‚¹){(form.transactionType === "RENT" || form.transactionType === "LEASE") ? " / month" : ""}
-                    </label>
-                    <input type="number" value={form.budget} onChange={e => setForm(f => ({...f, budget: e.target.value}))}
-                      className={inputCls}
-                      placeholder={form.transactionType === "RENT" ? "e.g. 25000" : form.transactionType === "LEASE" ? "e.g. 80000" : form.category === "RESIDENTIAL" ? "e.g. 7500000" : "e.g. 15000000"} />
+                    <label className="text-xs text-muted-foreground mb-1 block">Transaction *</label>
+                    <select value={form.transactionType} onChange={e => setForm(f => ({...f, transactionType: e.target.value}))} className={inputCls}>
+                      <option value="BUY">Buy</option>
+                      <option value="RENT">Rent</option>
+                      <option value="LEASE">Lease</option>
+                      <option value="SELL">Sell</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Property Type</label>
+                    <select value={form.propertyType} onChange={e => setForm(f => ({...f, propertyType: e.target.value}))} className={inputCls}>
+                      <option value="">
+                        {form.category === "RESIDENTIAL" ? "1BHK / 2BHK / Villa..." : "Office / Shop..."}
+                      </option>
+                      {(form.category === "RESIDENTIAL" ? RESIDENTIAL_TYPES : COMMERCIAL_TYPES).map(t => (
+                        <option key={t} value={t}>{PROPERTY_LABELS[t]}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
-                {/* Location */}
-                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/15">
-                  <p className="text-xs font-semibold text-emerald-400 mb-2">ðŸ“ Preferred Location â€” Ahmedabad</p>
+                {/* Residential: BHK config */}
+                {form.category === "RESIDENTIAL" && form.propertyType === "APARTMENT" && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Configuration</label>
+                    <div className="flex flex-wrap gap-2">
+                      {["1 BHK","1.5 BHK","2 BHK","2.5 BHK","3 BHK","4 BHK","4+ BHK"].map(b => (
+                        <button key={b} type="button"
+                          onClick={() => setForm(f => ({...f, bhk: f.bhk === b ? "" : b}))}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                            form.bhk === b
+                              ? "bg-blue-500/25 border-blue-500/50 text-blue-300"
+                              : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                          }`}>{b}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Furnished status — only for rental */}
+                {(form.transactionType === "RENT" || form.transactionType === "LEASE") && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Furnished Status</label>
+                    <div className="flex gap-2">
+                      {["Furnished","Semi Furnished","Unfurnished"].map(f => (
+                        <button key={f} type="button"
+                          onClick={() => setForm(prev => ({...prev, furnishing: prev.furnishing === f ? "" : f}))}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                            form.furnishing === f
+                              ? "bg-emerald-500/25 border-emerald-500/50 text-emerald-300"
+                              : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                          }`}>{f}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Preferred Areas */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Preferred Areas (Ahmedabad)</label>
                   <select className={inputCls}
                     onChange={e => {
                       const v = e.target.value;
-                      if (v && !form.preferredAreas.includes(v)) setForm(f => ({...f, preferredAreas: [...f.preferredAreas, v]}));
+                      if (v && !form.preferredAreas.includes(v))
+                        setForm(f => ({...f, preferredAreas: [...f.preferredAreas, v]}));
                       e.target.value = "";
                     }}>
-                    <option value="">+ Select locality...</option>
-                    {AHMEDABAD_LOCALITIES.map(l => <option key={l} value={l}>{l}</option>)}
+                    <option value="">+ Add locality...</option>
+                    {AHMEDABAD_LOCALITIES.map(l => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
                   </select>
                   {form.preferredAreas.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {form.preferredAreas.map(a => (
-                        <span key={a} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-xs text-emerald-300">
-                          ðŸ“ {a}
+                        <span key={a} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-estate-500/20 border border-estate-500/30 text-xs text-estate-300">
+                          📍 {a}
                           <button type="button" onClick={() => setForm(f => ({...f, preferredAreas: f.preferredAreas.filter(x => x !== a)}))}
-                            className="text-emerald-500 hover:text-red-400 ml-0.5 font-bold">Ã—</button>
+                            className="text-muted-foreground hover:text-red-400 ml-0.5">✕</button>
                         </span>
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* Additional Notes */}
+                {/* Budget + Source */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Budget (₹)</label>
+                    <input type="number" value={form.budget} onChange={e => setForm(f => ({...f, budget: e.target.value}))}
+                      className={inputCls} placeholder={form.transactionType === "RENT" ? "e.g. 80000/mo" : "e.g. 5000000"} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Source</label>
+                    <select value={form.source} onChange={e => setForm(f => ({...f, source: e.target.value}))} className={inputCls}>
+                      <option value="WEBSITE">CityRealSpace.com</option>
+                      <option value="WHATSAPP">WhatsApp</option>
+                      <option value="FACEBOOK">Facebook</option>
+                      <option value="GOOGLE_BUSINESS">Google Business</option>
+                      <option value="ACRES99">99acres</option>
+                      <option value="MAGICBRICKS">Magicbricks</option>
+                      <option value="HOUSING">Housing.com</option>
+                      <option value="REFERRAL">Referral</option>
+                      <option value="WALK_IN">Walk-in</option>
+                      <option value="COLD_CALL">Cold Call</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Requirements */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-muted-foreground">Additional Requirements</label>
+                    <label className="text-xs text-muted-foreground">Special Requirements / Notes</label>
                     <button type="button"
                       onClick={() => {
-                        if (isRecording) {
-                          recognitionRef.current?.stop();
-                          setIsRecording(false);
-                          return;
-                        }
-                        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-                        if (!SpeechRecognition) { toast.error("Voice not supported in this browser"); return; }
-                        const recognition = new SpeechRecognition();
-                        recognition.lang = "en-IN";
-                        recognition.continuous = true;
-                        recognition.interimResults = false;
-                        recognition.onresult = (e: any) => {
-                          const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join(" ");
-                          setForm(f => ({ ...f, requirements: f.requirements ? f.requirements + " " + transcript : transcript }));
-                        };
-                        recognition.onerror = () => { setIsRecording(false); toast.error("Mic error"); };
-                        recognition.onend = () => setIsRecording(false);
-                        recognitionRef.current = recognition;
-                        recognition.start();
-                        setIsRecording(true);
+                        if (isRecording) { recognitionRef.current?.stop(); setIsRecording(false); return; }
+                        const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                        if (!SR) { toast.error("Voice not supported in this browser"); return; }
+                        const r = new SR(); r.lang = "en-IN"; r.continuous = true; r.interimResults = false;
+                        r.onresult = (e: any) => { const t = Array.from(e.results).map((x: any) => x[0].transcript).join(" "); setForm(f => ({ ...f, requirements: f.requirements ? f.requirements + " " + t : t })); };
+                        r.onerror = () => { setIsRecording(false); toast.error("Mic error"); };
+                        r.onend = () => setIsRecording(false);
+                        recognitionRef.current = r; r.start(); setIsRecording(true);
                         toast("🎤 Listening... tap mic to stop");
                       }}
                       className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs border transition-all ${
-                        isRecording
-                          ? "bg-red-500/25 border-red-400 text-red-300 animate-pulse"
-                          : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                        isRecording ? "bg-red-500/25 border-red-400 text-red-300 animate-pulse" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
                       }`}>
                       {isRecording ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
                       {isRecording ? "Stop" : "Voice"}
                     </button>
                   </div>
-                  <textarea rows={2} value={form.requirements} onChange={e => setForm(f => ({...f, requirements: e.target.value}))}
+                  <textarea rows={3} value={form.requirements} onChange={e => setForm(f => ({...f, requirements: e.target.value}))}
                     className={`${inputCls} resize-none`}
                     placeholder={form.category === "RESIDENTIAL"
-                      ? "e.g. Near school, garden facing, ground floor, gated society..."
-                      : "e.g. Ground floor, loading dock, three-phase power, parking..."} />
+                      ? "e.g. 2BHK semi-furnished in Bopal, near school, garden facing..."
+                      : "e.g. 2000sqft office in Prahlad Nagar, ground floor preferred, parking required..."
+                    } />
                 </div>
 
-                {/* AI note */}
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-yellow-500/8 border border-yellow-500/20">
-                  <Bot className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                  <span className="text-xs text-yellow-300">AI will auto-score, match properties & notify relevant property owners via WhatsApp</span>
+                {/* Assign broker — admin only */}
+                {isAdmin && brokers.length > 0 && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Assign To</label>
+                    <select value={form.assignedToId} onChange={e => setForm(f => ({...f, assignedToId: e.target.value}))} className={inputCls}>
+                      <option value="">— Assign Employee —</option>
+                      {brokers.map((b: any) => (
+                        <option key={b.id} value={b.id}>{b.name} ({b.role?.replace("_"," ")})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-gold-500/10 border border-gold-500/20">
+                  <Bot className="w-4 h-4 text-gold-400 flex-shrink-0" />
+                  <span className="text-xs text-gold-400">AI will auto-score this lead and find matching properties</span>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-3 pt-1">
                   <button type="button" onClick={() => setShowAddModal(false)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white transition-all">
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white transition-all">
                     Cancel
                   </button>
                   <button type="submit" disabled={submitting} className="flex-1 btn-primary text-sm flex items-center justify-center gap-2">
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Bot className="w-4 h-4" /> Add Lead + AI Score</>}
                   </button>
                 </div>
-
               </form>
             </motion.div>
           </motion.div>
@@ -1726,14 +1717,14 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
                           style={{ background: "rgba(234,179,8,0.12)", border: "1px solid rgba(234,179,8,0.2)" }}>
-                          {propModal.type === "OFFICE" ? "ðŸ¢" : propModal.type === "VILLA" ? "ðŸ¡" :
-                           propModal.type === "APARTMENT" ? "ðŸ " : propModal.type === "SHOP" ? "ðŸ›ï¸" :
-                           propModal.type === "SHOWROOM" ? "ðŸŽ¨" : propModal.type === "WAREHOUSE" ? "ðŸ“¦" : "ðŸ—ï¸"}
+                          {propModal.type === "OFFICE" ? "🏢" : propModal.type === "VILLA" ? "🏡" :
+                           propModal.type === "APARTMENT" ? "🏠" : propModal.type === "SHOP" ? "🛍️" :
+                           propModal.type === "SHOWROOM" ? "🎨" : propModal.type === "WAREHOUSE" ? "📦" : "🏗️"}
                         </div>
                         <div>
                           <h2 className="text-lg font-bold text-white leading-tight">{propModal.title}</h2>
                           <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>
-                            ðŸ“ {propModal.locality}{propModal.city ? `, ${propModal.city}` : ""}
+                            📍 {propModal.locality}{propModal.city ? `, ${propModal.city}` : ""}
                           </p>
                         </div>
                       </div>
@@ -1783,7 +1774,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                       </span>
                       {propModal.residential?.furnishing && (
                         <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8" }}>
-                          ðŸ›‹ï¸ {propModal.residential.furnishing.replace(/_/g, " ")}
+                          🛋️ {propModal.residential.furnishing.replace(/_/g, " ")}
                         </span>
                       )}
                     </div>
@@ -1860,7 +1851,7 @@ We have genuine properties matching your requirement. Let's connect! ðŸ¤
                       }}
                         className="py-2.5 rounded-xl text-sm font-semibold transition-all"
                         style={{ background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.35)", color: "#d8b4fe" }}>
-                        ðŸ“… Schedule Visit
+                        📅 Schedule Visit
                       </button>
                     </div>
                   </div>
