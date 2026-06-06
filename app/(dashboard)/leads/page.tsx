@@ -110,7 +110,31 @@ export default function LeadsPage() {
   const [form, setForm] = useState({
     name: "", phone: "", email: "", source: "WEBSITE",
     budget: "", requirements: "", propertyType: "", transactionType: "BUY",
+    category: "RESIDENTIAL", preferredAreas: [] as string[], furnishing: "",
+    bhk: "", assignedToId: "",
   });
+
+  const AHMEDABAD_LOCALITIES = [
+    "Prahlad Nagar","Satellite","Bopal","South Bopal","Ambli","Shilaj","Thaltej",
+    "Bodakdev","Vastrapur","Navrangpura","Paldi","Maninagar","Nikol","Naroda",
+    "Gota","Chandkheda","Motera","Ranip","Sabarmati","Memnagar","Gurukul",
+    "Drive-In Road","CG Road","Ashram Road","SG Highway","SP Ring Road",
+    "Sindhu Bhavan Road","Science City Road","Anandnagar","Jodhpur","Vejalpur",
+    "Ghatlodia","Sola","Naranpura","Ellis Bridge","Prahladnagar Garden",
+    "GIFT City","Gandhinagar","Sanand","Bavla","Dholka","Dhandhuka",
+    "New Ranip","Odhav","Vatva","Narol","Bapunagar","Gomtipur","Shahibaug",
+    "Ambawadi","Polytechnic","Judges Bungalow","Sarkhej","Shela","Ghuma",
+    "Tragad","Manipur","Zundal","Khoraj","Adalaj","Vavol","Uvarsad",
+  ].sort();
+
+  const RESIDENTIAL_TYPES = ["APARTMENT","VILLA","PLOT","PENTHOUSE","STUDIO"];
+  const COMMERCIAL_TYPES  = ["OFFICE","SHOP","SHOWROOM","WAREHOUSE","INDUSTRIAL","COMMERCIAL_LAND"];
+  const PROPERTY_LABELS: Record<string,string> = {
+    APARTMENT:"Apartment / Flat", VILLA:"Villa / Bungalow", PLOT:"Residential Plot",
+    PENTHOUSE:"Penthouse", STUDIO:"Studio",
+    OFFICE:"Office Space", SHOP:"Shop", SHOWROOM:"Showroom",
+    WAREHOUSE:"Warehouse / Godown", INDUSTRIAL:"Industrial Unit", COMMERCIAL_LAND:"Commercial Land",
+  };
 
   // Auto-open lead from URL param (e.g. from search results)
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
@@ -336,27 +360,44 @@ export default function LeadsPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const reqParts = [
+        form.bhk && `${form.bhk}`,
+        form.propertyType && PROPERTY_LABELS[form.propertyType],
+        form.furnishing && `${form.furnishing}`,
+        form.preferredAreas.length > 0 && `Preferred: ${form.preferredAreas.join(", ")}`,
+        form.requirements,
+      ].filter(Boolean).join(" | ");
+
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, budget: form.budget ? parseFloat(form.budget) : undefined }),
+        body: JSON.stringify({
+          name: form.name, phone: form.phone, email: form.email || undefined,
+          source: form.source,
+          budget: form.budget ? parseFloat(form.budget) : undefined,
+          requirements: reqParts || undefined,
+          propertyType: form.propertyType || undefined,
+          transactionType: form.transactionType,
+          category: form.category,
+          preferredAreas: form.preferredAreas,
+          assignedToId: form.assignedToId || undefined,
+        }),
       });
       const data = await res.json();
       if (res.status === 409) {
-        toast.error("Duplicate lead detected! This phone number already exists.");
+        toast.error("Duplicate lead! This phone number already exists.");
       } else if (res.ok) {
         toast.success(`Lead added! AI Score: ${data.aiScore?.score ?? "—"}`);
         setShowAddModal(false);
-        setForm({ name: "", phone: "", email: "", source: "WEBSITE", budget: "", requirements: "", propertyType: "", transactionType: "BUY" });
+        setForm({ name: "", phone: "", email: "", source: "WEBSITE", budget: "", requirements: "",
+          propertyType: "", transactionType: "BUY", category: "RESIDENTIAL",
+          preferredAreas: [], furnishing: "", bhk: "", assignedToId: "" });
         fetchLeads();
       } else {
         toast.error(data.error || "Failed to add lead");
       }
-    } catch {
-      toast.error("Network error");
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { toast.error("Network error"); }
+    finally { setSubmitting(false); }
   };
 
   const toggleSelect = (id: string) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
@@ -1396,33 +1437,151 @@ We have genuine properties matching your requirement. Let's connect! 🤝
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
               className="glass-card w-full md:max-w-lg p-5 md:p-6 rounded-t-2xl md:rounded-xl max-h-[92dvh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white">Add New Lead</h2>
                 <button onClick={() => setShowAddModal(false)} className="text-muted-foreground hover:text-white">✕</button>
               </div>
+
               <form onSubmit={handleAddLead} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                {/* Basic Info */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Full Name *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Full Name *</label>
                     <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
                       className={inputCls} placeholder="Rajesh Patel" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Phone *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Phone *</label>
                     <input required value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))}
                       className={inputCls} placeholder="9876543210" />
                   </div>
                 </div>
+
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">Email</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Email</label>
                   <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
                     className={inputCls} placeholder="rajesh@email.com" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+
+                {/* Category toggle */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Category *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["RESIDENTIAL","COMMERCIAL"] as const).map(cat => (
+                      <button key={cat} type="button"
+                        onClick={() => setForm(f => ({...f, category: cat, propertyType: ""}))}
+                        className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                          form.category === cat
+                            ? cat === "RESIDENTIAL"
+                              ? "bg-blue-500/25 border-blue-500/50 text-blue-300"
+                              : "bg-orange-500/25 border-orange-500/50 text-orange-300"
+                            : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                        }`}>
+                        {cat === "RESIDENTIAL" ? "🏠 Residential" : "🏢 Commercial"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Transaction + Property Type */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Source</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Transaction *</label>
+                    <select value={form.transactionType} onChange={e => setForm(f => ({...f, transactionType: e.target.value}))} className={inputCls}>
+                      <option value="BUY">Buy</option>
+                      <option value="RENT">Rent</option>
+                      <option value="LEASE">Lease</option>
+                      <option value="SELL">Sell</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Property Type</label>
+                    <select value={form.propertyType} onChange={e => setForm(f => ({...f, propertyType: e.target.value}))} className={inputCls}>
+                      <option value="">
+                        {form.category === "RESIDENTIAL" ? "1BHK / 2BHK / Villa..." : "Office / Shop..."}
+                      </option>
+                      {(form.category === "RESIDENTIAL" ? RESIDENTIAL_TYPES : COMMERCIAL_TYPES).map(t => (
+                        <option key={t} value={t}>{PROPERTY_LABELS[t]}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Residential: BHK config */}
+                {form.category === "RESIDENTIAL" && form.propertyType === "APARTMENT" && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Configuration</label>
+                    <div className="flex flex-wrap gap-2">
+                      {["1 BHK","1.5 BHK","2 BHK","2.5 BHK","3 BHK","4 BHK","4+ BHK"].map(b => (
+                        <button key={b} type="button"
+                          onClick={() => setForm(f => ({...f, bhk: f.bhk === b ? "" : b}))}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                            form.bhk === b
+                              ? "bg-blue-500/25 border-blue-500/50 text-blue-300"
+                              : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                          }`}>{b}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Furnished status — only for rental */}
+                {(form.transactionType === "RENT" || form.transactionType === "LEASE") && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Furnished Status</label>
+                    <div className="flex gap-2">
+                      {["Furnished","Semi Furnished","Unfurnished"].map(f => (
+                        <button key={f} type="button"
+                          onClick={() => setForm(prev => ({...prev, furnishing: prev.furnishing === f ? "" : f}))}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                            form.furnishing === f
+                              ? "bg-emerald-500/25 border-emerald-500/50 text-emerald-300"
+                              : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                          }`}>{f}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Preferred Areas */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Preferred Areas (Ahmedabad)</label>
+                  <select className={inputCls}
+                    onChange={e => {
+                      const v = e.target.value;
+                      if (v && !form.preferredAreas.includes(v))
+                        setForm(f => ({...f, preferredAreas: [...f.preferredAreas, v]}));
+                      e.target.value = "";
+                    }}>
+                    <option value="">+ Add locality...</option>
+                    {AHMEDABAD_LOCALITIES.map(l => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
+                  {form.preferredAreas.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {form.preferredAreas.map(a => (
+                        <span key={a} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-estate-500/20 border border-estate-500/30 text-xs text-estate-300">
+                          📍 {a}
+                          <button type="button" onClick={() => setForm(f => ({...f, preferredAreas: f.preferredAreas.filter(x => x !== a)}))}
+                            className="text-muted-foreground hover:text-red-400 ml-0.5">✕</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Budget + Source */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Budget (₹)</label>
+                    <input type="number" value={form.budget} onChange={e => setForm(f => ({...f, budget: e.target.value}))}
+                      className={inputCls} placeholder={form.transactionType === "RENT" ? "e.g. 80000/mo" : "e.g. 5000000"} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Source</label>
                     <select value={form.source} onChange={e => setForm(f => ({...f, source: e.target.value}))} className={inputCls}>
-                      <option value="WEBSITE">CityRealSpace Website</option>
+                      <option value="WEBSITE">CityRealSpace.com</option>
                       <option value="WHATSAPP">WhatsApp</option>
                       <option value="FACEBOOK">Facebook</option>
                       <option value="GOOGLE_BUSINESS">Google Business</option>
@@ -1435,49 +1594,40 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                       <option value="OTHER">Other</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Budget (₹)</label>
-                    <input type="number" value={form.budget} onChange={e => setForm(f => ({...f, budget: e.target.value}))}
-                      className={inputCls} placeholder="5000000" />
-                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Property Type</label>
-                    <select value={form.propertyType} onChange={e => setForm(f => ({...f, propertyType: e.target.value}))} className={inputCls}>
-                      <option value="">Select type</option>
-                      <option value="OFFICE">Office</option>
-                      <option value="SHOP">Shop</option>
-                      <option value="SHOWROOM">Showroom</option>
-                      <option value="WAREHOUSE">Warehouse</option>
-                      <option value="APARTMENT">Apartment</option>
-                      <option value="VILLA">Villa</option>
-                      <option value="PLOT">Plot</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Transaction</label>
-                    <select value={form.transactionType} onChange={e => setForm(f => ({...f, transactionType: e.target.value}))} className={inputCls}>
-                      <option value="BUY">Buy</option>
-                      <option value="RENT">Rent</option>
-                      <option value="LEASE">Lease</option>
-                      <option value="SELL">Sell</option>
-                    </select>
-                  </div>
-                </div>
+
+                {/* Requirements */}
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">Requirements</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Special Requirements / Notes</label>
                   <textarea rows={3} value={form.requirements} onChange={e => setForm(f => ({...f, requirements: e.target.value}))}
                     className={`${inputCls} resize-none`}
-                    placeholder="Office space 2000sqft in Prahlad Nagar under ₹80K/month..." />
+                    placeholder={form.category === "RESIDENTIAL"
+                      ? "e.g. 2BHK semi-furnished in Bopal, near school, garden facing..."
+                      : "e.g. 2000sqft office in Prahlad Nagar, ground floor preferred, parking required..."
+                    } />
                 </div>
+
+                {/* Assign broker — admin only */}
+                {isAdmin && brokers.length > 0 && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Assign To</label>
+                    <select value={form.assignedToId} onChange={e => setForm(f => ({...f, assignedToId: e.target.value}))} className={inputCls}>
+                      <option value="">— Assign Employee —</option>
+                      {brokers.map((b: any) => (
+                        <option key={b.id} value={b.id}>{b.name} ({b.role?.replace("_"," ")})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-gold-500/10 border border-gold-500/20">
                   <Bot className="w-4 h-4 text-gold-400 flex-shrink-0" />
                   <span className="text-xs text-gold-400">AI will auto-score this lead and find matching properties</span>
                 </div>
-                <div className="flex gap-3 pt-2">
+
+                <div className="flex gap-3 pt-1">
                   <button type="button" onClick={() => setShowAddModal(false)}
-                    className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white transition-all">
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white transition-all">
                     Cancel
                   </button>
                   <button type="submit" disabled={submitting} className="flex-1 btn-primary text-sm flex items-center justify-center gap-2">

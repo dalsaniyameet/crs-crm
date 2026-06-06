@@ -1,15 +1,9 @@
 /**
  * Lead Lifecycle Automation — City Real Space CRM
- * Triggered on every lead status change / update
- * Handles: notifications, WhatsApp, follow-up tasks, deal creation, activity logs
  */
 
 import { prisma } from "@/lib/prisma";
-import { sendWhatsApp } from "@/lib/whatsapp";
-
-// ── Real Estate Lead Journey ──────────────────────────────────────────────────
-// NEW → CONTACTED → SITE_VISIT_SCHEDULED → NEGOTIATION → DEAL_CLOSED / LOST
-// Each step triggers: notification + WA to client + follow-up task for broker
+import { sendWhatsApp, buildCRSRequirementMessage } from "@/lib/whatsapp";
 
 export const LEAD_STATUS_LABELS: Record<string, string> = {
   NEW:                   "New Lead",
@@ -20,20 +14,15 @@ export const LEAD_STATUS_LABELS: Record<string, string> = {
   LOST:                  "Lost",
 };
 
-// Next suggested step for each status
 export const NEXT_STEP: Record<string, { status: string; task: string; daysFromNow: number }> = {
-  NEW:                  { status: "CONTACTED",            task: "Call lead & understand requirements",    daysFromNow: 0 },
-  CONTACTED:            { status: "SITE_VISIT_SCHEDULED", task: "Schedule site visit for shortlisted properties", daysFromNow: 2 },
-  SITE_VISIT_SCHEDULED: { status: "NEGOTIATION",          task: "Follow up after site visit — get feedback",     daysFromNow: 1 },
-  NEGOTIATION:          { status: "DEAL_CLOSED",          task: "Finalize deal terms & prepare token agreement", daysFromNow: 3 },
-  DEAL_CLOSED:          { status: "DEAL_CLOSED",          task: "Collect commission & get referral",             daysFromNow: 7 },
+  NEW:                  { status: "CONTACTED",            task: "Call lead & understand requirements",              daysFromNow: 0 },
+  CONTACTED:            { status: "SITE_VISIT_SCHEDULED", task: "Schedule site visit for shortlisted properties",   daysFromNow: 2 },
+  SITE_VISIT_SCHEDULED: { status: "NEGOTIATION",          task: "Follow up after site visit — get feedback",        daysFromNow: 1 },
+  NEGOTIATION:          { status: "DEAL_CLOSED",          task: "Finalize deal terms & prepare token agreement",    daysFromNow: 3 },
+  DEAL_CLOSED:          { status: "DEAL_CLOSED",          task: "Collect commission & get referral",                daysFromNow: 7 },
 };
 
-// WhatsApp messages to CLIENT at each stage
 const CLIENT_WA_MESSAGES: Record<string, (name: string, extra?: string) => string> = {
-  CONTACTED: (name) =>
-    `Hi ${name}! 👋\n\nThank you for connecting with *City Real Space*, Ahmedabad's trusted real estate brokerage.\n\nWe've noted your requirements and our team will reach out shortly with the best matching properties.\n\n📞 City Real Space | Ahmedabad\n🌐 cityrealspace.com`,
-
   SITE_VISIT_SCHEDULED: (name, details) =>
     `Hi ${name}! 🏠\n\n*Site Visit Confirmed!*\n\n${details || "Your site visit has been scheduled."}\n\nPlease reply CONFIRM to confirm your visit or RESCHEDULE if you need to change the time.\n\n📍 City Real Space, Ahmedabad`,
 
@@ -47,17 +36,15 @@ const CLIENT_WA_MESSAGES: Record<string, (name: string, extra?: string) => strin
     `Hi ${name}! 👋\n\nWe understand you've decided to hold off for now.\n\nWhenever you're ready to explore properties in Ahmedabad, we're here for you!\n\n📞 City Real Space | Ahmedabad`,
 };
 
-// ── Main Automation Function ──────────────────────────────────────────────────
 export async function runLeadAutomation(params: {
   leadId:      string;
   newStatus:   string;
   oldStatus:   string;
-  triggeredBy: string; // userId
+  triggeredBy: string;
   extra?:      Record<string, any>;
 }) {
   const { leadId, newStatus, oldStatus, triggeredBy, extra } = params;
-
-  if (newStatus === oldStatus) return; // no change
+  if (newStatus === oldStatus) return;
 
   const lead = await prisma.lead.findUnique({
     where:   { id: leadId },
@@ -68,7 +55,7 @@ export async function runLeadAutomation(params: {
   const brokerName = lead.assignedTo?.name || "Team";
   const brokerId   = lead.assignedTo?.id;
 
-  // ── 1. Activity Log ──────────────────────────────────────────────────────
+  // 1. Activity Log
   await prisma.activity.create({
     data: {
       type:        "STATUS_CHANGED",
@@ -78,7 +65,7 @@ export async function runLeadAutomation(params: {
     },
   });
 
-  // ── 2. Notification to assigned broker ──────────────────────────────────
+  // 2. Notification to assigned broker
   if (brokerId) {
     await prisma.notification.create({
       data: {
@@ -91,7 +78,7 @@ export async function runLeadAutomation(params: {
     });
   }
 
-  // Notify all admins too
+  // Notify admins
   const admins = await prisma.user.findMany({
     where: { role: { in: ["ADMIN", "SALES_MANAGER"] }, isActive: true },
     select: { id: true },
@@ -112,54 +99,68 @@ export async function runLeadAutomation(params: {
       )
   );
 
-  // ── 3. Auto follow-up task for broker ───────────────────────────────────
+  // 3. Auto follow-up task
   const nextStep = NEXT_STEP[newStatus];
   if (nextStep && brokerId) {
     const dueAt = new Date();
     dueAt.setDate(dueAt.getDate() + nextStep.daysFromNow);
-    dueAt.setHours(10, 0, 0, 0); // 10 AM
+    dueAt.setHours(10, 0, 0, 0);
 
     await prisma.task.create({
       data: {
-        title:       nextStep.task,
-        description: `Auto-created for lead: ${lead.name} (${lead.phone})`,
+        title:        nextStep.task,
+        description:  `Auto-created for lead: ${lead.name} (${lead.phone})`,
         dueAt,
-        priority:    newStatus === "NEGOTIATION" ? "HIGH" : newStatus === "SITE_VISIT_SCHEDULED" ? "HIGH" : "MEDIUM",
+        priority:     newStatus === "NEGOTIATION" || newStatus === "SITE_VISIT_SCHEDULED" ? "HIGH" : "MEDIUM",
         assignedToId: brokerId,
         leadId,
       },
     });
 
-    // Update nextFollowUpAt on lead
     await prisma.lead.update({
       where: { id: leadId },
       data:  { nextFollowUpAt: dueAt, lastContactedAt: new Date() },
     });
   }
 
-  // ── 4. WhatsApp to client ────────────────────────────────────────────────
-  const waMsg = CLIENT_WA_MESSAGES[newStatus];
-  if (waMsg && lead.phone) {
-    const msgText = waMsg(
-      lead.name,
-      extra?.visitDetails || undefined
-    );
-    try {
-      await sendWhatsApp(lead.phone, msgText);
-      await prisma.activity.create({
-        data: {
-          type:        "WHATSAPP_SENT",
-          description: `WhatsApp sent to ${lead.name}: ${newStatus} notification`,
-          leadId,
-          userId: triggeredBy,
-        },
+  // 4. WhatsApp to client — CRS template for CONTACTED, standard for others
+  if (lead.phone) {
+    let msgText: string | null = null;
+
+    if (newStatus === "CONTACTED") {
+      msgText = buildCRSRequirementMessage({
+        name:            lead.name,
+        phone:           lead.phone,
+        category:        lead.category,
+        propertyType:    lead.propertyType,
+        transactionType: lead.transactionType,
+        budget:          lead.budget,
+        requirements:    lead.requirements,
+        preferredAreas:  lead.preferredAreas,
+        source:          lead.source,
+        assignedTo:      brokerName,
       });
-    } catch {
-      // WA send failure should not block the flow
+    } else {
+      const waMsg = CLIENT_WA_MESSAGES[newStatus];
+      if (waMsg) msgText = waMsg(lead.name, extra?.visitDetails || undefined);
+    }
+
+    if (msgText) {
+      try {
+        await sendWhatsApp(lead.phone, msgText);
+        await prisma.activity.create({
+          data: {
+            type:        "WHATSAPP_SENT",
+            description: `WhatsApp sent to ${lead.name}: ${newStatus} notification`,
+            leadId,
+            userId: triggeredBy,
+          },
+        });
+      } catch { /* non-critical */ }
     }
   }
 
-  // ── 5. Auto-create Deal on NEGOTIATION ──────────────────────────────────
+  // 5. Auto-create Deal on NEGOTIATION
   if (newStatus === "NEGOTIATION") {
     const existingDeal = await prisma.deal.findFirst({
       where: { leadId, stage: { notIn: ["CLOSED", "CANCELLED"] } },
@@ -192,7 +193,6 @@ export async function runLeadAutomation(params: {
         },
       });
 
-      // Notify broker about new deal
       if (brokerId) {
         await prisma.notification.create({
           data: {
@@ -207,21 +207,19 @@ export async function runLeadAutomation(params: {
     }
   }
 
-  // ── 6. Auto-create Commission on DEAL_CLOSED ────────────────────────────
+  // 6. Auto-create Commission on DEAL_CLOSED
   if (newStatus === "DEAL_CLOSED" && brokerId) {
     const deal = await prisma.deal.findFirst({
-      where: { leadId, stage: { notIn: ["CANCELLED"] } },
+      where:   { leadId, stage: { notIn: ["CANCELLED"] } },
       orderBy: { createdAt: "desc" },
     });
 
     if (deal) {
-      // Close the deal
       await prisma.deal.update({
         where: { id: deal.id },
         data:  { stage: "CLOSED", closedAt: new Date() },
       });
 
-      // Create commission record if not exists
       const existingComm = await prisma.commission.findFirst({ where: { dealId: deal.id, brokerId } });
       if (!existingComm && deal.commission) {
         await prisma.commission.create({
@@ -235,7 +233,6 @@ export async function runLeadAutomation(params: {
         });
       }
 
-      // Notify broker
       await prisma.notification.create({
         data: {
           userId:  brokerId,
@@ -249,19 +246,14 @@ export async function runLeadAutomation(params: {
   }
 }
 
-// ── Lead Miss Prevention — 48hr no-contact alert ────────────────────────────
-// Call from dashboard API or a cron job
+// 48hr uncontacted lead alert
 export async function checkUncontactedLeads() {
-  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
-
+  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
   const staleLeads = await prisma.lead.findMany({
     where: {
-      status:         { in: ["NEW", "CONTACTED"] },
-      assignedToId:   { not: null },
-      OR: [
-        { lastContactedAt: null },
-        { lastContactedAt: { lt: cutoff } },
-      ],
+      status:       { in: ["NEW", "CONTACTED"] },
+      assignedToId: { not: null },
+      OR: [{ lastContactedAt: null }, { lastContactedAt: { lt: cutoff } }],
     },
     include: { assignedTo: { select: { id: true, name: true } } },
     take: 100,
@@ -271,14 +263,8 @@ export async function checkUncontactedLeads() {
 
   for (const lead of staleLeads) {
     if (!lead.assignedTo) continue;
-
-    // Don't spam — one notification per lead per day
     const existing = await prisma.notification.findFirst({
-      where: {
-        leadId:    lead.id,
-        type:      "FOLLOW_UP_DUE",
-        createdAt: { gte: today },
-      },
+      where: { leadId: lead.id, type: "FOLLOW_UP_DUE", createdAt: { gte: today } },
     });
     if (existing) continue;
 
@@ -289,63 +275,33 @@ export async function checkUncontactedLeads() {
       ? `You haven't contacted ${lead.name} in ${hoursAgo} hours. Don't let this lead go cold!`
       : `${lead.name} is a new lead assigned to you. Contact them now before they go elsewhere!`;
 
-    // Notify employee
     await prisma.notification.create({
-      data: {
-        userId:  lead.assignedTo.id,
-        type:    "FOLLOW_UP_DUE",
-        title:   `⚠️ Don't miss ${lead.name}!`,
-        message: msg,
-        leadId:  lead.id,
-      },
+      data: { userId: lead.assignedTo.id, type: "FOLLOW_UP_DUE", title: `⚠️ Don't miss ${lead.name}!`, message: msg, leadId: lead.id },
     });
 
-    // Notify all admins too
-    const admins = await prisma.user.findMany({
-      where: { role: "ADMIN", isActive: true },
-      select: { id: true },
-    });
+    const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true }, select: { id: true } });
     await Promise.all(admins.map(a =>
       prisma.notification.create({
-        data: {
-          userId:  a.id,
-          type:    "FOLLOW_UP_DUE",
-          title:   `⚠️ Lead Not Contacted: ${lead.name}`,
-          message: `${lead.assignedTo!.name} hasn't contacted ${lead.name} in ${hoursAgo ?? "0"} hours.`,
-          leadId:  lead.id,
-        },
+        data: { userId: a.id, type: "FOLLOW_UP_DUE", title: `⚠️ Lead Not Contacted: ${lead.name}`, message: `${lead.assignedTo!.name} hasn't contacted ${lead.name} in ${hoursAgo ?? "0"} hours.`, leadId: lead.id },
       })
     ));
   }
-
   return staleLeads.length;
 }
 
-// ── Score-based follow-up reminder ───────────────────────────────────────────
-// Call this from a cron job or on dashboard load
 export async function checkOverdueFollowUps() {
   const now = new Date();
   const overdue = await prisma.lead.findMany({
-    where: {
-      nextFollowUpAt: { lt: now },
-      status:         { notIn: ["DEAL_CLOSED", "LOST"] },
-      assignedToId:   { not: null },
-    },
+    where: { nextFollowUpAt: { lt: now }, status: { notIn: ["DEAL_CLOSED", "LOST"] }, assignedToId: { not: null } },
     include: { assignedTo: { select: { id: true, name: true } } },
     take: 50,
   });
 
   for (const lead of overdue) {
     if (!lead.assignedTo) continue;
-    // Check if notification already sent today
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const existing = await prisma.notification.findFirst({
-      where: {
-        userId:    lead.assignedTo.id,
-        leadId:    lead.id,
-        type:      "FOLLOW_UP_DUE",
-        createdAt: { gte: today },
-      },
+      where: { userId: lead.assignedTo.id, leadId: lead.id, type: "FOLLOW_UP_DUE", createdAt: { gte: today } },
     });
     if (existing) continue;
 
@@ -359,6 +315,5 @@ export async function checkOverdueFollowUps() {
       },
     });
   }
-
   return overdue.length;
 }

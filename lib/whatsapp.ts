@@ -77,6 +77,103 @@ export async function sendWatiBulk(
   return { sent: numbers.length - failed, failed };
 }
 
+// ── CRS Property Platform Client Requirement Message ──────────────────────
+export function buildCRSRequirementMessage(lead: {
+  name: string;
+  phone: string;
+  category?: string | null;       // RESIDENTIAL | COMMERCIAL
+  propertyType?: string | null;
+  transactionType?: string | null;
+  budget?: number | null;
+  requirements?: string | null;
+  preferredAreas?: string[];
+  source?: string;
+  assignedTo?: string | null;
+}): string {
+  const isResidential = !lead.category || lead.category === "RESIDENTIAL";
+  const isCommercial  = lead.category === "COMMERCIAL";
+  const isRental = lead.transactionType === "RENT" || lead.transactionType === "LEASE";
+
+  const budgetStr = lead.budget
+    ? lead.budget >= 10000000
+      ? `₹${(lead.budget / 10000000).toFixed(1)} Cr`
+      : lead.budget >= 100000
+      ? `₹${(lead.budget / 100000).toFixed(1)} L`
+      : `₹${lead.budget.toLocaleString("en-IN")}`
+    : "Not specified";
+
+  const areas = lead.preferredAreas?.length
+    ? lead.preferredAreas.join(", ")
+    : "Not specified";
+
+  const propType = lead.propertyType
+    ? lead.propertyType.replace(/_/g, " ")
+    : isResidential ? "1 BHK / 2 BHK / 3 BHK" : "Office / Shop / Showroom / Godown";
+
+  const txType = lead.transactionType
+    ? lead.transactionType.charAt(0) + lead.transactionType.slice(1).toLowerCase()
+    : "Buy / Sell / Rent";
+
+  if (isResidential) {
+    return `⚜️ *CITY REAL SPACE*
+🏙️ Ahmedabad's Trusted Property Platform
+
+📋 *CLIENT REQUIREMENT DETAILS*
+
+👤 *Client Name:* ${lead.name}
+📞 *Phone:* ${lead.phone}
+📥 *Source:* ${lead.source?.replace(/_/g, " ") || "—"}
+
+🏠 *Category:* RESIDENTIAL
+🔑 *Transaction:* ${txType}
+🏡 *Property Type:* ${propType}
+${isRental ? `🛋️ *Furnished Status:* Semi Furnished / Fully Furnished / Unfurnished
+` : ""}📍 *Preferred Area:* ${areas}
+💰 *Budget:* ${budgetStr}
+⏰ *Visit Time:* As per client convenience
+
+📝 *Special Requirements:*
+${lead.requirements || "—"}
+
+📸 *Photo & Details:* Will be shared shortly
+
+✅ _Our team will contact you soon with best matching properties._
+
+🏢 *City Real Space*
+📞 +91 98250 31247
+🌐 cityrealspace.com`;
+  }
+
+  // COMMERCIAL
+  return `⚜️ *CITY REAL SPACE*
+🏙️ Ahmedabad's Trusted Property Platform
+
+📋 *CLIENT REQUIREMENT DETAILS*
+
+👤 *Client Name:* ${lead.name}
+📞 *Phone:* ${lead.phone}
+📥 *Source:* ${lead.source?.replace(/_/g, " ") || "—"}
+
+🏢 *Category:* COMMERCIAL
+🔑 *Transaction:* ${txType}
+🏪 *Property Type:* ${propType}
+${isRental ? `🛋️ *Furnished Status:* Furnished / Semi Furnished / Bare Shell
+` : ""}📍 *Preferred Area:* ${areas}
+💰 *Budget:* ${budgetStr}
+⏰ *Visit Time:* As per client convenience
+
+📝 *Special Requirements:*
+${lead.requirements || "—"}
+
+📸 *Photo & Details:* Will be shared shortly
+
+✅ _Our team will contact you soon with best matching properties._
+
+🏢 *City Real Space*
+📞 +91 98250 31247
+🌐 cityrealspace.com`;
+}
+
 export async function sendFollowUpReminder(lead: { name: string; phone: string; requirements?: string | null }) {
   const msg = `Hi ${lead.name}! 👋\n\nThis is a reminder from *City Real Space*, Ahmedabad.\n\nWe have some great properties matching your requirement: ${lead.requirements || "your search"}.\n\nWould you like to schedule a site visit? Reply YES or call us anytime.\n\n📞 City Real Space | Ahmedabad`;
   return sendWhatsApp(lead.phone, msg);
