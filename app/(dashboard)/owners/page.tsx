@@ -3534,9 +3534,7 @@ export default function OwnersPage() {
       )}
 
 
-    </>) /* end owners tab */}
 
-      {/* Owner Contact Modal */}
       <AnimatePresence>
         {selectedMatchOwner && (() => {
           const pd = parseOwnerNotes(selectedMatchOwner.notes);
@@ -3641,6 +3639,96 @@ export default function OwnersPage() {
                   </a>
                 )}
                 <button onClick={() => setSelectedMatchClient(null)} className="col-span-2 py-2 rounded-xl text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#64748b" }}>Close</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ════ Property Photos Viewer Modal ════ */}
+      <AnimatePresence>
+        {viewPhotosOwner && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setViewPhotosOwner(null)}>
+            <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.92, opacity: 0 }}
+              className="glass-card w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 flex-shrink-0">
+                <div>
+                  <h2 className="text-base font-bold text-white">🏙️ {viewPhotosOwner.name} – Property Photos</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {viewPhotosOwner.photos.length} photo{viewPhotosOwner.photos.length !== 1 ? "s" : ""} · Hover photo to delete
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => propPhotoRefs.current[viewPhotosOwner.id]?.click()}
+                    disabled={uploadingPhotos === viewPhotosOwner.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-medium hover:bg-violet-500/30 transition-all disabled:opacity-50">
+                    {uploadingPhotos === viewPhotosOwner.id
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Upload className="w-3.5 h-3.5" />}
+                    {uploadingPhotos === viewPhotosOwner.id ? "Uploading..." : "Add More"}
+                  </button>
+                  <button onClick={() => setViewPhotosOwner(null)} className="text-muted-foreground hover:text-white p-1">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {viewPhotosOwner.photos.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Camera className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No photos yet</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {viewPhotosOwner.photos.map((url, idx) => (
+                      <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10">
+                        <Image src={url} alt={`Photo ${idx + 1}`} fill className="object-cover transition-transform group-hover:scale-105" />
+                        {/* Hover overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-3">
+                          <a href={url} target="_blank" rel="noreferrer"
+                            className="opacity-0 group-hover:opacity-100 transition-all p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30"
+                            title="View full size">
+                            <Search className="w-4 h-4" />
+                          </a>
+                          <button
+                            onClick={() => { if (confirm("Delete this photo?")) removeOwnerPhoto(viewPhotosOwner.id, url); }}
+                            className="opacity-0 group-hover:opacity-100 transition-all p-2 rounded-full bg-red-500/70 backdrop-blur-sm text-white hover:bg-red-500/90"
+                            title="Delete photo">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="absolute top-1.5 left-1.5 text-xs px-1.5 py-0.5 rounded-full bg-black/60 text-white font-medium">
+                          {idx + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3 border-t border-white/10 flex items-center justify-between flex-shrink-0">
+                <button
+                  onClick={() => markPhotosReady(viewPhotosOwner.id, !viewPhotosOwner.photosReady)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    viewPhotosOwner.photosReady
+                      ? "bg-emerald-500/25 border border-emerald-500/40 text-emerald-300"
+                      : "bg-white/5 border border-white/15 text-muted-foreground hover:text-white"
+                  }`}>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {viewPhotosOwner.photosReady ? "✅ Photos Ready" : "Mark Photos Ready"}
+                </button>
+                <button onClick={() => setViewPhotosOwner(null)}
+                  className="px-4 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white transition-all">
+                  Close
+                </button>
               </div>
             </motion.div>
           </motion.div>
