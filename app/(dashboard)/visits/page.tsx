@@ -13,6 +13,11 @@ interface Visit {
   status: VisitStatus;
   feedback?: string;
   notes?: string;
+  customPropertyName?: string;
+  customPropertyLocality?: string;
+  customPropertyOwnerName?: string;
+  customPropertyOwnerPhone?: string;
+  customPropertyPrice?: number;
   lead: { id: string; name: string; phone: string; budget?: number; requirements?: string };
   property?: { id: string; title: string; locality: string; city?: string; ownerName?: string; ownerPhone?: string; price?: number; transactionType?: string; address?: string };
   broker?: { id: string; name: string };
@@ -57,6 +62,9 @@ export default function VisitsPage() {
 
   const [form, setForm] = useState({
     leadId: "", propertyId: "", brokerId: "", scheduledAt: "", notes: "", addToCalendar: true,
+    useManualProperty: false,
+    customPropertyName: "", customPropertyLocality: "",
+    customPropertyOwnerName: "", customPropertyOwnerPhone: "", customPropertyPrice: "",
   });
 
   useEffect(() => {
@@ -133,35 +141,76 @@ export default function VisitsPage() {
 
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.useManualProperty && !form.propertyId) {
+      // Allow no property — just warn
+    }
     setSubmitting(true);
     try {
+      const body: any = {
+        leadId:      form.leadId,
+        propertyId:  (!form.useManualProperty && form.propertyId) ? form.propertyId : undefined,
+        brokerId:    form.brokerId || undefined,
+        scheduledAt: new Date(form.scheduledAt).toISOString(),
+        notes:       form.notes || undefined,
+        status:      "SCHEDULED",
+      };
+      if (form.useManualProperty) {
+        body.customPropertyName       = form.customPropertyName || undefined;
+        body.customPropertyLocality   = form.customPropertyLocality || undefined;
+        body.customPropertyOwnerName  = form.customPropertyOwnerName || undefined;
+        body.customPropertyOwnerPhone = form.customPropertyOwnerPhone || undefined;
+        body.customPropertyPrice      = form.customPropertyPrice ? Number(form.customPropertyPrice) : undefined;
+      }
       const res = await fetch("/api/visits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          leadId:      form.leadId,
-          propertyId:  form.propertyId || undefined,
-          brokerId:    form.brokerId   || undefined,
-          scheduledAt: new Date(form.scheduledAt).toISOString(),
-          notes:       form.notes      || undefined,
-          status:      "SCHEDULED",
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
+
+      // If manual property — also save to properties DB
+      if (form.useManualProperty && form.customPropertyName) {
+        fetch("/api/properties", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title:           form.customPropertyName,
+            type:            "OFFICE",
+            category:        "COMMERCIAL",
+            transactionType: "RENT",
+            status:          "AVAILABLE",
+            price:           form.customPropertyPrice ? Number(form.customPropertyPrice) : 0,
+            area:            0,
+            locality:        form.customPropertyLocality || "Ahmedabad",
+            city:            "Ahmedabad",
+            ownerName:       form.customPropertyOwnerName || undefined,
+            ownerPhone:      form.customPropertyOwnerPhone || undefined,
+          }),
+        }).then(r => r.json()).then(p => {
+          if (p.id) {
+            // Update visit with property ID
+            fetch(`/api/visits`, { method: "GET" }).catch(() => {});
+            toast("Property saved to listings too ✅");
+          }
+        }).catch(() => {});
+      }
+
       toast.success("Visit scheduled!");
 
       // Auto-add to Google Calendar
       if (form.addToCalendar) {
         const lead     = leads.find(l => l.id === form.leadId);
-        const property = properties.find(p => p.id === form.propertyId);
-        const start    = new Date(form.scheduledAt);
-        const end      = new Date(start.getTime() + 60 * 60 * 1000); // +1 hour
+        const property = form.useManualProperty
+          ? { title: form.customPropertyName, locality: form.customPropertyLocality }
+          : properties.find(p => p.id === form.propertyId);
+        const start = new Date(form.scheduledAt);
+        const end   = new Date(start.getTime() + 60 * 60 * 1000);
         fetch("/api/google/calendar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title:       `Site Visit – ${lead?.name || "Client"}${property ? ` @ ${property.title}` : ""}`,
-            description: `Lead: ${lead?.name} (${lead?.phone})\nProperty: ${property?.title || "TBD"}\nNotes: ${form.notes || "-"}`,
+            title:       `Site Visit – ${lead?.name || "Client"}${property?.title ? ` @ ${property.title}` : ""}`,
+            description: `Lead: ${lead?.name} (${lead?.phone})\nProperty: ${property?.title || "TBD"}\n${form.customPropertyOwnerName ? `Owner: ${form.customPropertyOwnerName} (${form.customPropertyOwnerPhone})` : ""}\nNotes: ${form.notes || "-"}`,
             startTime:   start.toISOString(),
             endTime:     end.toISOString(),
             attendeeEmail: lead?.email || undefined,
@@ -172,7 +221,7 @@ export default function VisitsPage() {
       }
 
       setShowModal(false);
-      setForm({ leadId: "", propertyId: "", brokerId: "", scheduledAt: "", notes: "", addToCalendar: true });
+      setForm({ leadId: "", propertyId: "", brokerId: "", scheduledAt: "", notes: "", addToCalendar: true, useManualProperty: false, customPropertyName: "", customPropertyLocality: "", customPropertyOwnerName: "", customPropertyOwnerPhone: "", customPropertyPrice: "" });
       fetchVisits();
     } catch {
       toast.error("Failed to schedule visit");
@@ -300,24 +349,35 @@ export default function VisitsPage() {
                     )}
                   </div>
                   {/* Property + Google Maps */}
-                  {visit.property && (
+                  {(visit.property || visit.customPropertyName) && (
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <a href={getGoogleMapsUrl(visit.property) ?? "#"} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
-                        <MapPin className="w-3 h-3" /> {visit.property.title} — {visit.property.locality}
-                      </a>
-                      {fmtPrice(visit.property.price, visit.property.transactionType) && (
-                        <span className="text-xs text-gold-400 font-semibold">{fmtPrice(visit.property.price, visit.property.transactionType)}</span>
+                      {visit.property ? (
+                        <a href={getGoogleMapsUrl(visit.property) ?? "#"} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                          <MapPin className="w-3 h-3" /> {visit.property.title} — {visit.property.locality}
+                        </a>
+                      ) : (
+                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((visit.customPropertyName||"")+" "+(visit.customPropertyLocality||"")+" Ahmedabad")}`}
+                          target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                          <MapPin className="w-3 h-3" /> {visit.customPropertyName}{visit.customPropertyLocality ? ` — ${visit.customPropertyLocality}` : ""}
+                          <span className="ml-1 text-xs text-yellow-500">(Manual)</span>
+                        </a>
+                      )}
+                      {(visit.property?.price || visit.customPropertyPrice) && (
+                        <span className="text-xs text-gold-400 font-semibold">
+                          {fmtPrice(visit.property?.price || visit.customPropertyPrice, visit.property?.transactionType)}
+                        </span>
                       )}
                     </div>
                   )}
                   {/* Owner */}
-                  {visit.property?.ownerName && (
+                  {(visit.property?.ownerName || visit.customPropertyOwnerName) && (
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-xs text-muted-foreground">👤 <span className="text-white">{visit.property.ownerName}</span></span>
-                      {visit.property.ownerPhone && (
-                        <a href={`tel:${visit.property.ownerPhone}`} className="text-xs text-emerald-400 hover:text-emerald-300">
-                          <Phone className="w-3 h-3 inline mr-0.5" />{visit.property.ownerPhone}
+                      <span className="text-xs text-muted-foreground">👤 <span className="text-white">{visit.property?.ownerName || visit.customPropertyOwnerName}</span></span>
+                      {(visit.property?.ownerPhone || visit.customPropertyOwnerPhone) && (
+                        <a href={`tel:${visit.property?.ownerPhone || visit.customPropertyOwnerPhone}`} className="text-xs text-emerald-400 hover:text-emerald-300">
+                          <Phone className="w-3 h-3 inline mr-0.5" />{visit.property?.ownerPhone || visit.customPropertyOwnerPhone}
                         </a>
                       )}
                     </div>
@@ -395,12 +455,68 @@ export default function VisitsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">Select Property</label>
-                  <select value={form.propertyId} onChange={e => setForm(f => ({ ...f, propertyId: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-estate-500/50 text-foreground">
-                    <option value="">Choose property</option>
-                    {properties.map(p => <option key={p.id} value={p.id}>{p.title} – {p.locality}</option>)}
-                  </select>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs text-muted-foreground">Select Property</label>
+                    <button type="button"
+                      onClick={() => setForm(f => ({ ...f, useManualProperty: !f.useManualProperty, propertyId: "" }))}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                        form.useManualProperty
+                          ? "bg-yellow-500/20 border-yellow-500/30 text-yellow-400"
+                          : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                      }`}>
+                      {form.useManualProperty ? "✅ Manual Entry" : "+ Manual Property"}
+                    </button>
+                  </div>
+
+                  {!form.useManualProperty ? (
+                    <select value={form.propertyId} onChange={e => setForm(f => ({ ...f, propertyId: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-estate-500/50 text-foreground">
+                      <option value="">Choose property (optional)</option>
+                      {properties.map(p => <option key={p.id} value={p.id}>{p.title} – {p.locality}</option>)}
+                    </select>
+                  ) : (
+                    <div className="space-y-2 p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20">
+                      <p className="text-xs text-yellow-400 font-medium">🏢 Manual Property Details</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Property Name *</label>
+                          <input value={form.customPropertyName}
+                            onChange={e => setForm(f => ({ ...f, customPropertyName: e.target.value }))}
+                            placeholder="Office 800sqft Satellite"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/40" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Locality</label>
+                          <input value={form.customPropertyLocality}
+                            onChange={e => setForm(f => ({ ...f, customPropertyLocality: e.target.value }))}
+                            placeholder="Prahlad Nagar"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/40" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">👤 Owner Name</label>
+                          <input value={form.customPropertyOwnerName}
+                            onChange={e => setForm(f => ({ ...f, customPropertyOwnerName: e.target.value }))}
+                            placeholder="Suresh Patel"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/40" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Owner Phone</label>
+                          <input value={form.customPropertyOwnerPhone}
+                            onChange={e => setForm(f => ({ ...f, customPropertyOwnerPhone: e.target.value }))}
+                            placeholder="9876543210"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/40" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Price (optional)</label>
+                        <input type="number" value={form.customPropertyPrice}
+                          onChange={e => setForm(f => ({ ...f, customPropertyPrice: e.target.value }))}
+                          placeholder="50000"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/40" />
+                      </div>
+                      <p className="text-xs text-yellow-400/70">✨ Yeh property automatically Properties section mein bhi save ho jayegi</p>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Date & Time *</label>

@@ -41,7 +41,6 @@ export async function POST(req: NextRequest) {
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // Broker can only create visits for their assigned leads
     const body = await req.json();
 
     if (user.role === "BROKER") {
@@ -49,10 +48,63 @@ export async function POST(req: NextRequest) {
       if (!lead) return NextResponse.json({ error: "Access denied — lead not assigned to you" }, { status: 403 });
     }
 
+    // If manual property provided, auto-save it to Properties table
+    let resolvedPropertyId = body.propertyId || null;
+    if (!resolvedPropertyId && body.customPropertyName) {
+      try {
+        const newProp = await prisma.property.create({
+          data: {
+            title:           body.customPropertyName,
+            type:            "OFFICE" as any,
+            category:        "COMMERCIAL" as any,
+            transactionType: "RENT" as any,
+            status:          "AVAILABLE" as any,
+            price:           body.customPropertyPrice || 0,
+            area:            0,
+            locality:        body.customPropertyLocality || "Ahmedabad",
+            city:            "Ahmedabad",
+            ownerName:       body.customPropertyOwnerName || null,
+            ownerPhone:      body.customPropertyOwnerPhone || null,
+            listedById:      user.id,
+          },
+        });
+        resolvedPropertyId = newProp.id;
+      } catch {}
+    }
+
     const visit = await prisma.siteVisit.create({
-      data: body,
+      data: {
+        leadId:      body.leadId,
+        propertyId:  resolvedPropertyId,
+        brokerId:    body.brokerId || null,
+        scheduledAt: new Date(body.scheduledAt),
+        status:      "SCHEDULED",
+        notes:       body.notes || null,
+        customPropertyName:       body.customPropertyName || null,
+        customPropertyLocality:   body.customPropertyLocality || null,
+        customPropertyOwnerName:  body.customPropertyOwnerName || null,
+        customPropertyOwnerPhone: body.customPropertyOwnerPhone || null,
+        customPropertyPrice:      body.customPropertyPrice ? Number(body.customPropertyPrice) : null,
+      },
       include: { lead: true, property: true, broker: true },
     });
+
+    // Auto-update lead status to SITE_VISIT_SCHEDULED
+    await prisma.lead.update({
+      where: { id: body.leadId },
+      data: { status: "SITE_VISIT_SCHEDULED" as any },
+    }).catch(() => {});
+
+    // Log activity on lead
+    const propName = visit.property?.title || body.customPropertyName || "Property";
+    await prisma.activity.create({
+      data: {
+        type:        "SITE_VISIT_SCHEDULED",
+        description: `Site visit scheduled for ${visit.lead.name} at "${propName}" on ${new Date(body.scheduledAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`,
+        leadId:      body.leadId,
+        userId:      user.id,
+      },
+    }).catch(() => {});
 
     const scheduledAt = new Date(body.scheduledAt);
     const diffMs = scheduledAt.getTime() - Date.now();
@@ -60,7 +112,7 @@ export async function POST(req: NextRequest) {
       sendSiteVisitReminder({
         clientName:    visit.lead.name,
         clientPhone:   visit.lead.phone,
-        propertyTitle: (visit.property as any)?.title || "Property",
+        propertyTitle: propName,
         scheduledAt,
         brokerName:    (visit.broker as any)?.name || "City Real Space",
       }).catch(() => {});
@@ -69,23 +121,22 @@ export async function POST(req: NextRequest) {
     notifyNewVisit({
       clientName:    visit.lead.name,
       clientPhone:   visit.lead.phone,
-      propertyTitle: (visit.property as any)?.title || "Property",
+      propertyTitle: propName,
       scheduledAt:   scheduledAt.toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" }),
       brokerName:    (visit.broker as any)?.name || "City Real Space",
       brokerId:      visit.brokerId,
       leadId:        visit.leadId,
     }).catch(() => {});
 
-    // Notify admin separately with owner details for follow-up tracking
     notifyVisitFollowUpForAdmin({
       leadId:        visit.leadId,
       leadName:      visit.lead.name,
       leadPhone:     visit.lead.phone,
       employeeName:  (visit.broker as any)?.name || "Unknown Employee",
       employeeId:    visit.brokerId,
-      propertyTitle: (visit.property as any)?.title || "Property",
-      ownerName:     (visit.property as any)?.ownerName || null,
-      ownerPhone:    (visit.property as any)?.ownerPhone || null,
+      propertyTitle: propName,
+      ownerName:     visit.property?.ownerName || body.customPropertyOwnerName || null,
+      ownerPhone:    visit.property?.ownerPhone || body.customPropertyOwnerPhone || null,
       scheduledAt:   scheduledAt.toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" }),
     }).catch(() => {});
 

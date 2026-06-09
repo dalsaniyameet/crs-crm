@@ -374,6 +374,13 @@ model SiteVisit {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
+  // Manual property (when not in DB)
+  customPropertyName       String?
+  customPropertyLocality   String?
+  customPropertyOwnerName  String?
+  customPropertyOwnerPhone String?
+  customPropertyPrice      Float?
+
   leadId     String
   lead       Lead      @relation(fields: [leadId], references: [id])
   propertyId String?
