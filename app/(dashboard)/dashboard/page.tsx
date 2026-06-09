@@ -155,8 +155,8 @@ export default function DashboardPage() {
     setPunching(false);
   };
 
-  const isBroker     = data?.isBroker ?? (userRole === "BROKER");
-  const overview    = data?.overview ?? {};
+  const isBroker      = data ? data.isBroker : false;
+  const overview      = data?.overview ?? {};
   const overdueCount  = data?.overdueCount ?? 0;
   const leadSourceStats = data?.leadSourceStats ?? [];
   const employeeScores  = data?.employeeScores ?? [];
