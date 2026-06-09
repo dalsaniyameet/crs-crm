@@ -57,7 +57,7 @@ export const metadata: Metadata = {
       "AI-powered real estate CRM for Ahmedabad brokers. Manage leads, properties, deals & commissions — all in one place. Free 14-day trial.",
     images: [
       {
-        url: "/logo.jpeg",
+        url: "https://cityrealspacecrm.com/logo.jpeg",
         width: 1200,
         height: 630,
         alt: "City Real Space CRM — Real Estate Software Ahmedabad",
@@ -68,10 +68,10 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "City Real Space CRM | Real Estate Software Ahmedabad",
     description: "AI lead scoring, WhatsApp automation & deal pipeline for Ahmedabad real estate brokers.",
-    images: ["/logo.jpeg"],
+    images: ["https://cityrealspacecrm.com/logo.jpeg"],
   },
   verification: {
-    google: "REPLACE_WITH_GOOGLE_SEARCH_CONSOLE_TOKEN",
+    google: "hFLmQNbgW-txvaJx_-WqilKtvgBERNbU5wAWQvkSun4",
   },
 };
 

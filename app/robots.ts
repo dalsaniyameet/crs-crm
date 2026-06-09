@@ -10,6 +10,5 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: "https://cityrealspacecrm.com/sitemap.xml",
-    host: "https://cityrealspacecrm.com",
   };
 }

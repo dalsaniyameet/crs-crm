@@ -56,18 +56,39 @@ const nextConfig = {
   },
   async headers() {
     return [
+      // Public SEO pages — allow caching for Google indexing
       {
-        source: "/(.*)",
+        source: "/",
         headers: [
-          { key: "X-Frame-Options",           value: "DENY" },
-          { key: "X-Content-Type-Options",    value: "nosniff" },
-          { key: "Referrer-Policy",           value: "strict-origin-when-cross-origin" },
-          // Prevent caching of pages (harder to extract from cache)
-          { key: "Cache-Control",             value: "no-store, no-cache, must-revalidate, proxy-revalidate" },
-          // Block embedding in iframes
-          { key: "Content-Security-Policy",   value: "frame-ancestors 'none';" },
-          // Disable browser features that help scraping
-          { key: "Permissions-Policy",        value: "camera=(), microphone=(), geolocation=(), clipboard-read=(), clipboard-write=()" },
+          { key: "X-Frame-Options",        value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy",        value: "strict-origin-when-cross-origin" },
+          { key: "Cache-Control",          value: "public, max-age=3600, stale-while-revalidate=86400" },
+          { key: "Content-Security-Policy",value: "frame-ancestors 'none';" },
+          { key: "Permissions-Policy",     value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+      {
+        source: "/(free-trial|demo)",
+        headers: [
+          { key: "X-Frame-Options",        value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy",        value: "strict-origin-when-cross-origin" },
+          { key: "Cache-Control",          value: "public, max-age=3600, stale-while-revalidate=86400" },
+          { key: "Content-Security-Policy",value: "frame-ancestors 'none';" },
+          { key: "Permissions-Policy",     value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+      // Private/auth pages — no cache
+      {
+        source: "/(dashboard|api|sign-in|sign-up|admin-panel)(.*)",
+        headers: [
+          { key: "X-Frame-Options",        value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy",        value: "strict-origin-when-cross-origin" },
+          { key: "Cache-Control",          value: "no-store, no-cache, must-revalidate" },
+          { key: "Content-Security-Policy",value: "frame-ancestors 'none';" },
+          { key: "Permissions-Policy",     value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
     ];
