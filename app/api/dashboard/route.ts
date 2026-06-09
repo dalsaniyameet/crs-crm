@@ -16,6 +16,9 @@ export async function GET() {
 
     let user = await getUser(userId);
 
+    // Always check ADMIN_EMAILS first — most reliable
+    const adminEmailsList = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+
     // If user not in DB, auto-create from Clerk
     if (!user) {
       try {
@@ -24,23 +27,31 @@ export async function GET() {
         const clerkUser = await clerk.users.getUser(userId);
         const email = clerkUser.emailAddresses?.[0]?.emailAddress || "";
         const name  = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || "User";
-        const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
         const metaRole = (clerkUser.publicMetadata?.role as string) || "";
-        const role = adminEmails.includes(email.toLowerCase()) ? "ADMIN"
+        const role = adminEmailsList.includes(email.toLowerCase()) ? "ADMIN"
           : metaRole ? metaRole : "BROKER";
         user = await prisma.user.upsert({
           where: { clerkId: userId },
           update: { email, name, role },
           create: { clerkId: userId, email, name, role, avatar: clerkUser.imageUrl },
         });
-      } catch { return NextResponse.json({ error: "User not found" }, { status: 404 }); }
+        console.log("[Dashboard] Auto-created user:", email, "role:", role);
+      } catch (e) {
+        console.error("[Dashboard] Failed to create user:", e);
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
     }
 
-    // Role check — also verify against ADMIN_EMAILS env
-    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
-    const isAdminByEmail = adminEmails.includes((user.email || "").toLowerCase());
-    const isAdmin  = user.role === "ADMIN" || user.role === "SALES_MANAGER" || isAdminByEmail;
+    // Fix role if email is in ADMIN_EMAILS but DB has wrong role
+    if (adminEmailsList.includes((user.email || "").toLowerCase()) && user.role !== "ADMIN") {
+      await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } }).catch(() => {});
+      user = { ...user, role: "ADMIN" };
+      console.log("[Dashboard] Fixed role to ADMIN for:", user.email);
+    }
+
+    const isAdmin  = user.role === "ADMIN" || user.role === "SALES_MANAGER" || adminEmailsList.includes((user.email || "").toLowerCase());
     const isBroker = !isAdmin;
+    console.log("[Dashboard] email:", user.email, "role:", user.role, "isAdmin:", isAdmin);
 
     checkOverdueFollowUps().catch(() => {});
     checkUncontactedLeads().catch(() => {});
