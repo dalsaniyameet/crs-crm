@@ -157,6 +157,9 @@ export default function DashboardPage() {
 
   const isBroker     = data?.isBroker ?? (userRole === "BROKER");
   const overview    = data?.overview ?? {};
+  const overdueCount  = data?.overdueCount ?? 0;
+  const leadSourceStats = data?.leadSourceStats ?? [];
+  const employeeScores  = data?.employeeScores ?? [];
   const sourceData  = (data?.leadsBySource ?? []).map((s: { source: string; _count: { id: number } }) => ({
     name:  SOURCE_LABEL[s.source] ?? s.source.replace(/_/g, " "),
     value: s._count.id,
@@ -229,6 +232,28 @@ export default function DashboardPage() {
           <Zap className="w-3 h-3" /> AI Active
         </div>
       </div>
+
+      {/* 🔴 Overdue Follow-up Banner */}
+      {overdueCount > 0 && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl"
+          style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)" }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(239,68,68,0.2)" }}>
+            <AlertCircle className="w-4 h-4 text-red-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-400">
+              ⚠️ {overdueCount} Overdue Follow-up{overdueCount > 1 ? "s" : ""}
+            </p>
+            <p className="text-xs text-muted-foreground">These tasks are past due — action required immediately</p>
+          </div>
+          <a href="/leads" className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+            style={{ background: "rgba(239,68,68,0.2)", border: "1px solid rgba(239,68,68,0.4)", color: "#fca5a5" }}>
+            View Leads →
+          </a>
+        </motion.div>
+      )}
 
       {/* Stats */}
       {isLoading ? <StatsSkeleton /> : (
@@ -495,6 +520,85 @@ export default function DashboardPage() {
             <div className="text-center py-10 text-muted-foreground text-sm">No visits today</div>
           )}
         </div>
+        </div>
+      )}
+
+      {/* Lead Source ROI + Employee Performance Score — admin only */}
+      {!isBroker && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* Lead Source Conversion Rate */}
+          <div className="glass-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-white">📊 Lead Source ROI</h3>
+              <span className="text-xs text-muted-foreground">Conversion rate by source</span>
+            </div>
+            {isLoading ? (
+              <div className="space-y-3">{Array(4).fill(0).map((_,i) => <div key={i} className="h-8 animate-pulse bg-white/10 rounded" />)}</div>
+            ) : leadSourceStats.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No data yet</p>
+            ) : (
+              <div className="space-y-3">
+                {leadSourceStats.slice(0,8).map((s: any) => (
+                  <div key={s.source}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-white font-medium">{SOURCE_LABEL[s.source] ?? s.source.replace(/_/g," ")}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{s.closed}/{s.total}</span>
+                        <span className={`text-xs font-bold ${
+                          s.rate >= 20 ? "text-emerald-400" : s.rate >= 10 ? "text-yellow-400" : "text-red-400"
+                        }`}>{s.rate}%</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/10">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(s.rate, 2)}%` }}
+                        transition={{ duration: 0.8 }}
+                        className="h-1.5 rounded-full"
+                        style={{ background: s.rate >= 20 ? "#10b981" : s.rate >= 10 ? "#eab308" : "#ef4444" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Employee Performance Score */}
+          <div className="glass-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-white">🏆 Employee Scores</h3>
+              <span className="text-xs text-muted-foreground">Last 7 days activity</span>
+            </div>
+            {isLoading ? (
+              <div className="space-y-3">{Array(4).fill(0).map((_,i) => <div key={i} className="h-12 animate-pulse bg-white/10 rounded" />)}</div>
+            ) : employeeScores.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No employees yet</p>
+            ) : (
+              <div className="space-y-3">
+                {employeeScores.map((e: any, i: number) => (
+                  <a key={e.id} href={`/admin-employees/${e.id}`}
+                    className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-white/5 cursor-pointer"
+                    style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                      style={{ background: i === 0 ? "linear-gradient(135deg,#ca8a04,#eab308)" : i === 1 ? "linear-gradient(135deg,#475569,#94a3b8)" : "linear-gradient(135deg,#92400e,#d97706)" }}>
+                      {i < 3 ? ["🥇","🥈","🥉"][i] : e.name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white">{e.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {e.leads} leads · {e.deals} deals · {e.visits} visits · {e.calls} calls
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className={`text-lg font-bold ${
+                        e.score >= 80 ? "text-emerald-400" : e.score >= 50 ? "text-yellow-400" : "text-red-400"
+                      }`}>{e.score}</div>
+                      <div className="text-xs text-muted-foreground">score</div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

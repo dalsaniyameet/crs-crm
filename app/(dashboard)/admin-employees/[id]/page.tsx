@@ -314,6 +314,50 @@ function SalarySlipPrint({ slip, employee, onClose, onSendToEmployee, sending }:
   );
 }
 
+function EditableName({ employee, onSaved }: { employee: any; onSaved: (name: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(employee.name);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!val.trim() || val.trim() === employee.name) { setEditing(false); return; }
+    setSaving(true);
+    const res = await fetch("/api/admin/employees", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: employee.id, name: val.trim(), email: employee.email, position: employee.position }),
+    });
+    if (res.ok) { onSaved(val.trim()); toast.success("Name updated! ✅"); setEditing(false); }
+    else toast.error("Failed to update name");
+    setSaving(false);
+  }
+
+  if (editing) return (
+    <div className="flex items-center gap-2 mb-1">
+      <input autoFocus value={val} onChange={e => setVal(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+        className="text-xl font-bold bg-white/10 border border-estate-500/50 rounded-lg px-3 py-1 text-white focus:outline-none w-48" />
+      <button onClick={save} disabled={saving}
+        className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-50">
+        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+      </button>
+      <button onClick={() => setEditing(false)} className="px-3 py-1 rounded-lg bg-white/5 text-muted-foreground text-xs border border-white/10">Cancel</button>
+    </div>
+  );
+
+  return (
+    <div className="flex items-center gap-2 mb-0.5">
+      <h1 className="text-2xl font-bold text-white">{employee.name}</h1>
+      <button onClick={() => { setVal(employee.name); setEditing(true); }}
+        className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors" title="Edit name">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export default function EmployeeDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -635,7 +679,7 @@ export default function EmployeeDetailPage() {
           </div>
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-white">{employee.name}</h1>
+            <EditableName employee={employee} onSaved={(name) => setEmployee((e: any) => ({ ...e, name }))} />
             <p className="text-sm text-muted-foreground">{employee.position} · {employee.email}</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className={`px-2 py-0.5 rounded-full text-xs ${ROLE_COLORS[employee.role] ?? "bg-white/10 text-white"}`}>{employee.role}</span>

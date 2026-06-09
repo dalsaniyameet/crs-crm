@@ -28,6 +28,7 @@ export async function GET() {
     const y = nowIST.getUTCFullYear(), m = nowIST.getUTCMonth(), d = nowIST.getUTCDate();
     const todayStart = new Date(Date.UTC(y, m, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
     const todayEnd   = new Date(Date.UTC(y, m, d, 23, 59, 59) - 5.5 * 60 * 60 * 1000);
+    const nowUTC     = new Date();
 
     // Strict: broker/sales_manager sirf apne assigned leads
     const leadWhere = isBroker ? { assignedToId: user.id } : {};
@@ -36,6 +37,7 @@ export async function GET() {
       totalLeads, hotLeads, dealsClosedCount,
       totalRevenue, activeProperties, leadsBySource,
       recentLeads, todayVisits, todayFollowUps,
+      overdueCount,
     ] = await Promise.all([
       prisma.lead.count({ where: leadWhere }),
       prisma.lead.count({ where: { ...leadWhere, score: { gte: 80 } } }),
@@ -84,6 +86,9 @@ export async function GET() {
           lead: { select: { id: true, name: true, phone: true } },
         },
       }),
+      prisma.task.count({
+        where: { dueAt: { lt: nowUTC }, isCompleted: false, ...(isBroker ? { assignedToId: user.id } : {}) },
+      }),
     ]);
 
     // Broker performance — only for admin/manager
@@ -106,8 +111,56 @@ export async function GET() {
       );
     }
 
+    // Lead source conversion rates (admin only)
+    let leadSourceStats: any[] = [];
+    if (isAdmin) {
+      const sources = await prisma.lead.groupBy({
+        by: ["source", "status"],
+        _count: { id: true },
+      });
+      const sourceMap: Record<string, { total: number; closed: number }> = {};
+      sources.forEach(s => {
+        if (!sourceMap[s.source]) sourceMap[s.source] = { total: 0, closed: 0 };
+        sourceMap[s.source].total += s._count.id;
+        if (s.status === "DEAL_CLOSED") sourceMap[s.source].closed += s._count.id;
+      });
+      leadSourceStats = Object.entries(sourceMap).map(([source, d]) => ({
+        source,
+        total: d.total,
+        closed: d.closed,
+        rate: d.total > 0 ? Math.round((d.closed / d.total) * 100) : 0,
+      })).sort((a, b) => b.rate - a.rate);
+    }
+
+    // Employee performance scores (admin only)
+    let employeeScores: any[] = [];
+    if (isAdmin) {
+      const allBrokers = await prisma.user.findMany({
+        where: { role: "BROKER", isActive: true },
+        select: { id: true, name: true },
+      });
+      const weekStart = new Date(nowUTC); weekStart.setDate(weekStart.getDate() - 7);
+      employeeScores = await Promise.all(allBrokers.map(async b => {
+        const [leads, deals, visits, calls, tasks] = await Promise.all([
+          prisma.lead.count({ where: { assignedToId: b.id } }),
+          prisma.deal.count({ where: { brokerId: b.id, stage: "CLOSED" } }),
+          prisma.siteVisit.count({ where: { brokerId: b.id, status: "COMPLETED" } }),
+          prisma.callLog.count({ where: { userId: b.id, createdAt: { gte: weekStart } } }),
+          prisma.task.count({ where: { assignedToId: b.id, isCompleted: true, updatedAt: { gte: weekStart } } }),
+        ]);
+        const score = Math.min(100, Math.round(
+          (leads * 2) + (deals * 20) + (visits * 5) + (calls * 1) + (tasks * 3)
+        ));
+        return { id: b.id, name: b.name, leads, deals, visits, calls, tasks, score };
+      }));
+      employeeScores.sort((a, b) => b.score - a.score);
+    }
+
     return NextResponse.json({
       isBroker,
+      overdueCount,
+      leadSourceStats,
+      employeeScores,
       overview: {
         totalLeads,
         hotLeads,

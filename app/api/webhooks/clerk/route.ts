@@ -3,7 +3,7 @@ import { Webhook } from "svix";
 import { prisma } from "@/lib/prisma";
 import { sendAdminEmail, employeeWelcomeEmailHtml } from "@/lib/email";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://crs-crm.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://cityrealspacecrm.com";
 
 function loginAlertHtml(name: string, email: string, time: string) {
   return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;padding:0;border-radius:12px;overflow:hidden">

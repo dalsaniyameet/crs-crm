@@ -289,6 +289,8 @@ export default function OwnersPage() {
   const [selectedOwner, setSelectedOwner] = useState<Owner | null>(null);
   const [messages, setMessages]   = useState<OwnerMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [ownerCalls, setOwnerCalls] = useState<any[]>([]);
+  const [ownerCallsLoading, setOwnerCallsLoading] = useState(false);
   const [autoScanMode, setAutoScanMode] = useState(false); // auto-save & open WA after scan
   const [showConvertLead, setShowConvertLead] = useState(false);
   const [convertingLead, setConvertingLead] = useState(false);
@@ -502,6 +504,30 @@ export default function OwnersPage() {
   const EMPTY = { name: "", phone: "", phone2: "", email: "", company: "", address: "", locality: "", notes: "",
     propertyType: "", transactionType: "", price: "", area: "", floor: "", furnishing: "", amenities: "" };
   const [form, setForm] = useState(EMPTY);
+
+  const [uploadingCardPhoto, setUploadingCardPhoto] = useState<string | null>(null);
+  const cardPhotoRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  async function uploadOwnerCardPhoto(ownerId: string, file: File) {
+    setUploadingCardPhoto(ownerId);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "owner-cards");
+      const res  = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!data.url) throw new Error("Upload failed");
+      // Save to owner
+      await fetch(`/api/owners/${ownerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardImageUrl: data.url }),
+      });
+      setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, cardImageUrl: data.url } : o));
+      toast.success("📸 Photo saved! ✅");
+    } catch { toast.error("Upload failed"); }
+    setUploadingCardPhoto(null);
+  }
 
   useEffect(() => {
     Promise.all([
@@ -911,16 +937,21 @@ export default function OwnersPage() {
   async function viewMessages(owner: Owner) {
     setSelectedOwner(owner);
     setMessagesLoading(true);
+    setOwnerCallsLoading(true);
     setShowMessages(true);
     try {
-      const res = await fetch(`/api/owners/${owner.id}/messages`);
-      const data = await res.json();
-      setMessages(Array.isArray(data) ? data : []);
+      const [msgData, callData] = await Promise.all([
+        fetch(`/api/owners/${owner.id}/messages`).then(r => r.json()),
+        fetch(`/api/owners/${owner.id}/calls`).then(r => r.json()),
+      ]);
+      setMessages(Array.isArray(msgData) ? msgData : []);
+      setOwnerCalls(Array.isArray(callData) ? callData : []);
     } catch (err: unknown) {
       toast.error("Failed to load messages");
       console.error(err);
     }
     setMessagesLoading(false);
+    setOwnerCallsLoading(false);
   }
 
   function addOwnerAsLead(owner: Owner) {
@@ -1794,6 +1825,12 @@ export default function OwnersPage() {
                       item.status === "RENTED"    ? "bg-blue-500/80 text-white" :
                       "bg-red-500/80 text-white"
                     }`}>{item.status}</div>
+                    {/* 📸 Photo Available badge */}
+                    {item.imageUrl && (
+                      <div className="absolute top-2 left-2 text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/80 text-white font-medium">
+                        📸 Photo
+                      </div>
+                    )}
                     {/* Date badge */}
                     <div className="absolute bottom-2 left-2 text-xs px-2 py-0.5 rounded-full bg-black/60 text-white">
                       📅 {new Date(item.listedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
@@ -2235,6 +2272,12 @@ export default function OwnersPage() {
                       {owner.name[0]?.toUpperCase()}
                     </div>
                   )}
+                  {/* 📸 Photo available sticker */}
+                  {owner.cardImageUrl && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center" title="Photo available">
+                      <span className="text-white text-xs leading-none">✓</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-white truncate">{owner.name}</div>
@@ -2432,18 +2475,37 @@ export default function OwnersPage() {
               })()}
 
               {/* Action buttons */}
-              <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <button onClick={() => viewMessages(owner)}
                   className="flex items-center justify-center gap-1 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-medium hover:bg-blue-500/30 transition-all">
                   <MessageCircle className="w-3.5 h-3.5" /> History
                 </button>
+                {/* 📸 Photo Upload button */}
+                <button
+                  onClick={() => cardPhotoRefs.current[owner.id]?.click()}
+                  disabled={uploadingCardPhoto === owner.id}
+                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                    owner.cardImageUrl
+                      ? "bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/25"
+                      : "bg-yellow-500/15 border border-yellow-500/25 text-yellow-400 hover:bg-yellow-500/25"
+                  } disabled:opacity-50`}>
+                  {uploadingCardPhoto === owner.id
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Camera className="w-3.5 h-3.5" />}
+                  {uploadingCardPhoto === owner.id ? "Uploading..." : owner.cardImageUrl ? "📸 Update Photo" : "📸 Add Photo"}
+                </button>
+                <input
+                  ref={el => { cardPhotoRefs.current[owner.id] = el; }}
+                  type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadOwnerCardPhoto(owner.id, f); e.target.value = ""; }}
+                />
                 <button onClick={() => addOwnerAsLead(owner)}
                   className="flex items-center justify-center gap-1 py-2 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 text-xs font-medium hover:bg-purple-500/30 transition-all">
                   <ArrowRight className="w-3.5 h-3.5" /> Lead
                 </button>
                 <button onClick={() => addPropertyFromOwner(owner)}
                   className="flex items-center justify-center gap-1 py-2 rounded-lg bg-estate-500/20 border border-estate-500/30 text-estate-400 text-xs font-medium hover:bg-estate-500/30 transition-all">
-                  <Building2 className="w-3.5 h-3.5" /> List
+                  <Building2 className="w-3.5 h-3.5" /> List Property
                 </button>
               </div>
             </div>
@@ -3072,6 +3134,35 @@ export default function OwnersPage() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {/* Call History from Daily Reports */}
+              {ownerCallsLoading ? (
+                <div className="text-xs text-muted-foreground text-center py-2">Loading call history...</div>
+              ) : ownerCalls.length > 0 && (
+                <div className="space-y-2 pb-2 border-b border-white/10">
+                  <p className="text-xs font-semibold text-emerald-400">📞 Call History ({ownerCalls.length} calls)</p>
+                  {ownerCalls.map((c, i) => (
+                    <div key={i} className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/15 text-xs">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="font-medium text-white">{c.employeeName}</span>
+                        <span className="text-muted-foreground">{new Date(c.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                        <span className={`px-1.5 py-0.5 rounded font-medium ${
+                          c.outcome === "CONNECTED" || c.outcome === "Connected" ? "bg-emerald-500/20 text-emerald-400" :
+                          c.outcome === "NO_ANSWER" || c.outcome === "No Answer" ? "bg-red-500/20 text-red-400" :
+                          "bg-yellow-500/20 text-yellow-400"
+                        }`}>{c.outcome}</span>
+                      </div>
+                      {c.propertyDetails && <p className="text-gold-400 mt-1">🏢 {c.propertyDetails}</p>}
+                      {c.notes && <p className="text-muted-foreground mt-0.5">{c.notes}</p>}
+                      {c.proofImageUrl && (
+                        <a href={c.proofImageUrl} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 text-blue-400 hover:text-blue-300">
+                          📸 View Proof
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2">

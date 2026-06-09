@@ -201,6 +201,79 @@ export async function notifyNewCommission(c: {
   ).catch(() => {});
 }
 
+// ── 6b. Lead Assigned to Employee (with Owner Properties info) ───────────────
+export async function notifyLeadAssignedToEmployee(data: {
+  leadId: string;
+  leadName: string;
+  leadPhone: string;
+  assignedToId: string;
+  assignedToName: string;
+  ownerMatches?: Array<{ ownerName: string; ownerPhone: string; propertyType?: string | null; price?: number | null; locality?: string | null }>;
+}) {
+  const adminIds = await getAdminIds();
+  const notifyIds = [...new Set([...adminIds, data.assignedToId])];
+
+  const ownerInfo = data.ownerMatches?.length
+    ? ` | Matching owners: ${data.ownerMatches.map(o => `${o.ownerName} (${o.ownerPhone}${o.propertyType ? ` · ${o.propertyType}` : ""}${o.price ? ` · ₹${o.price.toLocaleString("en-IN")}` : ""})` ).join(", ")}`
+    : "";
+
+  await createNotifications(
+    notifyIds,
+    "LEAD_ASSIGNED",
+    `Lead Assigned: ${data.leadName} → ${data.assignedToName}`,
+    `${data.leadName} (${data.leadPhone}) assigned to ${data.assignedToName}.${ownerInfo}`,
+    { leadId: data.leadId }
+  );
+
+  sendAdminEmail(
+    `Lead Assigned: ${data.leadName} → ${data.assignedToName}`,
+    `<p><b>${data.leadName}</b> (${data.leadPhone}) has been assigned to <b>${data.assignedToName}</b>.</p>${
+      data.ownerMatches?.length
+        ? `<p><b>Matching property owners:</b></p><ul>${data.ownerMatches.map(o =>
+            `<li>${o.ownerName} — ${o.ownerPhone}${o.propertyType ? ` | ${o.propertyType}` : ""}${o.locality ? ` | ${o.locality}` : ""}${o.price ? ` | ₹${o.price.toLocaleString("en-IN")}` : ""}</li>`
+          ).join("")}</ul>`
+        : ""
+    }`
+  ).catch(() => {});
+}
+
+// ── 6c. Visit Follow-Up Reminder for Admin (owner + property details) ────────
+export async function notifyVisitFollowUpForAdmin(data: {
+  leadId: string;
+  leadName: string;
+  leadPhone: string;
+  employeeName: string;
+  employeeId?: string | null;
+  propertyTitle: string;
+  ownerName?: string | null;
+  ownerPhone?: string | null;
+  scheduledAt: string;
+}) {
+  const adminIds = await getAdminIds();
+
+  const ownerPart = data.ownerName
+    ? ` | Owner: ${data.ownerName}${data.ownerPhone ? ` (${data.ownerPhone})` : ""}`
+    : "";
+
+  await createNotifications(
+    adminIds,
+    "FOLLOW_UP_DUE",
+    `Visit Follow-up: ${data.leadName}`,
+    `${data.employeeName} scheduled visit for ${data.leadName} (${data.leadPhone}) at "${data.propertyTitle}" on ${data.scheduledAt}.${ownerPart} Ensure follow-up if employee is on leave.`,
+    { leadId: data.leadId }
+  );
+
+  sendAdminEmail(
+    `Visit Scheduled — Follow-up Needed: ${data.leadName}`,
+    `<p><b>Employee:</b> ${data.employeeName}</p>
+     <p><b>Lead:</b> ${data.leadName} (${data.leadPhone})</p>
+     <p><b>Property:</b> ${data.propertyTitle}</p>
+     ${data.ownerName ? `<p><b>Owner:</b> ${data.ownerName}${data.ownerPhone ? ` — ${data.ownerPhone}` : ""}</p>` : ""}
+     <p><b>Scheduled:</b> ${data.scheduledAt}</p>
+     <p style="color:#f59e0b">⚠️ If this employee takes leave, admin must follow up directly.</p>`
+  ).catch(() => {});
+}
+
 // ── 7. Leave Request ──────────────────────────────────────────────────────────
 export async function notifyLeaveRequest(l: {
   employeeName: string; type: string;

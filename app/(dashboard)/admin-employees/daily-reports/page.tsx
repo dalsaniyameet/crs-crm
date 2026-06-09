@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Phone, Building2, TrendingUp, ChevronDown, ChevronUp, CheckCircle2, ClipboardList, Calendar, Users, X } from "lucide-react";
+import Image from "next/image";
 import toast from "react-hot-toast";
 
 function toDateKey(d: Date) { return d.toISOString().split("T")[0]; }
@@ -185,28 +186,61 @@ export default function AdminDailyReportsPage() {
                       {/* Call Entries Detail */}
                       {Array.isArray(r.callEntries) && r.callEntries.length > 0 && (
                         <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/15 space-y-2">
-                          <p className="text-xs font-semibold text-blue-400 mb-2">📞 Call Details ({r.callEntries.length})</p>
+                          <p className="text-xs font-semibold text-blue-400 mb-2">
+                            📞 Call Details ({r.callEntries.length})
+                            {r.callEntries.filter((c: any) => c.proofImageUrl).length > 0 && (
+                              <span className="ml-2 text-yellow-400">📸 {r.callEntries.filter((c: any) => c.proofImageUrl).length} proofs</span>
+                            )}
+                          </p>
                           {r.callEntries.map((c: any, i: number) => (
-                            <div key={i} className="flex items-start gap-3 p-2 rounded-lg bg-white/5 flex-wrap">
-                              <span className="text-xs text-muted-foreground w-5 flex-shrink-0">#{i+1}</span>
-                              <div className="flex-1 min-w-0 space-y-0.5">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {c.name && <span className="text-xs font-semibold text-white">{c.name}</span>}
-                                  {c.phone && <a href={`tel:${c.phone}`} className="text-xs text-emerald-400 hover:text-emerald-300">{c.phone}</a>}
-                                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                                    c.outcome === "CONNECTED" ? "bg-emerald-500/20 text-emerald-400" :
-                                    c.outcome === "NO_ANSWER" ? "bg-red-500/20 text-red-400" :
-                                    c.outcome === "BUSY"      ? "bg-orange-500/20 text-orange-400" :
-                                                                "bg-yellow-500/20 text-yellow-400"
-                                  }`}>
-                                    {c.outcome === "CONNECTED" ? "✅ Connected" : c.outcome === "NO_ANSWER" ? "📵 No Answer" : c.outcome === "BUSY" ? "🔴 Busy" : "🔁 Callback"}
-                                  </span>
-                                </div>
-                                {c.location && (
-                                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.location + ", Ahmedabad")}`}
-                                    target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300">🗺️ {c.location}</a>
+                            <div key={i} className={`p-2.5 rounded-lg border space-y-1.5 ${
+                              c.proofImageUrl ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5 border-white/10"
+                            }`}>
+                              <div className="flex items-start gap-3">
+                                {/* Proof thumbnail */}
+                                {c.proofImageUrl && (
+                                  <a href={c.proofImageUrl} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                                    <Image src={c.proofImageUrl} alt="proof" width={48} height={48}
+                                      className="rounded-lg object-cover border border-emerald-500/30 hover:border-emerald-400 transition-all" />
+                                  </a>
                                 )}
-                                {c.notes && <p className="text-xs text-muted-foreground">{c.notes}</p>}
+                                <div className="flex-1 min-w-0 space-y-1">
+                                  {/* Client */}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs text-muted-foreground w-5 flex-shrink-0">#{i+1}</span>
+                                    {c.name && <span className="text-xs font-semibold text-white">{c.name}</span>}
+                                    {c.phone && <a href={`tel:${c.phone}`} className="text-xs text-emerald-400 hover:text-emerald-300">{c.phone}</a>}
+                                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                                      c.outcome === "CONNECTED" ? "bg-emerald-500/20 text-emerald-400" :
+                                      c.outcome === "NO_ANSWER" ? "bg-red-500/20 text-red-400" :
+                                      c.outcome === "BUSY"      ? "bg-orange-500/20 text-orange-400" :
+                                                                  "bg-yellow-500/20 text-yellow-400"
+                                    }`}>
+                                      {c.outcome === "CONNECTED" ? "✅ Connected" : c.outcome === "NO_ANSWER" ? "📵 No Answer" : c.outcome === "BUSY" ? "🔴 Busy" : "🔁 Callback"}
+                                    </span>
+                                    {c.proofImageUrl
+                                      ? <span className="text-xs text-emerald-400 font-medium">✅ Proof</span>
+                                      : <span className="text-xs text-red-400/70">No proof</span>
+                                    }
+                                  </div>
+                                  {/* Owner details */}
+                                  {(c.ownerName || c.ownerPhone) && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs text-muted-foreground">🏢 Owner:</span>
+                                      {c.ownerName && <span className="text-xs text-white font-medium">{c.ownerName}</span>}
+                                      {c.ownerPhone && <a href={`tel:${c.ownerPhone}`} className="text-xs text-emerald-400">{c.ownerPhone}</a>}
+                                    </div>
+                                  )}
+                                  {/* Property details */}
+                                  {c.propertyDetails && (
+                                    <p className="text-xs text-gold-400">🏢 {c.propertyDetails}</p>
+                                  )}
+                                  {c.location && (
+                                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.location + ", Ahmedabad")}`}
+                                      target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300">🗺️ {c.location}</a>
+                                  )}
+                                  {c.notes && <p className="text-xs text-muted-foreground">{c.notes}</p>}
+                                </div>
                               </div>
                             </div>
                           ))}

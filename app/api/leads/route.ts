@@ -128,6 +128,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Name duplicate check (fuzzy — same first + last name)
+    if (body.name) {
+      const nameParts = body.name.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (nameParts.length >= 2) {
+        const nameMatch = await prisma.lead.findFirst({
+          where: {
+            AND: nameParts.map(p => ({ name: { contains: p, mode: "insensitive" as const } })),
+            isDuplicate: false,
+          },
+        });
+        if (nameMatch) {
+          return NextResponse.json(
+            { error: `Possible duplicate: lead with similar name "${nameMatch.name}" already exists`, existingLead: nameMatch, isDuplicate: true, matchType: "name" },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     let aiScore = { score: 50, probability: 0.3, reasoning: "" };
     try {
       aiScore = await scoreLeadAI({

@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
-import { Loader2, CheckCircle2, Phone, Building2, TrendingUp, Users, Calendar, ClipboardList, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, CheckCircle2, Phone, Building2, TrendingUp, Users, Calendar, ClipboardList, ChevronLeft, ChevronRight, Camera, X, Image as ImageIcon } from "lucide-react";
+import Image from "next/image";
 import toast from "react-hot-toast";
 
 const EMPTY = {
@@ -20,6 +21,10 @@ interface CallEntry {
   outcome: "CONNECTED" | "NO_ANSWER" | "BUSY" | "CALLBACK";
   notes: string;
   location: string;
+  proofImageUrl?: string; // photo proof of visiting card / owner / location
+  ownerName?: string;     // owner name if calling a property owner
+  ownerPhone?: string;    // owner phone
+  propertyDetails?: string; // property info discussed
 }
 
 const OUTCOME_LABELS: Record<string, { label: string; color: string }> = {
@@ -30,7 +35,7 @@ const OUTCOME_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 function newCall(): CallEntry {
-  return { id: Date.now().toString(), name: "", phone: "", outcome: "CONNECTED", notes: "", location: "" };
+  return { id: Date.now().toString(), name: "", phone: "", outcome: "CONNECTED", notes: "", location: "", proofImageUrl: "", ownerName: "", ownerPhone: "", propertyDetails: "" };
 }
 
 function toDateKey(d: Date) {
@@ -51,6 +56,35 @@ export default function EmployeeDailyReportPage() {
   const [selectedDate, setSelectedDate] = useState(toDateKey(new Date()));
   const [todayVisits, setTodayVisits]   = useState<any[]>([]);
   const [callEntries, setCallEntries]   = useState<CallEntry[]>([newCall()]);
+  const [uploadingProof, setUploadingProof] = useState<Record<string, boolean>>({});
+  const proofRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [ownersMap, setOwnersMap] = useState<Record<string, { name: string; cardImageUrl?: string }>>({});
+
+  useEffect(() => {
+    fetch("/api/owners").then(r => r.json()).then((data: any[]) => {
+      if (!Array.isArray(data)) return;
+      const map: Record<string, { name: string; cardImageUrl?: string }> = {};
+      data.forEach(o => {
+        const p = (o.phone || "").replace(/\D/g, "").slice(-10);
+        if (p) map[p] = { name: o.name, cardImageUrl: o.cardImageUrl || undefined };
+      });
+      setOwnersMap(map);
+    }).catch(() => {});
+  }, []);
+  // phone10 -> owner card info for auto-photo in call entries
+  const [ownersMap, setOwnersMap] = useState<Record<string, { name: string; cardImageUrl?: string }>>({});
+
+  useEffect(() => {
+    fetch("/api/owners").then(r => r.json()).then((data: any[]) => {
+      if (!Array.isArray(data)) return;
+      const map: Record<string, { name: string; cardImageUrl?: string }> = {};
+      data.forEach(o => {
+        const p = (o.phone || "").replace(/\D/g, "").slice(-10);
+        if (p) map[p] = { name: o.name, cardImageUrl: o.cardImageUrl };
+      });
+      setOwnersMap(map);
+    }).catch(() => {});
+  }, []);
 
   // Fetch employee profile from API using Clerk session
   useEffect(() => {
@@ -160,6 +194,21 @@ export default function EmployeeDailyReportPage() {
     } catch {}
   }
 
+  async function uploadProofImage(callId: string, file: File) {
+    setUploadingProof(p => ({ ...p, [callId]: true }));
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "call-proofs");
+      const res  = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!data.url) throw new Error("Upload failed");
+      setCallEntries(p => p.map(c => c.id === callId ? { ...c, proofImageUrl: data.url } : c));
+      toast.success("Photo uploaded! ✅");
+    } catch { toast.error("Upload failed"); }
+    setUploadingProof(p => ({ ...p, [callId]: false }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!employeeId) { toast.error("Login required"); return; }
@@ -259,13 +308,29 @@ export default function EmployeeDailyReportPage() {
 
       {/* Submitted banner */}
       {submitted && existing && (
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-emerald-400">Report submitted ✅</p>
             <p className="text-xs text-muted-foreground">
               {new Date(existing.updatedAt || existing.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} · Update kar sakte ho
             </p>
+            {/* Proof summary */}
+            {Array.isArray(existing.callEntries) && existing.callEntries.filter((c: any) => c.proofImageUrl).length > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-yellow-400 font-medium">📸 {existing.callEntries.filter((c: any) => c.proofImageUrl).length} call proof{existing.callEntries.filter((c: any) => c.proofImageUrl).length > 1 ? "s" : ""} attached:</p>
+                <div className="flex gap-2 flex-wrap">
+                  {existing.callEntries.filter((c: any) => c.proofImageUrl).map((c: any, idx: number) => (
+                    <a key={idx} href={c.proofImageUrl} target="_blank" rel="noreferrer"
+                      className="group relative">
+                      <Image src={c.proofImageUrl} alt={`proof-${idx}`} width={48} height={48}
+                        className="rounded-lg object-cover border border-emerald-500/30 hover:border-emerald-400 transition-all" />
+                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white text-xs flex items-center justify-center font-bold">{idx+1}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           {existing.adminNote && (
             <div className="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-2 py-1 max-w-[160px] truncate">
@@ -312,19 +377,32 @@ export default function EmployeeDailyReportPage() {
             </div>
 
             {/* Call detail entries */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               {callEntries.map((entry, i) => (
-                <div key={entry.id} className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                <div key={entry.id} className={`p-3 rounded-xl border space-y-2 ${
+                  entry.proofImageUrl ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5 border-white/10"
+                }`}>
+                  {/* Header */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-muted-foreground">Call #{i + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">Call #{i + 1}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${OUTCOME_LABELS[entry.outcome]?.color} bg-white/5`}>
+                        {OUTCOME_LABELS[entry.outcome]?.label}
+                      </span>
+                      {entry.proofImageUrl && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-medium">✅ Proof</span>
+                      )}
+                    </div>
                     {callEntries.length > 1 && (
                       <button type="button" onClick={() => setCallEntries(p => p.filter(c => c.id !== entry.id))}
                         className="text-xs text-red-400 hover:text-red-300">✕ Remove</button>
                     )}
                   </div>
+
+                  {/* Client + Phone */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Client Name</label>
+                      <label className="text-xs text-muted-foreground mb-1 block">Client / Person Name</label>
                       <input value={entry.name} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, name: e.target.value } : c))}
                         placeholder="Rajesh Patel" className={inp} />
                     </div>
@@ -334,6 +412,61 @@ export default function EmployeeDailyReportPage() {
                         placeholder="9876543210" className={inp} />
                     </div>
                   </div>
+
+                  {/* Owner Name + Owner Phone */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">🏢 Owner Name</label>
+                      <input value={entry.ownerName || ""} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, ownerName: e.target.value } : c))}
+                        placeholder="Suresh Shah (property owner)" className={inp} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Owner Phone</label>
+                      <input value={entry.ownerPhone || ""} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, ownerPhone: e.target.value } : c))}
+                        placeholder="9876543210" className={inp} />
+                    </div>
+                  </div>
+
+                  {/* Auto-show owner card photo if phone matches */}
+                  {(() => {
+                    const p10 = (entry.ownerPhone || entry.phone || "").replace(/\D/g, "").slice(-10);
+                    const matched = p10 ? ownersMap[p10] : null;
+                    if (!matched?.cardImageUrl) return null;
+                    return (
+                      <div className="flex items-center gap-3 p-2 rounded-lg bg-gold-500/5 border border-gold-500/20">
+                        <Image src={matched.cardImageUrl} alt={matched.name} width={52} height={52}
+                          className="rounded-lg object-cover flex-shrink-0 border border-gold-500/30" />
+                        <div>
+                          <p className="text-xs text-gold-400 font-medium">📸 Owner card found: {matched.name}</p>
+                          <a href={matched.cardImageUrl} target="_blank" rel="noreferrer"
+                            className="text-xs text-blue-400 hover:text-blue-300">🔗 View full card</a>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Property Details + Location */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Property Details</label>
+                      <input value={entry.propertyDetails || ""} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, propertyDetails: e.target.value } : c))}
+                        placeholder="Office 800sqft Satellite ₹50K/mo" className={inp} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Location / Area</label>
+                      <div className="relative">
+                        <input value={entry.location} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, location: e.target.value } : c))}
+                          placeholder="Prahlad Nagar" className={inp} />
+                        {entry.location && (
+                          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(entry.location + ", Ahmedabad")}`}
+                            target="_blank" rel="noreferrer"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-400" title="Maps">🗺️</a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Outcome + Notes */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">Outcome</label>
@@ -345,24 +478,48 @@ export default function EmployeeDailyReportPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Location / Area</label>
-                      <div className="relative">
-                        <input value={entry.location} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, location: e.target.value } : c))}
-                          placeholder="Prahlad Nagar, Ahmedabad" className={inp} />
-                        {entry.location && (
-                          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(entry.location + ", Ahmedabad")}`}
-                            target="_blank" rel="noreferrer"
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-300" title="Open in Google Maps">
-                            🗺️
-                          </a>
-                        )}
-                      </div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+                      <input value={entry.notes} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, notes: e.target.value } : c))}
+                        placeholder="Budget, interest, next step..." className={inp} />
                     </div>
                   </div>
+
+                  {/* 📸 Photo Proof */}
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
-                    <input value={entry.notes} onChange={e => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, notes: e.target.value } : c))}
-                      placeholder="Interested in office space, budget 50K/mo..." className={inp} />
+                    <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                      <Camera className="w-3 h-3" />
+                      Photo Proof <span className="text-yellow-400 ml-1">(visiting card / WhatsApp screenshot / property photo)</span>
+                    </label>
+                    {entry.proofImageUrl ? (
+                      <div className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-emerald-500/20">
+                        <Image src={entry.proofImageUrl} alt="proof" width={56} height={56}
+                          className="rounded-lg object-cover flex-shrink-0 border border-white/10" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-emerald-400 font-medium">✅ Proof uploaded</p>
+                          <a href={entry.proofImageUrl} target="_blank" rel="noreferrer"
+                            className="text-xs text-blue-400 hover:text-blue-300">🔗 View full image</a>
+                        </div>
+                        <button type="button"
+                          onClick={() => setCallEntries(p => p.map(c => c.id === entry.id ? { ...c, proofImageUrl: "" } : c))}
+                          className="text-red-400 hover:text-red-300 flex-shrink-0">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button type="button"
+                        onClick={() => proofRefs.current[entry.id]?.click()}
+                        disabled={!!uploadingProof[entry.id]}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/5 border border-dashed border-white/20 text-xs text-muted-foreground hover:text-white hover:border-yellow-500/40 hover:bg-yellow-500/5 transition-all disabled:opacity-50">
+                        {uploadingProof[entry.id]
+                          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...</>
+                          : <><ImageIcon className="w-3.5 h-3.5" /> Upload photo proof (recommended)</>}
+                      </button>
+                    )}
+                    <input
+                      ref={el => { proofRefs.current[entry.id] = el; }}
+                      type="file" accept="image/*" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadProofImage(entry.id, f); e.target.value = ""; }}
+                    />
                   </div>
                 </div>
               ))}
@@ -576,6 +733,9 @@ export default function EmployeeDailyReportPage() {
                     <span className="text-xs text-orange-400">🏠 {r.siteVisits}</span>
                     <span className="text-xs text-emerald-400">✅ {r.dealsClosed} closed</span>
                     {r.newLeads > 0 && <span className="text-xs text-gold-400">⭐ {r.newLeads} leads</span>}
+                    {Array.isArray(r.callEntries) && r.callEntries.filter((c: any) => c.proofImageUrl).length > 0 && (
+                      <span className="text-xs text-yellow-400">📸 {r.callEntries.filter((c: any) => c.proofImageUrl).length} proofs</span>
+                    )}
                   </div>
                   {r.highlights && <p className="text-xs text-muted-foreground truncate mt-0.5">{r.highlights}</p>}
                 </div>

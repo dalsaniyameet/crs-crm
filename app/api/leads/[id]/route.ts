@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { notifyLeadAssignedToEmployee } from "@/lib/notify";
 
 async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
@@ -155,6 +156,32 @@ export async function PATCH(
       },
       include: { assignedTo: { select: { id: true, name: true, avatar: true } } },
     });
+
+    // When lead is reassigned, notify admin + employee with matching owner properties
+    if (body.assignedToId !== undefined && updated.assignedTo) {
+      const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { name: true, phone: true } });
+      // Find owners whose properties match this lead's type/location
+      const matchingOwners = await prisma.propertyOwner.findMany({
+        where: { isActive: true, assignedToId: body.assignedToId },
+        select: { name: true, phone: true, locality: true, properties: { select: { type: true, price: true, transactionType: true }, take: 1 } },
+        take: 5,
+      });
+      notifyLeadAssignedToEmployee({
+        leadId,
+        leadName:       lead?.name || "",
+        leadPhone:      lead?.phone || "",
+        assignedToId:   body.assignedToId,
+        assignedToName: updated.assignedTo.name,
+        ownerMatches:   matchingOwners.map(o => ({
+          ownerName:    o.name,
+          ownerPhone:   o.phone,
+          propertyType: o.properties[0]?.type || null,
+          price:        o.properties[0]?.price || null,
+          locality:     o.locality || null,
+        })),
+      }).catch(() => {});
+    }
+
     return NextResponse.json(updated);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

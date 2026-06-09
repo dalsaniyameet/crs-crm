@@ -3,37 +3,45 @@ import https from "https";
 import { prisma } from "@/lib/prisma";
 
 const SECRET = process.env.CLERK_SECRET_KEY!;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://crs-crm.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://cityrealspacecrm.com";
 
 // Get approximate location from IP — multiple fallback services
 async function getLocationFromIP(ip: string): Promise<string> {
-  if (!ip || ip === "Unknown" || ip === "::1" || ip.startsWith("127.") || ip.startsWith("192.168.")) {
+  if (!ip || ip === "Unknown" || ip === "::1" || ip.startsWith("127.") || ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
     return "Local / Office Network";
   }
-  // Service 1: ip-api.com (free, no key needed)
+
+  // Service 1: ipwho.is (HTTPS, Vercel compatible, no key needed)
   try {
-    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,city,regionName,country`, {
-      signal: AbortSignal.timeout(4000),
+    const res = await fetch(`https://ipwho.is/${ip}`, { signal: AbortSignal.timeout(5000) });
+    const d = await res.json();
+    if (d.success && d.city) return `${d.city}, ${d.region}, ${d.country}`;
+  } catch {}
+
+  // Service 2: ip-api.com via HTTPS (pro fallback)
+  try {
+    const res = await fetch(`https://pro.ip-api.com/json/${ip}?fields=status,city,regionName,country&key=free`, {
+      signal: AbortSignal.timeout(5000),
     });
     const d = await res.json();
     if (d.status === "success" && d.city) return `${d.city}, ${d.regionName}, ${d.country}`;
   } catch {}
 
-  // Service 2: ipapi.co
+  // Service 3: ipapi.co
   try {
-    const res = await fetch(`https://ipapi.co/${ip}/json/`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`https://ipapi.co/${ip}/json/`, { signal: AbortSignal.timeout(5000) });
     const d = await res.json();
-    if (d.city) return `${d.city}, ${d.region}, ${d.country_name}`;
+    if (d.city && !d.error) return `${d.city}, ${d.region}, ${d.country_name}`;
   } catch {}
 
-  // Service 3: freeipapi.com
+  // Service 4: freeipapi.com
   try {
-    const res = await fetch(`https://freeipapi.com/api/json/${ip}`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`https://freeipapi.com/api/json/${ip}`, { signal: AbortSignal.timeout(5000) });
     const d = await res.json();
-    if (d.cityName) return `${d.cityName}, ${d.regionName}, ${d.countryName}`;
+    if (d.cityName && d.cityName !== "-") return `${d.cityName}, ${d.regionName}, ${d.countryName}`;
   } catch {}
 
-  return `Unknown Location (${ip})`;
+  return `IP: ${ip}`;
 }
 
 
@@ -93,7 +101,14 @@ export async function POST(req: NextRequest) {
         const locationOt = await getLocationFromIP(ipOt);
         const loginTimeOt = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", hour12: true });
         const empEmailOt  = usersCheck[0].email_addresses?.[0]?.email_address || email;
-        const empNameOt   = [usersCheck[0].first_name, usersCheck[0].last_name].filter(Boolean).join(" ") || empEmailOt;
+        // DB se name lo pehle
+        const dbUserOt = await prisma.user.findFirst({
+          where: { OR: [{ clerkId: usersCheck[0].id }, { email: empEmailOt }] },
+          select: { name: true },
+        }).catch(() => null);
+        const empNameOt   = dbUserOt?.name
+          || [usersCheck[0].first_name, usersCheck[0].last_name].filter(Boolean).join(" ")
+          || empEmailOt.split("@")[0];
 
         // Create approval request (expires in 2 hours)
         const approval = await prisma.overtimeApproval.create({
@@ -190,7 +205,14 @@ export async function POST(req: NextRequest) {
 
     // Send login security alert to admin with location
     const empEmail = clerkUser.email_addresses?.[0]?.email_address || email;
-    const empName  = [clerkUser.first_name, clerkUser.last_name].filter(Boolean).join(" ") || empEmail;
+    // Name: DB se pehle lo, warna Clerk first+last, warna email prefix
+    const dbUser = await prisma.user.findFirst({
+      where: { OR: [{ clerkId: clerkUser.id }, { email: empEmail }] },
+      select: { name: true },
+    }).catch(() => null);
+    const empName = dbUser?.name
+      || [clerkUser.first_name, clerkUser.last_name].filter(Boolean).join(" ")
+      || empEmail.split("@")[0];
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || req.headers.get("x-real-ip")

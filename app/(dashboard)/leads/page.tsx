@@ -916,6 +916,36 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                 </div>
               )}
 
+              {/* 1-Tap Status Change */}
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-xs text-muted-foreground flex-shrink-0">Quick:</span>
+                {(["CONTACTED","SITE_VISIT_SCHEDULED","NEGOTIATION","DEAL_CLOSED","LOST"] as LeadStatus[])
+                  .filter(s => s !== lead.status)
+                  .slice(0,3)
+                  .map(s => (
+                    <button key={s} onClick={async e => {
+                      e.stopPropagation();
+                      await fetch(`/api/leads/${lead.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status: s }),
+                      });
+                      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: s } : l));
+                      toast.success(`→ ${statusConfig[s].label}`);
+                    }}
+                    className={`text-xs px-2 py-0.5 rounded-full border transition-all hover:scale-105 ${
+                      s === "DEAL_CLOSED" ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" :
+                      s === "LOST"        ? "bg-red-500/15 border-red-500/30 text-red-400" :
+                      "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                    }`}>
+                      {s === "CONTACTED" ? "✅ Contacted" :
+                       s === "SITE_VISIT_SCHEDULED" ? "📅 Visit" :
+                       s === "NEGOTIATION" ? "🤝 Negotiate" :
+                       s === "DEAL_CLOSED" ? "🎉 Close" : "❌ Lost"}
+                    </button>
+                  ))}
+              </div>
+
               {/* Call + WA */}
               <div className="grid grid-cols-2 gap-2">
                 <a href={`tel:${lead.phone}`}

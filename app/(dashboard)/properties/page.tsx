@@ -1095,9 +1095,13 @@ export default function PropertiesPage() {
                     <CheckCircle className="w-4 h-4" /> Create Deal
                   </button>
                   <button onClick={() => {
-                    const txt = `🏢 *${viewProp.title}*\n📍 ${viewProp.locality}, ${viewProp.city}\n💰 ${fmtPrice(viewProp.price, viewProp.transactionType)}\n📐 ${viewProp.area} sqft${viewProp.carpetArea ? ` (Carpet: ${viewProp.carpetArea})` : ""}\n📞 ${viewProp.ownerPhone || ""}\n\n${viewProp.photos[0] || ""}`;
+                    const photoLine = viewProp.photos[0] ? `\n\n📸 Photo: ${viewProp.photos[0]}` : "";
+                    const brokerageLine = viewProp.transactionType === "SELL"
+                      ? `\n💰 Brokerage: ₹${Math.round(viewProp.price * 0.01).toLocaleString("en-IN")} (1%)`
+                      : `\n💰 Brokerage: ₹${viewProp.price.toLocaleString("en-IN")} | Security: ₹${(viewProp.price*2).toLocaleString("en-IN")} | Advance: ₹${viewProp.price.toLocaleString("en-IN")}`;
+                    const txt = `🏢 *${viewProp.title}*\n\n📍 *Location:* ${viewProp.locality}, ${viewProp.city}\n💰 *Price:* ${fmtPrice(viewProp.price, viewProp.transactionType)}\n📐 *Area:* ${viewProp.area.toLocaleString()} sqft${viewProp.carpetArea ? ` (Carpet: ${viewProp.carpetArea.toLocaleString()})` : ""}\n🏠 *Type:* ${viewProp.type} | ${viewProp.transactionType}${brokerageLine}\n✨ *Amenities:* ${(viewProp.amenities||[]).join(", ") || "—"}${viewProp.ownerPhone ? `\n📞 *Owner:* ${viewProp.ownerName || ""} ${viewProp.ownerPhone}` : ""}${photoLine}\n\n*City Real Space* | Prahlad Nagar, Ahmedabad | +91 9825031247`;
                     navigator.clipboard.writeText(txt);
-                    toast.success("Property details copied! 📋");
+                    toast.success("📋 Property details copied for WhatsApp!");
                   }}
                     className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 text-sm font-medium hover:bg-blue-500/30 transition-all">
                     <Share2 className="w-4 h-4" /> Copy & Share

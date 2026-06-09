@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { sendSiteVisitReminder } from "@/lib/whatsapp";
-import { notifyNewVisit } from "@/lib/notify";
+import { notifyNewVisit, notifyVisitFollowUpForAdmin } from "@/lib/notify";
 
 async function getUser(clerkId: string) {
   return prisma.user.findUnique({ where: { clerkId } });
@@ -74,6 +74,19 @@ export async function POST(req: NextRequest) {
       brokerName:    (visit.broker as any)?.name || "City Real Space",
       brokerId:      visit.brokerId,
       leadId:        visit.leadId,
+    }).catch(() => {});
+
+    // Notify admin separately with owner details for follow-up tracking
+    notifyVisitFollowUpForAdmin({
+      leadId:        visit.leadId,
+      leadName:      visit.lead.name,
+      leadPhone:     visit.lead.phone,
+      employeeName:  (visit.broker as any)?.name || "Unknown Employee",
+      employeeId:    visit.brokerId,
+      propertyTitle: (visit.property as any)?.title || "Property",
+      ownerName:     (visit.property as any)?.ownerName || null,
+      ownerPhone:    (visit.property as any)?.ownerPhone || null,
+      scheduledAt:   scheduledAt.toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" }),
     }).catch(() => {});
 
     return NextResponse.json(visit, { status: 201 });
