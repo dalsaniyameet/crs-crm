@@ -17,15 +17,20 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const isBroker = user.role === "BROKER";
+    const leadId   = req.nextUrl.searchParams.get("leadId");
+
+    const where: any = {};
+    if (leadId)        where.leadId   = leadId;
+    if (isBroker && !leadId) where.brokerId = user.id;
 
     const visits = await prisma.siteVisit.findMany({
-      where: isBroker ? { brokerId: user.id } : {},
+      where,
       include: {
         lead:     { select: { id: true, name: true, phone: true, budget: true, requirements: true } },
         property: { select: { id: true, title: true, locality: true, city: true, ownerName: true, ownerPhone: true, price: true, transactionType: true, address: true } },
         broker:   { select: { id: true, name: true } },
       },
-      orderBy: { scheduledAt: "asc" },
+      orderBy: { scheduledAt: "desc" },
     });
     return NextResponse.json(visits);
   } catch (err: any) {

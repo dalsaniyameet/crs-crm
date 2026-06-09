@@ -97,11 +97,20 @@ export default function LeadsPage() {
   const [updatingLead, setUpdatingLead] = useState(false);
   const [allDueTasks, setAllDueTasks]  = useState<any[]>([]);
 
-  const [detailTab, setDetailTab]      = useState<"overview"|"calls"|"followups"|"notes"|"visitreports">("overview");
+  const [detailTab, setDetailTab]      = useState<"overview"|"calls"|"followups"|"notes"|"visitreports"|"sitevisits">("overview");
   const [callLogs, setCallLogs]         = useState<any[]>([]);
   const [callLogsLoading, setCallLogsLoading] = useState(false);
   const [visitReports, setVisitReports] = useState<any[]>([]);
   const [visitReportsLoading, setVisitReportsLoading] = useState(false);
+  const [leadVisits, setLeadVisits]     = useState<any[]>([]);
+  const [leadVisitsLoading, setLeadVisitsLoading] = useState(false);
+  const [schedulingVisit, setSchedulingVisit] = useState(false);
+  const [visitForm, setVisitForm] = useState({
+    propertyId: "", brokerId: "", scheduledAt: "", notes: "",
+    useManual: false,
+    customName: "", customLocality: "", customOwnerName: "", customOwnerPhone: "", customPrice: "",
+  });
+  const [properties, setProperties]     = useState<any[]>([]);
   const [tasks, setTasks]                 = useState<any[]>([]);
   const [tasksLoading, setTasksLoading]   = useState(false);
   const [taskForm, setTaskForm]           = useState({ title: "", description: "", dueAt: "", priority: "MEDIUM" });
@@ -174,6 +183,7 @@ export default function LeadsPage() {
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useEffect(() => {
     fetch("/api/brokers?assign=1").then(r => r.json()).then(d => setBrokers(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch("/api/properties?limit=100").then(r => r.json()).then(d => setProperties(d.properties ?? [])).catch(() => {});
   }, []);
   useEffect(() => {
     if (!isAdmin) return;
@@ -364,6 +374,13 @@ export default function LeadsPage() {
           .catch(() => {})
           .finally(() => setVisitReportsLoading(false));
       }
+      // Load site visits for this lead
+      setLeadVisitsLoading(true);
+      fetch(`/api/visits?leadId=${detailLead.id}`)
+        .then(r => r.json())
+        .then(d => setLeadVisits(Array.isArray(d) ? d : []))
+        .catch(() => {})
+        .finally(() => setLeadVisitsLoading(false));
     }
   }, [detailLead?.id, loadCallLogs, loadTasks, isAdmin]);
 
@@ -1085,6 +1102,7 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                     <div className="flex flex-wrap gap-2 mb-5">
                       {[
                         { id: "overview", label: "Overview" },
+                        { id: "sitevisits", label: `Site Visits${leadVisits.length > 0 ? ` (${leadVisits.length})` : ""}` },
                         { id: "calls", label: "Calls" },
                         { id: "followups", label: "Follow-ups" },
                         { id: "notes", label: "Notes" },
@@ -1161,9 +1179,9 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                             className="flex-1 py-2 rounded-lg bg-orange-500/15 border border-orange-500/20 text-sm text-orange-200 hover:bg-orange-500/25 transition-all">
                             Move to Negotiation
                           </button>
-                          <button type="button" onClick={() => window.location.href = `/visits?leadId=${detailLead.id}`}
+                          <button type="button" onClick={() => setDetailTab("sitevisits")}
                             className="flex-1 py-2 rounded-lg bg-purple-500/15 border border-purple-500/20 text-sm text-purple-200 hover:bg-purple-500/25 transition-all">
-                            Schedule Site Visit
+                            📅 Schedule Site Visit
                           </button>
                         </div>
 
@@ -1263,6 +1281,168 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                             </a>
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {detailTab === "sitevisits" && (
+                      <div className="space-y-4">
+                        {/* Schedule New Visit Form */}
+                        <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 space-y-3">
+                          <p className="text-xs font-semibold text-purple-300 flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5" /> Schedule New Site Visit
+                          </p>
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs text-muted-foreground">Property</label>
+                              <button type="button"
+                                onClick={() => setVisitForm(f => ({ ...f, useManual: !f.useManual, propertyId: "" }))}
+                                className={`text-xs px-2 py-0.5 rounded border transition-all ${
+                                  visitForm.useManual ? "bg-yellow-500/20 border-yellow-500/30 text-yellow-400" : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                                }`}>
+                                {visitForm.useManual ? "✅ Manual" : "+ Manual Entry"}
+                              </button>
+                            </div>
+                            {!visitForm.useManual ? (
+                              <select value={visitForm.propertyId} onChange={e => setVisitForm(f => ({ ...f, propertyId: e.target.value }))}
+                                className={inputCls}>
+                                <option value="">Choose property (optional)</option>
+                                {properties.map((p: any) => <option key={p.id} value={p.id}>{p.title} – {p.locality}</option>)}
+                              </select>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-2 mt-1">
+                                <input value={visitForm.customName} onChange={e => setVisitForm(f => ({ ...f, customName: e.target.value }))}
+                                  placeholder="Property name" className={inputCls} />
+                                <input value={visitForm.customLocality} onChange={e => setVisitForm(f => ({ ...f, customLocality: e.target.value }))}
+                                  placeholder="Locality" className={inputCls} />
+                                <input value={visitForm.customOwnerName} onChange={e => setVisitForm(f => ({ ...f, customOwnerName: e.target.value }))}
+                                  placeholder="Owner name" className={inputCls} />
+                                <input value={visitForm.customOwnerPhone} onChange={e => setVisitForm(f => ({ ...f, customOwnerPhone: e.target.value }))}
+                                  placeholder="Owner phone" className={inputCls} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">Date & Time *</label>
+                              <input type="datetime-local" value={visitForm.scheduledAt}
+                                onChange={e => setVisitForm(f => ({ ...f, scheduledAt: e.target.value }))}
+                                className={`${inputCls} [color-scheme:dark]`} />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">Assign Employee</label>
+                              <select value={visitForm.brokerId} onChange={e => setVisitForm(f => ({ ...f, brokerId: e.target.value }))}
+                                className={inputCls}>
+                                <option value="">Unassigned</option>
+                                {brokers.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <textarea rows={2} value={visitForm.notes} onChange={e => setVisitForm(f => ({ ...f, notes: e.target.value }))}
+                            placeholder="Notes (optional)" className={`${inputCls} resize-none`} />
+                          <button disabled={schedulingVisit || !visitForm.scheduledAt}
+                            onClick={async () => {
+                              if (!visitForm.scheduledAt) { toast.error("Date & time required"); return; }
+                              setSchedulingVisit(true);
+                              try {
+                                const body: any = {
+                                  leadId:      detailLead.id,
+                                  propertyId:  (!visitForm.useManual && visitForm.propertyId) ? visitForm.propertyId : undefined,
+                                  brokerId:    visitForm.brokerId || undefined,
+                                  scheduledAt: new Date(visitForm.scheduledAt).toISOString(),
+                                  notes:       visitForm.notes || undefined,
+                                  status:      "SCHEDULED",
+                                };
+                                if (visitForm.useManual) {
+                                  body.customPropertyName       = visitForm.customName || undefined;
+                                  body.customPropertyLocality   = visitForm.customLocality || undefined;
+                                  body.customPropertyOwnerName  = visitForm.customOwnerName || undefined;
+                                  body.customPropertyOwnerPhone = visitForm.customOwnerPhone || undefined;
+                                }
+                                const res = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+                                if (!res.ok) throw new Error((await res.json()).error);
+                                const newVisit = await res.json();
+                                setLeadVisits(prev => [newVisit, ...prev]);
+                                setLeads(prev => prev.map(l => l.id === detailLead.id ? { ...l, status: "SITE_VISIT_SCHEDULED" as any } : l));
+                                setDetailLead((prev: any) => ({ ...prev, status: "SITE_VISIT_SCHEDULED" }));
+                                setVisitForm({ propertyId: "", brokerId: "", scheduledAt: "", notes: "", useManual: false, customName: "", customLocality: "", customOwnerName: "", customOwnerPhone: "", customPrice: "" });
+                                toast.success("Visit scheduled! ✅");
+                              } catch (e: any) { toast.error(e.message || "Failed"); }
+                              setSchedulingVisit(false);
+                            }}
+                            className="w-full py-2.5 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 text-sm font-semibold hover:bg-purple-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                            {schedulingVisit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+                            {schedulingVisit ? "Scheduling..." : "Schedule Visit"}
+                          </button>
+                        </div>
+
+                        {/* Past Visits List */}
+                        {leadVisitsLoading ? (
+                          <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+                        ) : leadVisits.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-6">No visits scheduled yet.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-xs font-semibold text-white">All Visits ({leadVisits.length})</p>
+                            {leadVisits.map((v: any) => {
+                              const propTitle  = v.property?.title || v.customPropertyName || "";
+                              const propLoc    = v.property?.locality || v.customPropertyLocality || "";
+                              const ownerName  = v.property?.ownerName || v.customPropertyOwnerName || "";
+                              const ownerPhone = v.property?.ownerPhone || v.customPropertyOwnerPhone || "";
+                              const isToday    = new Date(v.scheduledAt).toDateString() === new Date().toDateString();
+                              const sc = v.status === "COMPLETED" ? "text-emerald-400 bg-emerald-500/15 border-emerald-500/25" :
+                                v.status === "CANCELLED" ? "text-red-400 bg-red-500/15 border-red-500/25" :
+                                v.status === "NO_SHOW"   ? "text-orange-400 bg-orange-500/15 border-orange-500/25" :
+                                "text-purple-400 bg-purple-500/15 border-purple-500/25";
+                              return (
+                                <div key={v.id} className="p-3 rounded-xl bg-white/5 border border-white/8 space-y-2">
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${sc}`}>{v.status}</span>
+                                      {isToday && <span className="text-xs text-red-400 font-semibold animate-pulse">⚡ Today</span>}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(v.scheduledAt).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })} · {new Date(v.scheduledAt).toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" })}
+                                    </span>
+                                  </div>
+                                  {propTitle && (
+                                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(propTitle+" "+propLoc+" Ahmedabad")}`}
+                                      target="_blank" rel="noreferrer"
+                                      className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                                      <MapPin className="w-3 h-3" /> {propTitle}{propLoc ? ` — ${propLoc}` : ""}
+                                    </a>
+                                  )}
+                                  {ownerName && (
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <span className="text-muted-foreground">👤 {ownerName}</span>
+                                      {ownerPhone && <a href={`tel:${ownerPhone}`} className="text-emerald-400"><Phone className="w-3 h-3 inline mr-0.5" />{ownerPhone}</a>}
+                                    </div>
+                                  )}
+                                  {v.broker && <p className="text-xs text-muted-foreground">🧑 {v.broker.name}</p>}
+                                  {v.notes && <p className="text-xs text-muted-foreground">📝 {v.notes}</p>}
+                                  {(v.status === "SCHEDULED" || v.status === "CONFIRMED") && (
+                                    <div className="flex gap-2 pt-1">
+                                      {["COMPLETED","NO_SHOW","CANCELLED"].map(s => (
+                                        <button key={s} type="button"
+                                          onClick={async () => {
+                                            await fetch(`/api/visits/${v.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: s }) });
+                                            setLeadVisits(prev => prev.map(x => x.id === v.id ? { ...x, status: s } : x));
+                                            toast.success(`Visit → ${s}`);
+                                          }}
+                                          className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                                            s === "COMPLETED" ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/25" :
+                                            s === "NO_SHOW"   ? "bg-orange-500/15 border-orange-500/25 text-orange-400 hover:bg-orange-500/25" :
+                                            "bg-red-500/15 border-red-500/25 text-red-400 hover:bg-red-500/25"
+                                          }`}>
+                                          {s === "COMPLETED" ? "✅ Complete" : s === "NO_SHOW" ? "👻 No Show" : "❌ Cancel"}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
 
