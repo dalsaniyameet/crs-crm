@@ -107,9 +107,9 @@ export default function DashboardPage() {
   }, []);
 
   const { data, isLoading } = useSWR("/api/dashboard", fetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 300000, // 5 min cache
-    revalidateOnReconnect: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 30000,
+    revalidateOnReconnect: true,
   });
 
   // ── Attendance state ──
@@ -184,7 +184,7 @@ export default function DashboardPage() {
     { label: "Visits Today",  value: todayVisits.length,          icon: Calendar,    grad: "from-orange-600 to-orange-400",  href: "/visits" },
   ] : [
     { label: "Total Leads",       value: overview.totalLeads       ?? 0,  icon: Users,       grad: "from-blue-600 to-blue-400",    href: "/leads" },
-    { label: "Active Properties", value: overview.activeProperties ?? "—", icon: Building2,   grad: "from-yellow-600 to-yellow-400", href: "/properties" },
+    { label: "Active Properties", value: overview.activeProperties ?? 0, icon: Building2,   grad: "from-yellow-600 to-yellow-400", href: "/properties" },
     { label: "Deals Closed",      value: overview.dealsClosedCount ?? 0,  icon: GitBranch,   grad: "from-emerald-600 to-emerald-400", href: "/deals" },
     { label: "Revenue",           value: overview.totalRevenue ? fmtMoney(overview.totalRevenue) : "₹0", icon: DollarSign, grad: "from-purple-600 to-purple-400", href: "/reports" },
     { label: "Visits Today",      value: todayVisits.length,              icon: Calendar,    grad: "from-orange-600 to-orange-400", href: "/visits" },
