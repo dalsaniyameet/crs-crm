@@ -594,6 +594,8 @@ model PropertyOwner {
   address      String?
   locality     String?
   cardImageUrl String?
+  photos       String[] @default([])  // property photos uploaded by owner
+  photosReady  Boolean  @default(false) // owner ne photos bhej diye
   notes        String?
   isActive     Boolean  @default(true)
   assignedToId String?  // employee assigned by admin

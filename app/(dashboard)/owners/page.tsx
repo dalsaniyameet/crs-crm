@@ -23,6 +23,8 @@ interface Owner {
   address?: string;
   locality?: string;
   cardImageUrl?: string;
+  photos: string[];
+  photosReady: boolean;
   notes?: string;
   createdAt: string;
   assignedToId?: string;
@@ -507,6 +509,109 @@ export default function OwnersPage() {
 
   const [uploadingCardPhoto, setUploadingCardPhoto] = useState<string | null>(null);
   const cardPhotoRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // ── Property Photos per owner ──
+  const [uploadingPhotos, setUploadingPhotos]   = useState<string | null>(null);
+  const [viewPhotosOwner, setViewPhotosOwner]   = useState<Owner | null>(null);
+  const propPhotoRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  async function uploadOwnerPropertyPhotos(ownerId: string, files: File[]) {
+    setUploadingPhotos(ownerId);
+    try {
+      const ownerName = owners.find(o => o.id === ownerId)?.name || ownerId;
+      const folder    = `owner-properties/${ownerName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`;
+      const fd = new FormData();
+      files.forEach(f => fd.append("file", f));
+      fd.append("folder", folder);
+      const res  = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      const urls: string[] = data.urls ? data.urls.map((u: any) => u.url) : [data.url].filter(Boolean);
+      if (!urls.length) throw new Error("Upload failed");
+      await fetch(`/api/owners/${ownerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _addPhotos: urls }),
+      });
+      setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, photos: [...(o.photos || []), ...urls] } : o));
+      toast.success(`📸 ${urls.length} photo(s) uploaded!`);
+    } catch { toast.error("Upload failed"); }
+    setUploadingPhotos(null);
+  }
+
+  async function markPhotosReady(ownerId: string, ready: boolean) {
+    await fetch(`/api/owners/${ownerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photosReady: ready }),
+    });
+    setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, photosReady: ready } : o));
+    toast.success(ready ? "✅ Photos ready marked!" : "Photos ready removed");
+  }
+
+  async function removeOwnerPhoto(ownerId: string, photoUrl: string) {
+    const owner = owners.find(o => o.id === ownerId);
+    if (!owner) return;
+    const updated = owner.photos.filter(p => p !== photoUrl);
+    await fetch(`/api/owners/${ownerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photos: updated }),
+    });
+    setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, photos: updated } : o));
+    if (viewPhotosOwner?.id === ownerId) setViewPhotosOwner(prev => prev ? { ...prev, photos: updated } : null);
+    toast.success("Photo removed");
+  }
+  // ── Property Photos per owner ──
+  const [uploadingPhotos, setUploadingPhotos]   = useState<string | null>(null);
+  const [viewPhotosOwner, setViewPhotosOwner]   = useState<Owner | null>(null);
+  const propPhotoRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  async function uploadOwnerPropertyPhotos(ownerId: string, files: File[]) {
+    setUploadingPhotos(ownerId);
+    try {
+      const ownerName = owners.find(o => o.id === ownerId)?.name || ownerId;
+      const folder    = `owner-properties/${ownerName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`;
+      const fd = new FormData();
+      files.forEach(f => fd.append("file", f));
+      fd.append("folder", folder);
+      const res  = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      const urls: string[] = data.urls ? data.urls.map((u: any) => u.url) : [data.url].filter(Boolean);
+      if (!urls.length) throw new Error("Upload failed");
+      // Append to owner photos
+      await fetch(`/api/owners/${ownerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _addPhotos: urls }),
+      });
+      setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, photos: [...(o.photos || []), ...urls] } : o));
+      toast.success(`📸 ${urls.length} photo(s) uploaded!`);
+    } catch { toast.error("Upload failed"); }
+    setUploadingPhotos(null);
+  }
+
+  async function markPhotosReady(ownerId: string, ready: boolean) {
+    await fetch(`/api/owners/${ownerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photosReady: ready }),
+    });
+    setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, photosReady: ready } : o));
+    toast.success(ready ? "✅ Photos ready marked!" : "Photos ready removed");
+  }
+
+  async function removeOwnerPhoto(ownerId: string, photoUrl: string) {
+    const owner = owners.find(o => o.id === ownerId);
+    if (!owner) return;
+    const updated = owner.photos.filter(p => p !== photoUrl);
+    await fetch(`/api/owners/${ownerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photos: updated }),
+    });
+    setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, photos: updated } : o));
+    if (viewPhotosOwner?.id === ownerId) setViewPhotosOwner(prev => prev ? { ...prev, photos: updated } : null);
+    toast.success("Photo removed");
+  }
 
   async function uploadOwnerCardPhoto(ownerId: string, file: File) {
     setUploadingCardPhoto(ownerId);

@@ -191,6 +191,7 @@ export async function GET() {
 
     return NextResponse.json({
       isBroker,
+      userRole: user.role,
       overdueCount,
       leadSourceStats,
       employeeScores,

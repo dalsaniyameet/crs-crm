@@ -155,7 +155,9 @@ export default function DashboardPage() {
     setPunching(false);
   };
 
-  const isBroker      = data ? data.isBroker : false;
+  // Never use isBroker from API as fallback — show admin view by default
+  // Only use broker view if API explicitly confirms isBroker=true AND user role is BROKER
+  const isBroker      = data?.isBroker === true && (data?.userRole === "BROKER" || userRole === "BROKER");
   const overview      = data?.overview ?? {};
   const overdueCount  = data?.overdueCount ?? 0;
   const leadSourceStats = data?.leadSourceStats ?? [];
