@@ -29,14 +29,10 @@ export async function POST(req: NextRequest) {
     if (mimeType === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf")) {
       // For PDF, we'll use the buffer directly with a jpeg mime for Groq
       // (Groq vision accepts base64 images; PDF not supported — extract first page)
-      try {
-        const pdfParse = await import("pdf-parse").then(m => m.default).catch(() => null);
-        if (pdfParse) {
-          // pdf-parse can't give us image, so we just note it's a PDF
-          // Fall through to send as jpeg (Groq will try its best)
-        }
-      } catch {}
-      mimeType = "image/jpeg"; // treat as image for Groq
+    // PDF not supported by Groq vision — skip pdf-parse, treat buffer as-is
+      if (true) {
+        mimeType = "image/jpeg";
+      }
     }
 
     // Normalize mime type for Groq (only jpeg/png/webp/gif supported)

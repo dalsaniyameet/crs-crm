@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { sendAdminEmail } from "@/lib/email";
 
 const CRON_SECRET = process.env.CRON_SECRET || "crs-daily-2024";
