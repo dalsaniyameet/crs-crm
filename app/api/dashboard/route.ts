@@ -14,11 +14,33 @@ export async function GET() {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = await getUser(userId);
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    let user = await getUser(userId);
 
-    const isBroker = user.role !== "ADMIN";
-    const isAdmin   = user.role === "ADMIN";
+    // If user not in DB, auto-create from Clerk
+    if (!user) {
+      try {
+        const { clerkClient } = await import("@clerk/nextjs/server");
+        const clerk = await clerkClient();
+        const clerkUser = await clerk.users.getUser(userId);
+        const email = clerkUser.emailAddresses?.[0]?.emailAddress || "";
+        const name  = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || "User";
+        const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+        const metaRole = (clerkUser.publicMetadata?.role as string) || "";
+        const role = adminEmails.includes(email.toLowerCase()) ? "ADMIN"
+          : metaRole ? metaRole : "BROKER";
+        user = await prisma.user.upsert({
+          where: { clerkId: userId },
+          update: { email, name, role },
+          create: { clerkId: userId, email, name, role, avatar: clerkUser.imageUrl },
+        });
+      } catch { return NextResponse.json({ error: "User not found" }, { status: 404 }); }
+    }
+
+    // Role check — also verify against ADMIN_EMAILS env
+    const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+    const isAdminByEmail = adminEmails.includes((user.email || "").toLowerCase());
+    const isAdmin  = user.role === "ADMIN" || user.role === "SALES_MANAGER" || isAdminByEmail;
+    const isBroker = !isAdmin;
 
     checkOverdueFollowUps().catch(() => {});
     checkUncontactedLeads().catch(() => {});
