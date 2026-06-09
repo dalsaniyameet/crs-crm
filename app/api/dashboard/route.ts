@@ -67,8 +67,9 @@ export async function GET() {
     const isBroker = !isAdmin;
     console.log("[Dashboard] email:", user.email || clerkEmail, "role:", effectiveRole, "isAdmin:", isAdmin);
 
-    checkOverdueFollowUps().catch(() => {});
-    checkUncontactedLeads().catch(() => {});
+    // Run background automations — non-blocking, never crash dashboard
+    try { checkOverdueFollowUps(); } catch {}
+    try { checkUncontactedLeads(); } catch {}
 
     // IST = UTC+5:30
     const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
