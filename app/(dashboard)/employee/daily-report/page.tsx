@@ -71,20 +71,6 @@ export default function EmployeeDailyReportPage() {
       setOwnersMap(map);
     }).catch(() => {});
   }, []);
-  // phone10 -> owner card info for auto-photo in call entries
-  const [ownersMap, setOwnersMap] = useState<Record<string, { name: string; cardImageUrl?: string }>>({});
-
-  useEffect(() => {
-    fetch("/api/owners").then(r => r.json()).then((data: any[]) => {
-      if (!Array.isArray(data)) return;
-      const map: Record<string, { name: string; cardImageUrl?: string }> = {};
-      data.forEach(o => {
-        const p = (o.phone || "").replace(/\D/g, "").slice(-10);
-        if (p) map[p] = { name: o.name, cardImageUrl: o.cardImageUrl };
-      });
-      setOwnersMap(map);
-    }).catch(() => {});
-  }, []);
 
   // Fetch employee profile from API using Clerk session
   useEffect(() => {
