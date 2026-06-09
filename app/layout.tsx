@@ -145,7 +145,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 "email": "info@cityrealspace.com",
                 "sameAs": [
                   "https://cityrealspace.com",
-                  "https://cityrealspacecrm.com"
+                  "https://cityrealspacecrm.com",
+                  "https://www.cityrealspace.com",
+                  "https://www.cityrealspacecrm.com"
                 ]
               },
               {
@@ -176,6 +178,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               }
             ]) }}
           />
+          {/* BreadcrumbList — helps Google understand site structure */}
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "City Real Space CRM",
+            "url": "https://cityrealspacecrm.com",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://cityrealspacecrm.com/?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "City Real Space",
+              "url": "https://cityrealspace.com",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://cityrealspacecrm.com/logo.jpeg",
+                "width": 512,
+                "height": 512
+              }
+            }
+          }) }} />
         </head>
         <body className="antialiased" suppressHydrationWarning>
           {/* DevTools / inspect protection */}
