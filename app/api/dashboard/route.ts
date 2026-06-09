@@ -194,7 +194,7 @@ export async function GET() {
           prisma.deal.count({ where: { brokerId: b.id, stage: "CLOSED" } }),
           prisma.siteVisit.count({ where: { brokerId: b.id, status: "COMPLETED" } }),
           prisma.callLog.count({ where: { userId: b.id, createdAt: { gte: weekStart } } }),
-          prisma.task.count({ where: { assignedToId: b.id, isCompleted: true, updatedAt: { gte: weekStart } } }),
+          prisma.task.count({ where: { assignedToId: b.id, isCompleted: true, completedAt: { gte: weekStart } } }),
         ]);
         const score = Math.min(100, Math.round(
           (leads * 2) + (deals * 20) + (visits * 5) + (calls * 1) + (tasks * 3)
