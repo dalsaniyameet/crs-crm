@@ -89,6 +89,12 @@ export async function GET(req: NextRequest) {
             take: 1,
             select: { title: true, dueAt: true, priority: true },
           },
+          activities: {
+            where: { type: "VISIT_REPORT" },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { metadata: true, createdAt: true, user: { select: { name: true } } },
+          },
         },
         orderBy: [{ score: "desc" }, { createdAt: "desc" }],
         skip:  (page - 1) * limit,
@@ -97,7 +103,19 @@ export async function GET(req: NextRequest) {
       prisma.lead.count({ where }),
     ]);
 
-    return NextResponse.json({ leads, total, page, pages: Math.ceil(total / limit) });
+    return NextResponse.json({ leads: leads.map((l: any) => ({
+      ...l,
+      latestVisitReport: l.activities?.[0]
+        ? {
+            clientInterest:  (l.activities[0].metadata as any)?.clientInterest || "WARM",
+            nextStep:        (l.activities[0].metadata as any)?.nextStep || "",
+            propertiesShown: ((l.activities[0].metadata as any)?.propertiesShown || []).length,
+            submittedBy:     l.activities[0].user?.name || "",
+            visitDate:       (l.activities[0].metadata as any)?.visitDate || l.activities[0].createdAt,
+          }
+        : null,
+      activities: undefined, // don't send raw activities in list
+    })), total, page, pages: Math.ceil(total / limit) });
   } catch (err: any) {
     console.error("Leads GET error:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });

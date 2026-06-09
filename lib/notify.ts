@@ -221,7 +221,7 @@ export async function notifyLeadAssignedToEmployee(data: {
     notifyIds,
     "LEAD_ASSIGNED",
     `Lead Assigned: ${data.leadName} → ${data.assignedToName}`,
-    `${data.leadName} (${data.leadPhone}) assigned to ${data.assignedToName}.${ownerInfo}`,
+    `${data.leadName} (${data.leadPhone}) assigned to you. Fill visit report at /employee/assigned-leads.${ownerInfo}`,
     { leadId: data.leadId }
   );
 

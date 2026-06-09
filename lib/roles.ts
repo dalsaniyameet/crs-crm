@@ -10,6 +10,7 @@ export type UserRole = "ADMIN" | "BROKER" | "SALES_MANAGER" | "MARKETING";
 const ALL_NAV = [
   { href: "/dashboard",       label: "Dashboard",        icon: LayoutDashboard, roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/employee",        label: "My Panel",          icon: Home,            roles: ["BROKER","SALES_MANAGER","MARKETING"] },
+  { href: "/employee/assigned-leads", label: "My Leads",   icon: ClipboardList,   roles: ["BROKER","SALES_MANAGER","MARKETING"], highlight: true },
   { href: "/employee/daily-report", label: "Daily Report",  icon: ClipboardList,   roles: ["BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/leads",           label: "Leads",             icon: Users,           roles: ["ADMIN","BROKER","SALES_MANAGER"], badge: "" },
   { href: "/properties",      label: "Properties",        icon: Building2,       roles: ["ADMIN","SALES_MANAGER","MARKETING"] },

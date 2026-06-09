@@ -6,7 +6,7 @@ import {
   Star, Zap, Eye, Download, Bot, RefreshCw, Loader2,
   X, Calendar, MapPin, TrendingUp, ChevronDown,
   PhoneCall, PhoneOff, PhoneMissed, PhoneIncoming,
-  Clock, CheckCircle2, AlertCircle, StickyNote, Mic, MicOff,
+  Clock, CheckCircle2, AlertCircle, StickyNote, Mic, MicOff, ClipboardList,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -34,6 +34,8 @@ interface Lead {
   createdAt: string;
   callLogs?: Array<{ outcome: string; createdAt: string; notes?: string; duration?: number }>;
   tasks?: Array<{ title: string; dueAt: string; priority: string }>;
+  _count?: { activities: number };
+  latestVisitReport?: { clientInterest: string; nextStep: string; propertiesShown: number; submittedBy: string; visitDate: string } | null;
 }
 
 const statusConfig: Record<LeadStatus, { label: string; color: string; bg: string }> = {
@@ -95,9 +97,11 @@ export default function LeadsPage() {
   const [updatingLead, setUpdatingLead] = useState(false);
   const [allDueTasks, setAllDueTasks]  = useState<any[]>([]);
 
-  const [detailTab, setDetailTab]      = useState<"overview"|"calls"|"followups"|"notes">("overview");
+  const [detailTab, setDetailTab]      = useState<"overview"|"calls"|"followups"|"notes"|"visitreports">("overview");
   const [callLogs, setCallLogs]         = useState<any[]>([]);
   const [callLogsLoading, setCallLogsLoading] = useState(false);
+  const [visitReports, setVisitReports] = useState<any[]>([]);
+  const [visitReportsLoading, setVisitReportsLoading] = useState(false);
   const [tasks, setTasks]                 = useState<any[]>([]);
   const [tasksLoading, setTasksLoading]   = useState(false);
   const [taskForm, setTaskForm]           = useState({ title: "", description: "", dueAt: "", priority: "MEDIUM" });
@@ -351,8 +355,17 @@ export default function LeadsPage() {
       loadCallLogs(detailLead.id);
       loadTasks(detailLead.id);
       setNoteText(detailLead.notes || "");
+      // Load visit reports for admin
+      if (isAdmin) {
+        setVisitReportsLoading(true);
+        fetch(`/api/leads/${detailLead.id}/visit-report`)
+          .then(r => r.json())
+          .then(d => setVisitReports(Array.isArray(d) ? d : []))
+          .catch(() => {})
+          .finally(() => setVisitReportsLoading(false));
+      }
     }
-  }, [detailLead?.id, loadCallLogs, loadTasks]);
+  }, [detailLead?.id, loadCallLogs, loadTasks, isAdmin]);
 
   // Cleanup timer
   useEffect(() => () => clearInterval(timerRef.current), []);
@@ -823,6 +836,45 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                 </div>
               )}
 
+              {/* Visit Report Badge on card */}
+              {lead.latestVisitReport && (
+                <div className="px-3 py-2 rounded-lg border flex items-center gap-2 flex-wrap"
+                  style={{
+                    background: "rgba(139,92,246,0.07)",
+                    border: "1px solid rgba(139,92,246,0.2)",
+                  }}>
+                  <ClipboardList className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-semibold text-purple-300">Visit Report</span>
+                      <span className={`text-xs font-bold ${
+                        lead.latestVisitReport.clientInterest === "HOT" ? "text-red-400" :
+                        lead.latestVisitReport.clientInterest === "WARM" ? "text-orange-400" : "text-blue-400"
+                      }`}>
+                        {lead.latestVisitReport.clientInterest === "HOT" ? "🔥" :
+                         lead.latestVisitReport.clientInterest === "WARM" ? "🌡️" : "❄️"}
+                        {lead.latestVisitReport.clientInterest}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {lead.latestVisitReport.propertiesShown} prop shown
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {lead.latestVisitReport.submittedBy} · {fmtDate(lead.latestVisitReport.visitDate)}
+                      {lead.latestVisitReport.nextStep && (
+                        <span className="ml-1 text-yellow-400">→ {lead.latestVisitReport.nextStep.replace(/_/g," ")}</span>
+                      )}
+                    </div>
+                  </div>
+                  {isAdmin && (
+                    <button onClick={e => { e.stopPropagation(); openDetail(lead.id); setDetailTab("visitreports"); }}
+                      className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 border border-purple-500/30 text-purple-300 flex-shrink-0">
+                      View
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Last call outcome */}
               {lead.callLogs && lead.callLogs.length > 0 && (() => {
                 const last = lead.callLogs[0];
@@ -1036,6 +1088,7 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                         { id: "calls", label: "Calls" },
                         { id: "followups", label: "Follow-ups" },
                         { id: "notes", label: "Notes" },
+                        ...(isAdmin ? [{ id: "visitreports", label: `Visit Reports${visitReports.length > 0 ? ` (${visitReports.length})` : ""}` }] : []),
                       ].map(tab => (
                         <button key={tab.id} onClick={() => setDetailTab(tab.id as any)}
                           className={`px-3 py-2 rounded-full text-xs font-medium transition-all ${detailTab === tab.id ? "bg-estate-500 text-white" : "bg-white/5 text-muted-foreground hover:bg-white/10"}`}>
@@ -1395,6 +1448,121 @@ We have genuine properties matching your requirement. Let's connect! 🤝
                             </div>
                           </form>
                         </div>
+                      </div>
+                    )}
+
+                    {detailTab === "visitreports" && isAdmin && (
+                      <div className="space-y-4">
+                        {visitReportsLoading ? (
+                          <div className="flex items-center justify-center py-12">
+                            <Loader2 className="w-6 h-6 text-estate-400 animate-spin" />
+                          </div>
+                        ) : visitReports.length === 0 ? (
+                          <div className="text-sm text-muted-foreground text-center py-10 flex flex-col items-center gap-2">
+                            <ClipboardList className="w-10 h-10 opacity-25" />
+                            <p>No visit reports submitted yet.</p>
+                            <p className="text-xs">Employee will fill this after visiting client.</p>
+                          </div>
+                        ) : (
+                          visitReports.map((r: any, i: number) => {
+                            const m = r.metadata || {};
+                            return (
+                              <div key={r.id} className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-white">Report #{visitReports.length - i}</span>
+                                    <span className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })}</span>
+                                    <span className="text-xs font-semibold text-blue-400">{r.user?.name}</span>
+                                  </div>
+                                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                                    m.clientInterest === "HOT" ? "bg-red-500/20 text-red-400" :
+                                    m.clientInterest === "WARM" ? "bg-orange-500/20 text-orange-400" :
+                                    "bg-blue-500/20 text-blue-400"
+                                  }`}>
+                                    {m.clientInterest === "HOT" ? "🔥 HOT" : m.clientInterest === "WARM" ? "🌡️ WARM" : "❄️ COLD"}
+                                  </span>
+                                </div>
+
+                                {m.propertiesShown?.length > 0 && (
+                                  <div className="space-y-2">
+                                    <p className="text-xs font-semibold text-yellow-400">🏠 Properties Shown ({m.propertiesShown.length})</p>
+                                    {m.propertiesShown.map((p: any, pi: number) => (
+                                      <div key={pi} className="p-2.5 rounded-lg bg-yellow-500/5 border border-yellow-500/15 space-y-1">
+                                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                                          <span className="text-xs font-semibold text-white">{p.propertyName || "—"}</span>
+                                          {p.price && <span className="text-xs text-yellow-400 font-semibold">{p.price}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+                                          {p.locality && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.locality}</span>}
+                                          {p.ownerName && <span>👤 {p.ownerName}</span>}
+                                          {p.ownerPhone && (
+                                            <a href={`tel:${p.ownerPhone}`} className="text-emerald-400">📞 {p.ownerPhone}</a>
+                                          )}
+                                          <span className={p.locationConfirmed ? "text-emerald-400" : "text-red-400"}>
+                                            {p.locationConfirmed ? "✅ Location OK" : "❌ Location not OK"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  {m.budgetConfirmed && (
+                                    <div className="p-2 rounded-lg bg-white/5">
+                                      <span className="text-muted-foreground">Budget Confirmed: </span>
+                                      <span className="text-white font-medium">₹{Number(m.budgetConfirmed).toLocaleString("en-IN")}</span>
+                                    </div>
+                                  )}
+                                  {m.nextStep && (
+                                    <div className="p-2 rounded-lg bg-white/5">
+                                      <span className="text-muted-foreground">Next Step: </span>
+                                      <span className="text-white font-medium">{m.nextStep.replace(/_/g, " ")}</span>
+                                    </div>
+                                  )}
+                                  {m.requirementConfirmed && (
+                                    <div className="p-2 rounded-lg bg-white/5 col-span-2">
+                                      <span className="text-muted-foreground">Requirement: </span>
+                                      <span className="text-white">{m.requirementConfirmed}</span>
+                                    </div>
+                                  )}
+                                  {m.locationNotes && (
+                                    <div className="p-2 rounded-lg bg-white/5 col-span-2">
+                                      <span className="text-muted-foreground">Location Notes: </span>
+                                      <span className="text-white">{m.locationNotes}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {m.clientFeedback && (
+                                  <div className="p-2.5 rounded-lg bg-purple-500/8 border border-purple-500/20 text-xs">
+                                    <span className="text-muted-foreground">Client Feedback: </span>
+                                    <span className="text-white">{m.clientFeedback}</span>
+                                  </div>
+                                )}
+                                {m.notes && (
+                                  <div className="p-2.5 rounded-lg bg-white/5 text-xs">
+                                    <span className="text-muted-foreground">Internal Notes: </span>
+                                    <span className="text-white">{m.notes}</span>
+                                  </div>
+                                )}
+                                {m.visitPhotoUrl && (
+                                  <div>
+                                    <p className="text-xs text-muted-foreground mb-1">📸 Visit Photo</p>
+                                    <a href={m.visitPhotoUrl} target="_blank" rel="noreferrer">
+                                      <img src={m.visitPhotoUrl} alt="visit" className="w-full max-h-48 object-cover rounded-lg border border-white/10" />
+                                    </a>
+                                  </div>
+                                )}
+                                {m.nextFollowUpDate && (
+                                  <div className="text-xs text-yellow-400 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" /> Next Follow-up: {new Date(m.nextFollowUpDate).toLocaleDateString("en-IN")}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     )}
 

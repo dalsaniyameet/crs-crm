@@ -171,14 +171,18 @@ export default function OwnersPage() {
     if (!assignOwnerId) return;
     setAssigning(true);
     try {
-      const res = await fetch("/api/owners", {
-        method: "POST",
+      const res = await fetch(`/api/owners/${assignOwnerId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ _action: "assign", ownerId: assignOwnerId, employeeId: assigningTo || null }),
+        body: JSON.stringify({ assignedToId: assigningTo || null }),
       });
       if (!res.ok) throw new Error();
-      setOwners(prev => prev.map(o => o.id === assignOwnerId ? { ...o, assignedToId: assigningTo || null } : o));
-      toast.success(assigningTo ? "Owner assigned to employee!" : "Assignment removed");
+      const emp = employees.find(e => e.id === assigningTo);
+      setOwners(prev => prev.map(o => o.id === assignOwnerId
+        ? { ...o, assignedToId: assigningTo || undefined, assignedTo: emp ? { id: emp.id, name: emp.name } : undefined }
+        : o
+      ));
+      toast.success(assigningTo ? `Owner assigned to ${emp?.name || "employee"}!` : "Assignment removed");
       setShowAssign(false);
     } catch { toast.error("Failed to assign"); }
     setAssigning(false);
