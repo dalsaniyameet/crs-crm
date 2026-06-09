@@ -42,10 +42,23 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     if (!userId || !(await isAdmin(userId)))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const emp = await prisma.employeeProfile.findUnique({
+    // Try EmployeeProfile ID first, then fallback to User ID (for dashboard links)
+    let emp = await prisma.employeeProfile.findUnique({
       where: { id: params.id },
       include: { leaves: { orderBy: { createdAt: "desc" } } },
     });
+
+    // If not found by EmployeeProfile ID, try finding via User record (User.id)
+    if (!emp) {
+      const userById = await prisma.user.findUnique({ where: { id: params.id }, select: { email: true } });
+      if (userById) {
+        emp = await prisma.employeeProfile.findFirst({
+          where: { email: userById.email },
+          include: { leaves: { orderBy: { createdAt: "desc" } } },
+        });
+      }
+    }
+
     if (!emp) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
     // Attendance via GuestAttendance model (email as phone field)
