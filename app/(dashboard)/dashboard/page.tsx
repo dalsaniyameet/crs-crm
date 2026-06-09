@@ -13,7 +13,10 @@ import {
   Clock, LogIn, LogOut, Loader2,
 } from "lucide-react";
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+const fetcher = (url: string) => fetch(url).then(r => {
+  if (!r.ok) throw new Error(`API error ${r.status}`);
+  return r.json();
+});
 
 const SOURCE_COLORS: Record<string, string> = {
   WHATSAPP:        "#25d366",
@@ -106,11 +109,12 @@ export default function DashboardPage() {
     setSplashDone(true);
   }, []);
 
-  const { data, isLoading } = useSWR("/api/dashboard", fetcher, {
+  const { data, isLoading, error: swrError } = useSWR("/api/dashboard", fetcher, {
     revalidateOnFocus: true,
     dedupingInterval: 0,
     revalidateOnReconnect: true,
     refreshInterval: 60000,
+    onError: (err) => console.error("[Dashboard SWR Error]", err),
   });
 
   // ── Attendance state ──
@@ -156,22 +160,23 @@ export default function DashboardPage() {
     setPunching(false);
   };
 
-  // Never use isBroker from API as fallback — show admin view by default
-  // Only use broker view if API explicitly confirms isBroker=true AND user role is BROKER
-  const isBroker      = data?.isBroker === true && (data?.userRole === "BROKER" || userRole === "BROKER");
-  const overview      = data?.overview ?? {};
-  const overdueCount  = data?.overdueCount ?? 0;
-  const leadSourceStats = data?.leadSourceStats ?? [];
-  const employeeScores  = data?.employeeScores ?? [];
-  const sourceData  = (data?.leadsBySource ?? []).map((s: { source: string; _count: { id: number } }) => ({
+  // Only broker view if API explicitly says so AND Clerk confirms BROKER role
+  const isBroker = data?.isBroker === true && (data?.userRole === "BROKER" || userRole === "BROKER");
+  // If API returned an error object instead of real data, treat as no data
+  const hasValidData = data && !data.error && data.overview !== undefined;
+  const overview      = hasValidData ? (data?.overview ?? {}) : {};
+  const overdueCount  = hasValidData ? (data?.overdueCount ?? 0) : 0;
+  const leadSourceStats = hasValidData ? (data?.leadSourceStats ?? []) : [];
+  const employeeScores  = hasValidData ? (data?.employeeScores ?? []) : [];
+  const sourceData  = (hasValidData ? (data?.leadsBySource ?? []) : []).map((s: { source: string; _count: { id: number } }) => ({
     name:  SOURCE_LABEL[s.source] ?? s.source.replace(/_/g, " "),
     value: s._count.id,
     color: SOURCE_COLORS[s.source] ?? "#94a3b8",
   }));
-  const hotLeads      = data?.recentLeads ?? [];
-  const todayVisits   = data?.todayVisits ?? [];
-  const todayFollowUps = data?.todayFollowUps ?? [];
-  const brokerPerf  = (data?.brokerPerformance ?? []).map((b: { name: string; leads: number; deals: number; commission: number }) => ({
+  const hotLeads      = hasValidData ? (data?.recentLeads ?? []) : [];
+  const todayVisits   = hasValidData ? (data?.todayVisits ?? []) : [];
+  const todayFollowUps = hasValidData ? (data?.todayFollowUps ?? []) : [];
+  const brokerPerf  = (hasValidData ? (data?.brokerPerformance ?? []) : []).map((b: { name: string; leads: number; deals: number; commission: number }) => ({
     ...b,
     revenue: fmtMoney(b.commission || 0),
     pct: Math.min(100, Math.round((b.deals / 12) * 100)),
@@ -235,6 +240,21 @@ export default function DashboardPage() {
           <Zap className="w-3 h-3" /> AI Active
         </div>
       </div>
+
+      {/* API Error Banner — debug */}
+      {!isLoading && (swrError || (data?.error)) && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+          style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)" }}>
+          <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+          <p className="text-sm text-red-400 font-medium">
+            Dashboard load error: {swrError?.message || data?.error || "Unknown error"}
+          </p>
+          <button onClick={() => window.location.reload()}
+            className="ml-auto text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30">
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* 🔴 Overdue Follow-up Banner */}
       {overdueCount > 0 && (
