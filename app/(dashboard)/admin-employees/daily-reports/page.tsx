@@ -146,6 +146,22 @@ export default function AdminDailyReportsPage() {
                     <span className="text-xs text-gold-400">⭐ {r.newLeads} leads</span>
                     {r.dealsClosed > 0 && <span className="text-xs text-emerald-400 font-semibold">✅ {r.dealsClosed} closed{r.dealValue > 0 ? ` · ₹${(r.dealValue/100000).toFixed(1)}L` : ""}</span>}
                     <span className="text-xs text-purple-400">🔄 {r.followUpsDone} F/U done</span>
+                    {/* Proof badge */}
+                    {(() => {
+                      const entries    = Array.isArray(r.callEntries) ? r.callEntries.filter((c: any) => c.name || c.phone) : [];
+                      const withProof  = entries.filter((c: any) => c.proofImageUrl).length;
+                      const hasExcel   = !!r.excelFileUrl;
+                      if (entries.length === 0 && !hasExcel) return null;
+                      const allProof   = withProof === entries.length && entries.length > 0;
+                      return (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          allProof || hasExcel ? "bg-emerald-500/15 text-emerald-400" : "bg-yellow-500/15 text-yellow-400"
+                        }`}>
+                          {hasExcel ? "📊 Sheet" : ""}
+                          {entries.length > 0 ? ` 📸 ${withProof}/${entries.length}` : ""}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <button onClick={() => setExpanded(expanded === r.id ? null : r.id)}
@@ -186,12 +202,24 @@ export default function AdminDailyReportsPage() {
                       {/* Call Entries Detail */}
                       {Array.isArray(r.callEntries) && r.callEntries.length > 0 && (
                         <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/15 space-y-2">
-                          <p className="text-xs font-semibold text-blue-400 mb-2">
-                            📞 Call Details ({r.callEntries.length})
-                            {r.callEntries.filter((c: any) => c.proofImageUrl).length > 0 && (
-                              <span className="ml-2 text-yellow-400">📸 {r.callEntries.filter((c: any) => c.proofImageUrl).length} proofs</span>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <p className="text-xs font-semibold text-blue-400">
+                              📞 Call Details ({r.callEntries.length})
+                              {r.callEntries.filter((c: any) => c.proofImageUrl).length > 0 && (
+                                <span className="ml-2 text-yellow-400">📸 {r.callEntries.filter((c: any) => c.proofImageUrl).length} proofs</span>
+                              )}
+                              {r.callEntries.filter((c: any) => !c.proofImageUrl && (c.name || c.phone)).length > 0 && (
+                                <span className="ml-2 text-red-400">⚠️ {r.callEntries.filter((c: any) => !c.proofImageUrl && (c.name || c.phone)).length} no proof</span>
+                              )}
+                            </p>
+                            {/* Excel sheet download */}
+                            {r.excelFileUrl && (
+                              <a href={r.excelFileUrl} target="_blank" rel="noreferrer"
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-medium hover:bg-emerald-500/25 transition-all">
+                                📊 {r.excelFileName || "Call Sheet"} ↓ Download
+                              </a>
                             )}
-                          </p>
+                          </div>
                           {r.callEntries.map((c: any, i: number) => (
                             <div key={i} className={`p-2.5 rounded-lg border space-y-1.5 ${
                               c.proofImageUrl ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5 border-white/10"

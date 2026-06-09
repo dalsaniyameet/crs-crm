@@ -57,6 +57,9 @@ export default function EmployeeDailyReportPage() {
   const [todayVisits, setTodayVisits]   = useState<any[]>([]);
   const [callEntries, setCallEntries]   = useState<CallEntry[]>([newCall()]);
   const [uploadingProof, setUploadingProof] = useState<Record<string, boolean>>({});
+  const [excelFile, setExcelFile]       = useState<{ name: string; url: string } | null>(null);
+  const [uploadingExcel, setUploadingExcel] = useState(false);
+  const excelRef = useRef<HTMLInputElement | null>(null);
   const proofRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [ownersMap, setOwnersMap] = useState<Record<string, { name: string; cardImageUrl?: string }>>({});
 
@@ -164,6 +167,9 @@ export default function EmployeeDailyReportPage() {
           setCallEntries(r.callEntries.map((c: any) => ({ ...c, id: c.id || Date.now().toString() + Math.random() })));
         else
           setCallEntries([newCall()]);
+        // Restore excel attachment if saved
+        if (r.excelFileUrl) setExcelFile({ name: r.excelFileName || "call-sheet.xlsx", url: r.excelFileUrl });
+        else setExcelFile(null);
         setSubmitted(true);
       } else {
         setForm(EMPTY);
@@ -195,6 +201,21 @@ export default function EmployeeDailyReportPage() {
     setUploadingProof(p => ({ ...p, [callId]: false }));
   }
 
+  async function uploadExcelFile(file: File) {
+    setUploadingExcel(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "call-sheets");
+      const res  = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!data.url) throw new Error("Upload failed");
+      setExcelFile({ name: file.name, url: data.url });
+      toast.success("Call sheet uploaded! ✅");
+    } catch { toast.error("Excel upload failed"); }
+    setUploadingExcel(false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!employeeId) { toast.error("Login required"); return; }
@@ -221,6 +242,8 @@ export default function EmployeeDailyReportPage() {
           challenges: form.challenges || null,
           tomorrowPlan: form.tomorrowPlan || null,
           callEntries: callEntries.filter(c => c.name || c.phone),
+          excelFileUrl: excelFile?.url || null,
+          excelFileName: excelFile?.name || null,
         }),
       });
       const data = await res.json();
@@ -344,6 +367,66 @@ export default function EmployeeDailyReportPage() {
                 className="text-xs px-2 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition-all">
                 + Add Call
               </button>
+            </div>
+
+            {/* Proof validation banner */}
+            {(() => {
+              const validCalls  = callEntries.filter(c => c.name || c.phone);
+              const withProof   = validCalls.filter(c => c.proofImageUrl);
+              const missing     = validCalls.length - withProof.length;
+              const totalCnt    = parseInt(form.totalCalls) || validCalls.length;
+              if (validCalls.length === 0) return null;
+              return (
+                <div className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium border ${
+                  missing === 0
+                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                    : "bg-yellow-500/10 border-yellow-500/25 text-yellow-400"
+                }`}>
+                  <span>
+                    {missing === 0
+                      ? `✅ Sabhi ${withProof.length} calls ka proof attached`
+                      : `⚠️ ${withProof.length}/${validCalls.length} calls ka proof hai — ${missing} missing`}
+                  </span>
+                  {missing > 0 && (
+                    <span className="text-xs text-yellow-300/70">Proof lagao ya Excel sheet upload karo ↓</span>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Excel sheet upload */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                📊 <span className="text-white font-medium">Call List Excel Sheet</span>
+                <span className="text-muted-foreground">(optional — sabhi calls ek saath proof ke liye)</span>
+              </label>
+              {excelFile ? (
+                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-emerald-500/8 border border-emerald-500/25">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0 text-lg">
+                    📊
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-emerald-400 truncate">{excelFile.name}</p>
+                    <a href={excelFile.url} target="_blank" rel="noreferrer"
+                      className="text-xs text-blue-400 hover:text-blue-300">🔗 View / Download</a>
+                  </div>
+                  <button type="button" onClick={() => setExcelFile(null)}
+                    className="text-red-400 hover:text-red-300 flex-shrink-0">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => excelRef.current?.click()}
+                  disabled={uploadingExcel}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-dashed border-white/20 text-xs text-muted-foreground hover:text-white hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all disabled:opacity-50">
+                  {uploadingExcel
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...</>
+                    : <>📊 Upload Excel / CSV call sheet (proof ke liye)</>
+                  }
+                </button>
+              )}
+              <input ref={excelRef} type="file" accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadExcelFile(f); e.target.value = ""; }} />
             </div>
 
             {/* Call count summary — auto-synced */}

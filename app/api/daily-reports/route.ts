@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       followUpsDone, followUpsPending,
       highlights, challenges, tomorrowPlan,
       callEntries,
+      excelFileUrl, excelFileName,
     } = body;
 
     if (!employeeId || !date) return NextResponse.json({ error: "employeeId and date required" }, { status: 400 });
@@ -62,6 +63,8 @@ export async function POST(req: NextRequest) {
         followUpsDone: followUpsDone || 0, followUpsPending: followUpsPending || 0,
         highlights: highlights || null, challenges: challenges || null, tomorrowPlan: tomorrowPlan || null,
         callEntries: callEntries || [],
+        excelFileUrl: excelFileUrl || null,
+        excelFileName: excelFileName || null,
         status: "SUBMITTED",
       },
       create: {
@@ -73,6 +76,8 @@ export async function POST(req: NextRequest) {
         followUpsDone: followUpsDone || 0, followUpsPending: followUpsPending || 0,
         highlights: highlights || null, challenges: challenges || null, tomorrowPlan: tomorrowPlan || null,
         callEntries: callEntries || [],
+        excelFileUrl: excelFileUrl || null,
+        excelFileName: excelFileName || null,
         status: "SUBMITTED",
       },
       include: { employee: { select: { name: true } } },

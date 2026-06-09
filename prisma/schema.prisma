@@ -893,7 +893,10 @@ model DailyReport {
   followUpsDone     Int             @default(0)
   followUpsPending  Int             @default(0)
   // Call Details (JSON array of call entries)
-  callEntries       Json?   // [{name, phone, outcome, notes, location}]
+  callEntries       Json?   // [{name, phone, outcome, notes, location, proofImageUrl}]
+  // Excel proof sheet
+  excelFileUrl      String? // uploaded call sheet (Excel/CSV/PDF)
+  excelFileName     String?
   // General
   highlights        String? // key achievements of the day
   challenges        String? // problems faced
