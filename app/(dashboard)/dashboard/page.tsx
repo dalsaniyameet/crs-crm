@@ -108,8 +108,9 @@ export default function DashboardPage() {
 
   const { data, isLoading } = useSWR("/api/dashboard", fetcher, {
     revalidateOnFocus: true,
-    dedupingInterval: 30000,
+    dedupingInterval: 0,
     revalidateOnReconnect: true,
+    refreshInterval: 60000,
   });
 
   // ── Attendance state ──

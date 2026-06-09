@@ -208,7 +208,7 @@ export async function GET() {
       todayVisits,
       todayFollowUps,
     }, {
-      headers: { "Cache-Control": "private, max-age=60" },
+      headers: { "Cache-Control": "no-store" },
     });
   } catch (err: unknown) {
     console.error("Dashboard API Error:", err);
