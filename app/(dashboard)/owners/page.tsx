@@ -129,109 +129,6 @@ function LogReply({ ownerId, onSaved }: { ownerId: string; onSaved: (msg: OwnerM
           {saving ? "Saving..." : "Save Reply"}
         </button>
       </div>
-      {/* 🏙️ Property Photos Gallery Modal */}
-      <AnimatePresence>
-        {viewPhotosOwner && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
-            onClick={e => e.target === e.currentTarget && setViewPhotosOwner(null)}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
-              className="glass-card w-full max-w-2xl p-5 max-h-[90vh] flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-bold text-white">{viewPhotosOwner.name} — Property Photos</h3>
-                  <p className="text-xs text-muted-foreground">{viewPhotosOwner.photos?.length || 0} photo(s){viewPhotosOwner.locality ? ` · ${viewPhotosOwner.locality}` : ""}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => propPhotoRefs.current[viewPhotosOwner.id]?.click()}
-                    disabled={uploadingPhotos === viewPhotosOwner.id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-medium hover:bg-violet-500/30 transition-all disabled:opacity-50">
-                    {uploadingPhotos === viewPhotosOwner.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                    Add More
-                  </button>
-                  <button onClick={() => setViewPhotosOwner(null)} className="text-muted-foreground hover:text-white">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {viewPhotosOwner.photosReady && (
-                <div className="mb-3 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium w-fit">
-                  ✅ Owner ne photos de diye — Ready!
-                </div>
-              )}
-
-              {/* Property details */}
-              {(() => {
-                const pd = parseOwnerNotes(viewPhotosOwner.notes);
-                if (!pd) return null;
-                return (
-                  <div className="mb-3 flex flex-wrap gap-2 text-xs">
-                    {pd.propertyType && <span className="px-2 py-0.5 rounded-full bg-gold-500/10 border border-gold-500/20 text-gold-400">{TYPE_ICON[pd.propertyType] || ""} {pd.propertyType}</span>}
-                    {pd.transactionType && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{pd.transactionType}</span>}
-                    {pd.price && <span className="px-2 py-0.5 rounded-full bg-gold-500/10 border border-gold-500/20 text-gold-400 font-semibold">{fmtPrice(Number(pd.price), String(pd.transactionType || ""))}</span>}
-                    {pd.area && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white">{pd.area} sqft</span>}
-                    {pd.floor && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">Floor {pd.floor}</span>}
-                    {pd.furnishing && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{String(pd.furnishing).replace(/_/g, " ")}</span>}
-                    {viewPhotosOwner.locality && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">📍 {viewPhotosOwner.locality}</span>}
-                  </div>
-                );
-              })()}
-
-              <div className="flex-1 overflow-y-auto">
-                {(!viewPhotosOwner.photos || viewPhotosOwner.photos.length === 0) ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Camera className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">No photos yet</p>
-                    <button onClick={() => propPhotoRefs.current[viewPhotosOwner.id]?.click()}
-                      className="mt-3 text-xs text-violet-400 hover:text-violet-300">Upload photos →</button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {viewPhotosOwner.photos.map((url, i) => (
-                      <div key={url} className="relative group aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10">
-                        <Image src={url} alt={`photo-${i + 1}`} fill className="object-cover" />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                          <a href={url} target="_blank" rel="noreferrer"
-                            className="p-2 rounded-full bg-white/20 text-white hover:bg-white/40 transition-all">
-                            <ArrowRight className="w-4 h-4" />
-                          </a>
-                          <button onClick={() => removeOwnerPhoto(viewPhotosOwner.id, url)}
-                            className="p-2 rounded-full bg-red-500/60 text-white hover:bg-red-500/80 transition-all">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <div className="absolute bottom-1 left-1 text-xs bg-black/60 text-white px-1.5 py-0.5 rounded">{i + 1}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 mt-4 pt-4 border-t border-white/10">
-                <button
-                  onClick={() => {
-                    markPhotosReady(viewPhotosOwner.id, !viewPhotosOwner.photosReady);
-                    setViewPhotosOwner(prev => prev ? { ...prev, photosReady: !prev.photosReady } : null);
-                  }}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                    viewPhotosOwner.photosReady
-                      ? "bg-emerald-500/25 border border-emerald-500/40 text-emerald-300"
-                      : "bg-white/5 border border-white/15 text-muted-foreground hover:text-white"
-                  }`}>
-                  <CheckCircle2 className="w-4 h-4" />
-                  {viewPhotosOwner.photosReady ? "✅ Photos Ready (Undo)" : "Mark Photos Ready"}
-                </button>
-                <button onClick={() => setViewPhotosOwner(null)}
-                  className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white transition-all">
-                  Close
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
     </div>
   );
 }
@@ -298,6 +195,7 @@ export default function OwnersPage() {
   const [storeItems, setStoreItems]       = useState<StoreItem[]>([]);
   const [storeLoading, setStoreLoading]   = useState(false);
   const [showAddStore, setShowAddStore]   = useState(false);
+  const [editStoreItem, setEditStoreItem] = useState<StoreItem | null>(null);
   const [savingStore, setSavingStore]     = useState(false);
   const [storeSearch, setStoreSearch]     = useState("");
   const [storeFilterType, setStoreFilterType]   = useState("ALL");
@@ -338,17 +236,31 @@ export default function OwnersPage() {
     if (!storeForm.ownerId || !storeForm.title) { toast.error("Owner aur Title required hai"); return; }
     setSavingStore(true);
     try {
-      const res  = await fetch("/api/owners/store", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...storeForm, price: storeForm.price ? Number(storeForm.price) : null, area: storeForm.area ? Number(storeForm.area) : null }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setStoreItems(prev => [data, ...prev]);
+      let data;
+      if (editStoreItem) {
+        const res = await fetch(`/api/owners/store?id=${editStoreItem.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...storeForm, price: storeForm.price ? Number(storeForm.price) : null, area: storeForm.area ? Number(storeForm.area) : null }),
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setStoreItems(prev => prev.map(s => s.id === editStoreItem.id ? data : s));
+        toast.success("Property updated! ✅");
+      } else {
+        const res = await fetch("/api/owners/store", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...storeForm, price: storeForm.price ? Number(storeForm.price) : null, area: storeForm.area ? Number(storeForm.area) : null }),
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setStoreItems(prev => [data, ...prev]);
+        toast.success("Property added to store! ✅");
+      }
       setShowAddStore(false);
+      setEditStoreItem(null);
       setStoreForm(STORE_EMPTY);
-      toast.success("Property added to store! ✅");
     } catch (err: unknown) { toast.error((err as Error).message || "Failed"); }
     setSavingStore(false);
   }
@@ -1909,7 +1821,7 @@ export default function OwnersPage() {
               <h1 className="text-2xl font-bold text-white">Property Store 🏢</h1>
               <p className="text-sm text-muted-foreground mt-1">{filteredStore.length}/{storeItems.length} properties · Date wise sorted</p>
             </div>
-            <button onClick={() => { setStoreForm(STORE_EMPTY); setShowAddStore(true); }}
+            <button onClick={() => { setStoreForm(STORE_EMPTY); setEditStoreItem(null); setShowAddStore(true); }}
               className="btn-primary flex items-center gap-2 text-sm">
               <Plus className="w-4 h-4" /> Add Property
             </button>
@@ -2000,10 +1912,27 @@ export default function OwnersPage() {
                         <p className="font-semibold text-white text-sm truncate">{item.title}</p>
                         {item.locality && <p className="text-xs text-muted-foreground">📍 {item.locality}</p>}
                       </div>
-                      <button onClick={() => deleteStoreItem(item.id)}
-                        className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 flex-shrink-0">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button onClick={() => {
+                          setEditStoreItem(item);
+                          setStoreForm({
+                            ownerId: item.ownerId, title: item.title,
+                            propertyType: item.propertyType || "", transactionType: item.transactionType || "",
+                            price: item.price ? String(item.price) : "", area: item.area ? String(item.area) : "",
+                            floor: item.floor || "", locality: item.locality || "", address: item.address || "",
+                            furnishing: item.furnishing || "", status: item.status || "AVAILABLE",
+                            imageUrl: item.imageUrl || "", notes: item.notes || "",
+                            listedAt: item.listedAt ? item.listedAt.split("T")[0] : new Date().toISOString().split("T")[0],
+                          });
+                          setShowAddStore(true);
+                        }} className="p-1 rounded hover:bg-blue-500/10 text-muted-foreground hover:text-blue-400">
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => deleteStoreItem(item.id)}
+                          className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Tags */}
@@ -2081,8 +2010,8 @@ export default function OwnersPage() {
                 <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
                   className="glass-card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
                   <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-lg font-bold text-white">🏢 Add to Property Store</h2>
-                    <button onClick={() => setShowAddStore(false)} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
+                    <h2 className="text-lg font-bold text-white">{editStoreItem ? "✏️ Edit Property" : "🏢 Add to Property Store"}</h2>
+                    <button onClick={() => { setShowAddStore(false); setEditStoreItem(null); setStoreForm(STORE_EMPTY); }} className="text-muted-foreground hover:text-white"><X className="w-5 h-5" /></button>
                   </div>
                   <form onSubmit={handleSaveStore} className="space-y-3">
                     {/* Owner select */}
@@ -2216,12 +2145,12 @@ export default function OwnersPage() {
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500/50 resize-none" />
                     </div>
                     <div className="flex gap-3 pt-2">
-                      <button type="button" onClick={() => setShowAddStore(false)}
+                      <button type="button" onClick={() => { setShowAddStore(false); setEditStoreItem(null); setStoreForm(STORE_EMPTY); }}
                         className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white">Cancel</button>
                       <button type="submit" disabled={savingStore}
                         className="flex-1 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-medium hover:bg-emerald-500/30 disabled:opacity-60 flex items-center justify-center gap-2">
                         {savingStore ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                        {savingStore ? "Saving..." : "Save Property"}
+                        {savingStore ? "Saving..." : editStoreItem ? "Update Property" : "Save Property"}
                       </button>
                     </div>
                   </form>
