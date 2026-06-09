@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -129,6 +129,109 @@ function LogReply({ ownerId, onSaved }: { ownerId: string; onSaved: (msg: OwnerM
           {saving ? "Saving..." : "Save Reply"}
         </button>
       </div>
+      {/* 🏙️ Property Photos Gallery Modal */}
+      <AnimatePresence>
+        {viewPhotosOwner && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setViewPhotosOwner(null)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="glass-card w-full max-w-2xl p-5 max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-bold text-white">{viewPhotosOwner.name} — Property Photos</h3>
+                  <p className="text-xs text-muted-foreground">{viewPhotosOwner.photos?.length || 0} photo(s){viewPhotosOwner.locality ? ` · ${viewPhotosOwner.locality}` : ""}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => propPhotoRefs.current[viewPhotosOwner.id]?.click()}
+                    disabled={uploadingPhotos === viewPhotosOwner.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-medium hover:bg-violet-500/30 transition-all disabled:opacity-50">
+                    {uploadingPhotos === viewPhotosOwner.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    Add More
+                  </button>
+                  <button onClick={() => setViewPhotosOwner(null)} className="text-muted-foreground hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {viewPhotosOwner.photosReady && (
+                <div className="mb-3 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium w-fit">
+                  ✅ Owner ne photos de diye — Ready!
+                </div>
+              )}
+
+              {/* Property details */}
+              {(() => {
+                const pd = parseOwnerNotes(viewPhotosOwner.notes);
+                if (!pd) return null;
+                return (
+                  <div className="mb-3 flex flex-wrap gap-2 text-xs">
+                    {pd.propertyType && <span className="px-2 py-0.5 rounded-full bg-gold-500/10 border border-gold-500/20 text-gold-400">{TYPE_ICON[pd.propertyType] || ""} {pd.propertyType}</span>}
+                    {pd.transactionType && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{pd.transactionType}</span>}
+                    {pd.price && <span className="px-2 py-0.5 rounded-full bg-gold-500/10 border border-gold-500/20 text-gold-400 font-semibold">{fmtPrice(Number(pd.price), String(pd.transactionType || ""))}</span>}
+                    {pd.area && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white">{pd.area} sqft</span>}
+                    {pd.floor && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">Floor {pd.floor}</span>}
+                    {pd.furnishing && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">{String(pd.furnishing).replace(/_/g, " ")}</span>}
+                    {viewPhotosOwner.locality && <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-muted-foreground">📍 {viewPhotosOwner.locality}</span>}
+                  </div>
+                );
+              })()}
+
+              <div className="flex-1 overflow-y-auto">
+                {(!viewPhotosOwner.photos || viewPhotosOwner.photos.length === 0) ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Camera className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No photos yet</p>
+                    <button onClick={() => propPhotoRefs.current[viewPhotosOwner.id]?.click()}
+                      className="mt-3 text-xs text-violet-400 hover:text-violet-300">Upload photos →</button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {viewPhotosOwner.photos.map((url, i) => (
+                      <div key={url} className="relative group aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10">
+                        <Image src={url} alt={`photo-${i + 1}`} fill className="object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                          <a href={url} target="_blank" rel="noreferrer"
+                            className="p-2 rounded-full bg-white/20 text-white hover:bg-white/40 transition-all">
+                            <ArrowRight className="w-4 h-4" />
+                          </a>
+                          <button onClick={() => removeOwnerPhoto(viewPhotosOwner.id, url)}
+                            className="p-2 rounded-full bg-red-500/60 text-white hover:bg-red-500/80 transition-all">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="absolute bottom-1 left-1 text-xs bg-black/60 text-white px-1.5 py-0.5 rounded">{i + 1}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 mt-4 pt-4 border-t border-white/10">
+                <button
+                  onClick={() => {
+                    markPhotosReady(viewPhotosOwner.id, !viewPhotosOwner.photosReady);
+                    setViewPhotosOwner(prev => prev ? { ...prev, photosReady: !prev.photosReady } : null);
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    viewPhotosOwner.photosReady
+                      ? "bg-emerald-500/25 border border-emerald-500/40 text-emerald-300"
+                      : "bg-white/5 border border-white/15 text-muted-foreground hover:text-white"
+                  }`}>
+                  <CheckCircle2 className="w-4 h-4" />
+                  {viewPhotosOwner.photosReady ? "✅ Photos Ready (Undo)" : "Mark Photos Ready"}
+                </button>
+                <button onClick={() => setViewPhotosOwner(null)}
+                  className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white transition-all">
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
@@ -526,58 +629,6 @@ export default function OwnersPage() {
       const data = await res.json();
       const urls: string[] = data.urls ? data.urls.map((u: any) => u.url) : [data.url].filter(Boolean);
       if (!urls.length) throw new Error("Upload failed");
-      await fetch(`/api/owners/${ownerId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ _addPhotos: urls }),
-      });
-      setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, photos: [...(o.photos || []), ...urls] } : o));
-      toast.success(`📸 ${urls.length} photo(s) uploaded!`);
-    } catch { toast.error("Upload failed"); }
-    setUploadingPhotos(null);
-  }
-
-  async function markPhotosReady(ownerId: string, ready: boolean) {
-    await fetch(`/api/owners/${ownerId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photosReady: ready }),
-    });
-    setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, photosReady: ready } : o));
-    toast.success(ready ? "✅ Photos ready marked!" : "Photos ready removed");
-  }
-
-  async function removeOwnerPhoto(ownerId: string, photoUrl: string) {
-    const owner = owners.find(o => o.id === ownerId);
-    if (!owner) return;
-    const updated = owner.photos.filter(p => p !== photoUrl);
-    await fetch(`/api/owners/${ownerId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photos: updated }),
-    });
-    setOwners(prev => prev.map(o => o.id === ownerId ? { ...o, photos: updated } : o));
-    if (viewPhotosOwner?.id === ownerId) setViewPhotosOwner(prev => prev ? { ...prev, photos: updated } : null);
-    toast.success("Photo removed");
-  }
-  // ── Property Photos per owner ──
-  const [uploadingPhotos, setUploadingPhotos]   = useState<string | null>(null);
-  const [viewPhotosOwner, setViewPhotosOwner]   = useState<Owner | null>(null);
-  const propPhotoRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  async function uploadOwnerPropertyPhotos(ownerId: string, files: File[]) {
-    setUploadingPhotos(ownerId);
-    try {
-      const ownerName = owners.find(o => o.id === ownerId)?.name || ownerId;
-      const folder    = `owner-properties/${ownerName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`;
-      const fd = new FormData();
-      files.forEach(f => fd.append("file", f));
-      fd.append("folder", folder);
-      const res  = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      const urls: string[] = data.urls ? data.urls.map((u: any) => u.url) : [data.url].filter(Boolean);
-      if (!urls.length) throw new Error("Upload failed");
-      // Append to owner photos
       await fetch(`/api/owners/${ownerId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -2377,12 +2428,6 @@ export default function OwnersPage() {
                       {owner.name[0]?.toUpperCase()}
                     </div>
                   )}
-                  {/* 📸 Photo available sticker */}
-                  {owner.cardImageUrl && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center" title="Photo available">
-                      <span className="text-white text-xs leading-none">✓</span>
-                    </div>
-                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-white truncate">{owner.name}</div>
@@ -2585,7 +2630,7 @@ export default function OwnersPage() {
                   className="flex items-center justify-center gap-1 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-medium hover:bg-blue-500/30 transition-all">
                   <MessageCircle className="w-3.5 h-3.5" /> History
                 </button>
-                {/* 📸 Photo Upload button */}
+                {/* 📸 Visiting Card Upload button */}
                 <button
                   onClick={() => cardPhotoRefs.current[owner.id]?.click()}
                   disabled={uploadingCardPhoto === owner.id}
@@ -2597,13 +2642,51 @@ export default function OwnersPage() {
                   {uploadingCardPhoto === owner.id
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     : <Camera className="w-3.5 h-3.5" />}
-                  {uploadingCardPhoto === owner.id ? "Uploading..." : owner.cardImageUrl ? "📸 Update Photo" : "📸 Add Photo"}
+                  {uploadingCardPhoto === owner.id ? "Uploading..." : owner.cardImageUrl ? "📸 Card" : "📸 Card"}
                 </button>
                 <input
                   ref={el => { cardPhotoRefs.current[owner.id] = el; }}
                   type="file" accept="image/*" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) uploadOwnerCardPhoto(owner.id, f); e.target.value = ""; }}
                 />
+
+                {/* 🏙️ Property Photos Upload */}
+                <button
+                  onClick={() => propPhotoRefs.current[owner.id]?.click()}
+                  disabled={uploadingPhotos === owner.id}
+                  className="flex items-center justify-center gap-1 py-2 rounded-lg bg-violet-500/15 border border-violet-500/25 text-violet-400 text-xs font-medium hover:bg-violet-500/25 transition-all disabled:opacity-50">
+                  {uploadingPhotos === owner.id
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Upload className="w-3.5 h-3.5" />}
+                  {uploadingPhotos === owner.id ? "Uploading..." : `🏙️ Photos${owner.photos?.length ? ` (${owner.photos.length})` : ""}`}
+                </button>
+                <input
+                  ref={el => { propPhotoRefs.current[owner.id] = el; }}
+                  type="file" accept="image/*" multiple className="hidden"
+                  onChange={e => { const fs = Array.from(e.target.files || []); if (fs.length) uploadOwnerPropertyPhotos(owner.id, fs); e.target.value = ""; }}
+                />
+
+                {/* ✅ Photos Ready toggle */}
+                <button
+                  onClick={() => markPhotosReady(owner.id, !owner.photosReady)}
+                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                    owner.photosReady
+                      ? "bg-emerald-500/25 border border-emerald-500/40 text-emerald-300"
+                      : "bg-white/5 border border-white/15 text-muted-foreground hover:text-white"
+                  }`}>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {owner.photosReady ? "✅ Photos Ready" : "Photos Ready?"}
+                </button>
+
+                {/* View Photos */}
+                {(owner.photos?.length > 0) && (
+                  <button
+                    onClick={() => setViewPhotosOwner(owner)}
+                    className="col-span-2 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-xs font-medium hover:bg-indigo-500/25 transition-all">
+                    <Camera className="w-3.5 h-3.5" /> View {owner.photos.length} Property Photo{owner.photos.length > 1 ? "s" : ""}
+                  </button>
+                )}
+
                 <button onClick={() => addOwnerAsLead(owner)}
                   className="flex items-center justify-center gap-1 py-2 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 text-xs font-medium hover:bg-purple-500/30 transition-all">
                   <ArrowRight className="w-3.5 h-3.5" /> Lead
