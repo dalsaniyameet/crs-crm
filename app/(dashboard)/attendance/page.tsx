@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   QrCode, MapPin, Clock, Users, Printer, RefreshCw,
-  Coffee, LogIn, LogOut, Calendar, ChevronDown, ChevronUp, Gift, ScanFace,
+  Coffee, Calendar, ChevronDown, ChevronUp, ScanFace,
   PlusCircle, X, CheckCircle, XCircle, AlertCircle,
+  Download, BarChart2, Timer,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import FacePunch from "@/components/attendance/FacePunch";
@@ -105,6 +106,16 @@ export default function AttendancePage() {
   // Approve/Reject modal for history records
   const [approveModal, setApproveModal]   = useState<{ record: any; empId: string } | null>(null);
 
+  // Overtime pending approvals
+  const [otPending, setOtPending]   = useState<any[]>([]);
+  const [otActing, setOtActing]     = useState<string | null>(null);
+
+  // Monthly report
+  const [reportMonth, setReportMonth]   = useState(new Date().toISOString().slice(0, 7));
+  const [reportData, setReportData]     = useState<any[]>([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [showReport, setShowReport]     = useState(false);
+
   const fetchAll = useCallback(async () => {
     try {
       const [locRes, recRes, empRes] = await Promise.all([
@@ -116,6 +127,10 @@ export default function AttendancePage() {
       setLocations(Array.isArray(locs) ? locs : []);
       setRecords(Array.isArray(recs) ? recs : []);
       setEmployees(Array.isArray(emps) ? emps : []);
+
+      // Fetch pending OT approvals from today's records
+      const allRecs = Array.isArray(recs) ? recs : [];
+      setOtPending(allRecs.filter((r: any) => r.otStatus === "PENDING"));
     } catch { /* silent */ }
     setLoading(false);
   }, [selectedDate]);
@@ -129,6 +144,35 @@ export default function AttendancePage() {
       if (role !== "ADMIN") router.replace("/employee");
     }
   }, [isLoaded, user, router]);
+
+  // Handle overtime approve/deny from UI
+  const handleOT = async (id: string, action: "APPROVE" | "DENY") => {
+    setOtActing(id);
+    const res = await fetch("/api/attendance/overtime-punch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    if (res.ok) {
+      toast.success(action === "APPROVE" ? "Overtime approved ✅" : "Overtime denied");
+      fetchAll();
+    } else toast.error("Failed");
+    setOtActing(null);
+  };
+
+  // Fetch monthly report
+  const fetchReport = async () => {
+    setReportLoading(true);
+    const res = await fetch(`/api/attendance/report?month=${reportMonth}`);
+    const data = await res.json();
+    setReportData(Array.isArray(data) ? data : []);
+    setShowReport(true);
+    setReportLoading(false);
+  };
+
+  const exportCsv = () => {
+    window.open(`/api/attendance/report?month=${reportMonth}&export=csv`, "_blank");
+  };
 
   // Submit backdated attendance
   const handleBackdate = async () => {
@@ -334,6 +378,41 @@ export default function AttendancePage() {
 
       {/* Birthday Banner */}
       <BirthdayBanner employees={employees} />
+
+      {/* ── Overtime Pending Approvals ── */}
+      {otPending.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-4 border border-yellow-500/30">
+          <div className="flex items-center gap-2 mb-3">
+            <Timer className="w-4 h-4 text-yellow-400" />
+            <span className="text-sm font-semibold text-yellow-400">⏰ Overtime Punch Out — Pending Approval ({otPending.length})</span>
+          </div>
+          <div className="space-y-2">
+            {otPending.map((r: any) => {
+              const reqTime = r.otPunchOutAt ? new Date(r.otPunchOutAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—";
+              const inTime  = new Date(r.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+              return (
+                <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/15 flex-wrap">
+                  <div>
+                    <div className="text-sm font-medium text-white">{r.name}</div>
+                    <div className="text-xs text-muted-foreground">In: {inTime} · Wants to leave at: <span className="text-yellow-400 font-medium">{reqTime}</span></div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleOT(r.id, "APPROVE")} disabled={otActing === r.id}
+                      className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
+                      <CheckCircle className="w-3.5 h-3.5" /> Approve
+                    </button>
+                    <button onClick={() => handleOT(r.id, "DENY")} disabled={otActing === r.id}
+                      className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50">
+                      <XCircle className="w-3.5 h-3.5" /> Deny
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
 
       {/* Office Hours */}
       <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-estate-500/10 border border-estate-500/20">
@@ -566,6 +645,69 @@ export default function AttendancePage() {
           </div>
         )}
       </div>
+
+      {/* ── Monthly Report ── */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <BarChart2 className="w-5 h-5 text-estate-400" />
+          <h3 className="font-semibold text-white">Monthly Attendance Report</h3>
+          <div className="ml-auto flex items-center gap-2">
+            <input type="month" value={reportMonth} onChange={e => setReportMonth(e.target.value)}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-estate-400 [color-scheme:dark]" />
+            <button onClick={fetchReport} disabled={reportLoading}
+              className="px-3 py-1.5 rounded-lg bg-estate-500/20 text-estate-300 border border-estate-500/30 hover:bg-estate-500/30 text-sm transition-colors disabled:opacity-50">
+              {reportLoading ? "Loading..." : "Generate"}
+            </button>
+            <button onClick={exportCsv} title="Export CSV"
+              className="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 transition-colors">
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {showReport && reportData.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/10">
+                  {["Employee","Working Days","Present","Half Day","Absent","Leave","Late","Total Hours","Overtime"].map(h => (
+                    <th key={h} className="text-left py-2 px-2 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {reportData.map((r: any) => (
+                  <tr key={r.employeeId} className="hover:bg-white/3 transition-colors">
+                    <td className="py-2 px-2">
+                      <div className="text-white font-medium">{r.employeeName}</div>
+                      <div className="text-muted-foreground">{r.position}</div>
+                    </td>
+                    <td className="py-2 px-2 text-white">{r.workingDays}</td>
+                    <td className="py-2 px-2 text-emerald-400 font-medium">{r.presentDays}</td>
+                    <td className="py-2 px-2 text-yellow-400">{r.halfDays > 0 ? r.halfDays : "—"}</td>
+                    <td className="py-2 px-2">
+                      <span className={r.absentDays > 0 ? "text-red-400 font-medium" : "text-muted-foreground"}>{r.absentDays}</span>
+                    </td>
+                    <td className="py-2 px-2 text-blue-400">{r.leaveDays > 0 ? r.leaveDays : "—"}</td>
+                    <td className="py-2 px-2">
+                      <span className={r.lateDays > 0 ? "text-orange-400" : "text-muted-foreground"}>{r.lateDays > 0 ? r.lateDays : "—"}</span>
+                    </td>
+                    <td className="py-2 px-2 text-estate-400 font-medium">{r.totalHours}h</td>
+                    <td className="py-2 px-2">
+                      <span className={r.overtimeHours > 0 ? "text-purple-400 font-medium" : "text-muted-foreground"}>
+                        {r.overtimeHours > 0 ? `+${r.overtimeHours}h` : "—"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {showReport && reportData.length === 0 && (
+          <div className="text-center py-6 text-muted-foreground text-sm">No data for this month.</div>
+        )}
+      </motion.div>
 
       {/* ── QR Code ── */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5">

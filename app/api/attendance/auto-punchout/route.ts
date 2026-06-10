@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   today.setHours(0, 0, 0, 0);
 
   const stillIn = await prisma.guestAttendance.findMany({
-    where: { punchOut: null, punchIn: { gte: today } },
+    where: { punchOut: null, otStatus: null, punchIn: { gte: today } },
   });
 
   if (stillIn.length === 0) {
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     const breakMs   = BREAK_MINUTES * 60 * 1000;
     const netMs     = totalMs > breakMs ? totalMs - breakMs : totalMs;
     const workHours = netMs / (1000 * 60 * 60);
+    const isHalfDay = workHours > 0 && workHours <= 4.5;
 
     const punchInIST  = new Date(record.punchIn.getTime() + 5.5 * 60 * 60 * 1000);
     const isSun       = punchInIST.getUTCDay() === 0;
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
 
     await prisma.guestAttendance.update({
       where: { id: record.id },
-      data:  { punchOut, workHours, lateMinutes },
+      data:  { punchOut, workHours, lateMinutes, isHalfDay },
     });
     count++;
   }

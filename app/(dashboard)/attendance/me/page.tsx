@@ -99,15 +99,16 @@ export default function MyAttendancePage() {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Failed"); }
-      else {
+      else if (data.type === "PENDING_OT") {
+        toast("⏳ Overtime request sent to admin. Waiting for approval...", { icon: "⏰", duration: 5000 });
+        await fetchData(emp.email);
+      } else {
         if (type === "IN") {
           toast.success("Punched In ✅");
           setBreakState({ breaks: [], onBreak: false });
         } else {
-          const { diff } = getWorkDiff(data.record?.punchIn ?? todayRecord?.punchIn, data.record?.punchOut, breakSecs);
-          const diffH = Math.abs(diff / 3600).toFixed(1);
-          if (diff >= 0) toast.success(`Punched Out 👋 · Extra: +${diffH}h ⬆️`);
-          else toast(`Punched Out 👋 · Short: -${diffH}h ⬇️`, { icon: "⚠️" });
+          const wh = data.record?.workHours ?? 0;
+          toast.success(`Punched Out 👋 · ${wh.toFixed(1)}h${data.record?.isHalfDay ? " (Half Day)" : ""}`);
         }
         await fetchData(emp.email);
       }
@@ -232,6 +233,24 @@ export default function MyAttendancePage() {
             </div>
             {breakState.onBreak && <div className="text-yellow-400 text-sm animate-pulse">☕ On Break...</div>}
           </>
+        ) : todayRecord?.otStatus === "PENDING" ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3 text-center">
+            <div className="text-4xl animate-pulse">⏳</div>
+            <div className="text-yellow-400 font-semibold">Overtime Request Pending</div>
+            <div className="text-xs text-muted-foreground">
+              Punch out request sent to admin at{" "}
+              {todayRecord.otPunchOutAt
+                ? new Date(todayRecord.otPunchOutAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
+                : "—"}
+            </div>
+            <div className="text-xs text-yellow-400/70">Admin approval ka wait karo. Approve hone ke baad punch out ho jayega.</div>
+          </motion.div>
+        ) : todayRecord?.otStatus === "DENIED" ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2 text-center">
+            <div className="text-3xl">❌</div>
+            <div className="text-red-400 font-semibold">Overtime Denied</div>
+            <div className="text-xs text-muted-foreground">Admin ne overtime approve nahi kiya. Please contact your manager.</div>
+          </motion.div>
         ) : todayRecord?.punchOut ? (
           <>
             <div className="text-emerald-400 text-lg font-semibold">Day Complete ✅</div>
@@ -259,7 +278,7 @@ export default function MyAttendancePage() {
         )}
 
         <div className="flex gap-3 justify-center pt-2">
-          {!isPunchedIn && !todayRecord?.punchOut && (
+          {!isPunchedIn && !todayRecord?.punchOut && !todayRecord?.otStatus && (
             <button onClick={() => handlePunch("IN")} disabled={punching}
               className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors font-medium disabled:opacity-50">
               <LogIn className="w-4 h-4" /> Punch In
@@ -325,6 +344,8 @@ export default function MyAttendancePage() {
                         {diff >= 0 ? `+${diff.toFixed(1)}h` : `${diff.toFixed(1)}h`}
                       </span>
                     )}
+                    {h.isHalfDay && <span className="text-yellow-400 text-[10px] px-1 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20">½ Day</span>}
+                    {h.otStatus === "APPROVED" && <span className="text-purple-400 text-[10px]">OT ✓</span>}
                     {h.approved && <CheckCircle className="w-3 h-3 text-emerald-400" />}
                     {isRejected && <span className="text-red-400">✗</span>}
                     {isPending && <span className="text-yellow-400 text-[10px]">Pending</span>}
