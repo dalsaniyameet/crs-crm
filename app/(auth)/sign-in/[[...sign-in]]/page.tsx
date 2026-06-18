@@ -4,7 +4,152 @@ import { useSignIn, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, LogIn, Lock, Mail, Shield, Clock, CheckCircle2 } from "lucide-react";
+import { Loader2, LogIn, Lock, Mail, Shield, Clock, CheckCircle2, ScanFace, CheckCircle, XCircle } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const FacePunch = dynamic(() => import("@/components/attendance/FacePunch"), { ssr: false });
+
+// ── Punch In/Out section — no login needed ─────────────────────────────
+function PunchSection() {
+  const [email, setEmail]       = useState("");
+  const [verified, setVerified] = useState<{ name: string; email: string } | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyErr, setVerifyErr] = useState("");
+  const [showFace, setShowFace]   = useState(false);
+  const [action, setAction]       = useState<"IN" | "OUT">("IN");
+  const [processing, setProcessing] = useState(false);
+  const [done, setDone]           = useState<{ type: "IN" | "OUT"; wh?: number } | null>(null);
+  const [todayRecord, setTodayRecord] = useState<any>(null);
+
+  // Remember last email
+  useEffect(() => {
+    const saved = localStorage.getItem("crs_punch_email");
+    if (saved) setEmail(saved);
+  }, []);
+
+  const verify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifying(true); setVerifyErr("");
+    try {
+      const res  = await fetch(`/api/auth/verify-employee?email=${encodeURIComponent(email.trim())}`);
+      const data = await res.json();
+      if (!res.ok || !data.found) { setVerifyErr("Employee not found. Admin se contact karo."); }
+      else {
+        setVerified({ name: data.name, email: data.email });
+        localStorage.setItem("crs_punch_email", data.email);
+        // Check today record
+        const today = new Date().toISOString().split("T")[0];
+        const recs  = await fetch(`/api/attendance/guest?date=${today}`).then(r => r.json()).catch(() => []);
+        const mine  = (Array.isArray(recs) ? recs : []).find((r: any) =>
+          r.phone === data.email || r.phone === data.email.toLowerCase()
+        );
+        setTodayRecord(mine || null);
+        setAction(mine && !mine.punchOut ? "OUT" : "IN");
+      }
+    } catch { setVerifyErr("Network error."); }
+    setVerifying(false);
+  };
+
+  const handleFace = async (faceImage?: string) => {
+    setShowFace(false);
+    if (!verified) return;
+    setProcessing(true);
+    try {
+      const locs = await fetch("/api/attendance/locations").then(r => r.json()).catch(() => []);
+      const loc  = Array.isArray(locs) ? locs[0] : null;
+      if (!loc) { setVerifyErr("No office location. Admin se contact karo."); setProcessing(false); return; }
+      const res  = await fetch("/api/attendance/guest", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: verified.name, phone: verified.email,
+          locationId: loc.id, bypass: true, faceImage,
+          ...(action === "OUT" ? { action: "OUT" } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setVerifyErr(data.error || "Failed. Try again."); }
+      else { setDone({ type: action, wh: data.record?.workHours }); }
+    } catch { setVerifyErr("Network error."); }
+    setProcessing(false);
+  };
+
+  // Done screen
+  if (done) return (
+    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+      className="p-4 rounded-2xl text-center space-y-3"
+      style={{ background: done.type === "IN" ? "rgba(16,185,129,0.08)" : "rgba(59,130,246,0.08)", border: `1px solid ${done.type === "IN" ? "rgba(16,185,129,0.3)" : "rgba(59,130,246,0.3)"}` }}>
+      <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto ${ done.type === "IN" ? "bg-emerald-500/20" : "bg-blue-500/20"}`}>
+        <CheckCircle className={`w-8 h-8 ${done.type === "IN" ? "text-emerald-400" : "text-blue-400"}`} />
+      </div>
+      <div className={`text-xl font-bold ${done.type === "IN" ? "text-emerald-400" : "text-blue-400"}`}>
+        {done.type === "IN" ? "Punched In ✅" : "Punched Out ✅"}
+      </div>
+      <div className="text-white font-medium text-sm">{verified?.name}</div>
+      {done.wh && <div className="text-muted-foreground text-xs">{done.wh.toFixed(1)}h worked</div>}
+      <button onClick={() => { setDone(null); setVerified(null); setEmail(""); localStorage.removeItem("crs_punch_email"); }}
+        className="w-full py-2 rounded-xl bg-white/10 text-white text-sm hover:bg-white/20 transition-all">
+        Done
+      </button>
+    </motion.div>
+  );
+
+  return (
+    <div className="p-4 rounded-2xl space-y-3" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}>
+      <div className="flex items-center gap-2">
+        <ScanFace className="w-4 h-4 text-estate-400" />
+        <span className="text-sm font-semibold text-white">Punch In / Out</span>
+        <span className="text-xs text-muted-foreground ml-auto">No login needed</span>
+      </div>
+
+      {!verified ? (
+        <form onSubmit={verify} className="space-y-2">
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+            placeholder="apna registered email daalo"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50" />
+          {verifyErr && <p className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3 h-3" /> {verifyErr}</p>}
+          <button type="submit" disabled={verifying}
+            className="w-full py-2.5 rounded-xl bg-estate-500/20 border border-estate-500/30 text-estate-300 text-sm font-medium hover:bg-estate-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+            {verifying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & Continue →"}
+          </button>
+        </form>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <div className="w-8 h-8 rounded-full bg-estate-500/30 flex items-center justify-center text-white font-bold flex-shrink-0">{verified.name[0]}</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-white truncate">{verified.name}</div>
+              <div className="text-xs text-emerald-400">
+                {todayRecord && !todayRecord.punchOut
+                  ? `In office since ${new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}`
+                  : "Not punched in today"}
+              </div>
+            </div>
+            <button onClick={() => { setVerified(null); setVerifyErr(""); }} className="text-muted-foreground hover:text-white text-xs">×</button>
+          </div>
+          {verifyErr && <p className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3 h-3" /> {verifyErr}</p>}
+          <button onClick={() => { setVerifyErr(""); setShowFace(true); }} disabled={processing}
+            className={`w-full py-3 rounded-xl text-sm font-semibold border transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
+              action === "IN"
+                ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30"
+                : "bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30"
+            }`}>
+            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace className="w-4 h-4" />}
+            {action === "IN" ? "👉 Face Punch In" : "👈 Face Punch Out"}
+          </button>
+          <p className="text-xs text-center text-muted-foreground">🥳 Face scan compulsory hai</p>
+        </motion.div>
+      )}
+
+      <AnimatePresence>
+        {showFace && verified && (
+          <FacePunch employeeName={verified.name} action={action}
+            onSuccess={handleFace} onClose={() => setShowFace(false)} />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 
 type Tab = "admin" | "employee";
 
@@ -540,6 +685,16 @@ export default function SignInPage() {
               <div className="mb-5">
                 <h2 className="text-xl font-bold text-white mb-1">Employee Login</h2>
                 <p className="text-muted-foreground text-sm">Enter your email and password given by admin</p>
+              </div>
+
+              {/* ── PUNCH IN / OUT SECTION ── */}
+              <PunchSection />
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-white/10" />
+                <span className="text-xs text-muted-foreground">ya CRM login karo</span>
+                <div className="flex-1 h-px bg-white/10" />
               </div>
 
               {/* Office hours status banner */}

@@ -106,9 +106,8 @@ export default function AttendancePage() {
   // Approve/Reject modal for history records
   const [approveModal, setApproveModal]   = useState<{ record: any; empId: string } | null>(null);
 
-  // Overtime pending approvals
+  // Overtime records
   const [otPending, setOtPending]   = useState<any[]>([]);
-  const [otActing, setOtActing]     = useState<string | null>(null);
 
   // Monthly report
   const [reportMonth, setReportMonth]   = useState(new Date().toISOString().slice(0, 7));
@@ -145,22 +144,7 @@ export default function AttendancePage() {
     }
   }, [isLoaded, user, router]);
 
-  // Handle overtime approve/deny from UI
-  const handleOT = async (id: string, action: "APPROVE" | "DENY") => {
-    setOtActing(id);
-    const res = await fetch("/api/attendance/overtime-punch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
-    });
-    if (res.ok) {
-      toast.success(action === "APPROVE" ? "Overtime approved ✅" : "Overtime denied");
-      fetchAll();
-    } else toast.error("Failed");
-    setOtActing(null);
-  };
-
-  // Fetch monthly report
+  // Handle overtime - now unused (auto-approve)
   const fetchReport = async () => {
     setReportLoading(true);
     const res = await fetch(`/api/attendance/report?month=${reportMonth}`);
@@ -379,37 +363,30 @@ export default function AttendancePage() {
       {/* Birthday Banner */}
       <BirthdayBanner employees={employees} />
 
-      {/* ── Overtime Pending Approvals ── */}
-      {otPending.length > 0 && (
+      {/* ── Overtime Records (auto-approved) ── */}
+      {records.filter((r: any) => r.otStatus === "APPROVED" && r.overtimeHours > 0).length > 0 && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-          className="glass-card p-4 border border-yellow-500/30">
+          className="glass-card p-4 border border-purple-500/30">
           <div className="flex items-center gap-2 mb-3">
-            <Timer className="w-4 h-4 text-yellow-400" />
-            <span className="text-sm font-semibold text-yellow-400">⏰ Overtime Punch Out — Pending Approval ({otPending.length})</span>
+            <Timer className="w-4 h-4 text-purple-400" />
+            <span className="text-sm font-semibold text-purple-400">⏰ Overtime Records — Today ({records.filter((r: any) => r.otStatus === "APPROVED" && r.overtimeHours > 0).length})</span>
           </div>
           <div className="space-y-2">
-            {otPending.map((r: any) => {
-              const reqTime = r.otPunchOutAt ? new Date(r.otPunchOutAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—";
-              const inTime  = new Date(r.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-              return (
-                <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/15 flex-wrap">
-                  <div>
-                    <div className="text-sm font-medium text-white">{r.name}</div>
-                    <div className="text-xs text-muted-foreground">In: {inTime} · Wants to leave at: <span className="text-yellow-400 font-medium">{reqTime}</span></div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => handleOT(r.id, "APPROVE")} disabled={otActing === r.id}
-                      className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
-                      <CheckCircle className="w-3.5 h-3.5" /> Approve
-                    </button>
-                    <button onClick={() => handleOT(r.id, "DENY")} disabled={otActing === r.id}
-                      className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50">
-                      <XCircle className="w-3.5 h-3.5" /> Deny
-                    </button>
+            {records.filter((r: any) => r.otStatus === "APPROVED" && r.overtimeHours > 0).map((r: any) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-purple-500/5 border border-purple-500/15 flex-wrap">
+                <div>
+                  <div className="text-sm font-medium text-white">{r.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(r.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                    {" → "}
+                    {r.punchOut ? new Date(r.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—"}
+                    {" · "}
+                    <span className="text-purple-400 font-medium">{r.workHours?.toFixed(1)}h (+{r.overtimeHours?.toFixed(1)}h OT)</span>
                   </div>
                 </div>
-              );
-            })}
+                <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">✅ Auto Approved</span>
+              </div>
+            ))}
           </div>
         </motion.div>
       )}
@@ -607,6 +584,8 @@ export default function AttendancePage() {
                                   {h.approved && <span className="text-emerald-400 flex items-center gap-0.5"><CheckCircle className="w-3 h-3" /> Approved</span>}
                                   {isRejected && <span className="text-red-400 flex items-center gap-0.5"><XCircle className="w-3 h-3" /> Rejected{rejectReason ? `: ${rejectReason}` : ""}</span>}
                                   {isPending && <span className="text-yellow-400 flex items-center gap-0.5"><AlertCircle className="w-3 h-3" /> Pending</span>}
+                                  {h.isHalfDay && <span className="text-yellow-400 text-[10px] px-1 rounded bg-yellow-500/10 border border-yellow-500/20">½Day</span>}
+                                  {h.otStatus === "APPROVED" && h.overtimeHours > 0 && <span className="text-purple-400 text-[10px] px-1 rounded bg-purple-500/10 border border-purple-500/20">⏰OT {h.overtimeHours?.toFixed(1)}h</span>}
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -831,6 +810,8 @@ export default function AttendancePage() {
                     </div>
                     <div className={r.workHours ? "text-estate-400" : "text-emerald-400"}>
                       {r.workHours ? `${r.workHours.toFixed(1)}h` : "In Office"}
+                      {r.isHalfDay && <span className="ml-1 text-yellow-400 text-[10px]">½Day</span>}
+                      {r.otStatus === "APPROVED" && r.overtimeHours > 0 && <span className="ml-1 text-purple-400 text-[10px]">⏰OT</span>}
                     </div>
                     {r.punchOut && !r.approved && (
                       <button
