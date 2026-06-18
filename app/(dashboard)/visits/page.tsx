@@ -1,11 +1,66 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Calendar, Clock, MapPin, User, CheckCircle, XCircle, Phone, MessageSquare, Loader2, X, CalendarPlus, Building2 } from "lucide-react";
+import { Plus, Calendar, Clock, MapPin, User, CheckCircle, XCircle, Phone, MessageSquare, Loader2, X, CalendarPlus, Building2, UserPlus, Search } from "lucide-react";
 import toast from "react-hot-toast";
 
-type VisitStatus = "SCHEDULED" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+// ── Google Places Location Search ────────────────────────────────────────────
+function LocationSearch({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [query, setQuery]       = useState(value);
+  const [suggestions, setSugs]  = useState<string[]>([]);
+  const [open, setOpen]         = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const timerRef                = useRef<any>(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  const search = async (q: string) => {
+    if (q.length < 2) { setSugs([]); return; }
+    setLoading(true);
+    try {
+      const res  = await fetch(`/api/search/places?q=${encodeURIComponent(q + " Ahmedabad")}`);
+      const data = await res.json();
+      setSugs(Array.isArray(data) ? data : []);
+      setOpen(true);
+    } catch { setSugs([]); }
+    setLoading(false);
+  };
+
+  const handleChange = (v: string) => {
+    setQuery(v);
+    onChange(v);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => search(v), 350);
+  };
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <input value={query} onChange={e => handleChange(e.target.value)}
+          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          placeholder={placeholder || "Search location..."}
+          className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:border-yellow-500/40" />
+        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+      </div>
+      {open && suggestions.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 rounded-lg border border-white/10 bg-[#0d0d14] shadow-xl overflow-hidden">
+          {suggestions.map((s, i) => (
+            <button key={i} type="button"
+              onMouseDown={() => { onChange(s); setQuery(s); setOpen(false); setSugs([]); }}
+              className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 flex items-center gap-2">
+              <MapPin className="w-3 h-3 text-yellow-400 flex-shrink-0" /> {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type OtherClient = { name: string; phone: string };
+
 
 interface Visit {
   id: string;
@@ -66,6 +121,7 @@ export default function VisitsPage() {
     customPropertyName: "", customPropertyLocality: "",
     customPropertyOwnerName: "", customPropertyOwnerPhone: "", customPropertyPrice: "",
   });
+  const [otherClients, setOtherClients] = useState<OtherClient[]>([]);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id");
@@ -197,6 +253,19 @@ export default function VisitsPage() {
 
       toast.success("Visit scheduled!");
 
+      // Schedule additional visits for other clients on same property
+      for (const oc of otherClients.filter(c => c.name.trim())) {
+        // Find or skip — just create a note-based visit for other clients
+        await fetch("/api/visits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...body,
+            notes: `[Other Client] ${oc.name} (${oc.phone})${body.notes ? " | " + body.notes : ""}`,
+          }),
+        }).catch(() => {});
+      }
+
       // Auto-add to Google Calendar
       if (form.addToCalendar) {
         const lead     = leads.find(l => l.id === form.leadId);
@@ -222,6 +291,7 @@ export default function VisitsPage() {
 
       setShowModal(false);
       setForm({ leadId: "", propertyId: "", brokerId: "", scheduledAt: "", notes: "", addToCalendar: true, useManualProperty: false, customPropertyName: "", customPropertyLocality: "", customPropertyOwnerName: "", customPropertyOwnerPhone: "", customPropertyPrice: "" });
+      setOtherClients([]);
       fetchVisits();
     } catch {
       toast.error("Failed to schedule visit");
@@ -387,6 +457,12 @@ export default function VisitsPage() {
                       <User className="w-3 h-3" /> {visit.broker.name}
                     </div>
                   )}
+                  {visit.notes && visit.notes.startsWith("[Other Client]") && (
+                    <div className="flex items-center gap-1 text-xs text-blue-400 mt-0.5">
+                      <UserPlus className="w-3 h-3" />
+                      {visit.notes.replace("[Other Client] ", "").split(" | ")[0]}
+                    </div>
+                  )}
                   {visit.feedback && (
                     <div className="mt-2 text-xs text-gold-400 bg-gold-500/10 border border-gold-500/20 rounded-lg px-3 py-1.5">
                       💬 {visit.feedback}
@@ -487,10 +563,11 @@ export default function VisitsPage() {
                         </div>
                         <div>
                           <label className="text-xs text-muted-foreground mb-1 block">Locality</label>
-                          <input value={form.customPropertyLocality}
-                            onChange={e => setForm(f => ({ ...f, customPropertyLocality: e.target.value }))}
-                            placeholder="Prahlad Nagar"
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/40" />
+                          <LocationSearch
+                            value={form.customPropertyLocality}
+                            onChange={v => setForm(f => ({ ...f, customPropertyLocality: v }))}
+                            placeholder="Prahlad Nagar, Satellite..."
+                          />
                         </div>
                         <div>
                           <label className="text-xs text-muted-foreground mb-1 block">👤 Owner Name</label>
@@ -536,6 +613,36 @@ export default function VisitsPage() {
                     {brokers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
+                {/* ── Other Clients ── */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-muted-foreground">Other Clients on Same Visit</label>
+                    <button type="button"
+                      onClick={() => setOtherClients(prev => [...prev, { name: "", phone: "" }])}
+                      className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-estate-500/20 border border-estate-500/30 text-estate-300 hover:bg-estate-500/30 transition-colors">
+                      <UserPlus className="w-3.5 h-3.5" /> Add Other Client
+                    </button>
+                  </div>
+                  {otherClients.map((oc, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg bg-white/3 border border-white/8">
+                      <div className="flex-1 grid grid-cols-2 gap-2">
+                        <input value={oc.name}
+                          onChange={e => setOtherClients(prev => prev.map((c, j) => j === i ? { ...c, name: e.target.value } : c))}
+                          placeholder="Client name"
+                          className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-estate-500/50" />
+                        <input value={oc.phone}
+                          onChange={e => setOtherClients(prev => prev.map((c, j) => j === i ? { ...c, phone: e.target.value.replace(/\D/g,"").slice(0,10) } : c))}
+                          placeholder="Phone number"
+                          className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-estate-500/50" />
+                      </div>
+                      <button type="button" onClick={() => setOtherClients(prev => prev.filter((_, j) => j !== i))}
+                        className="p-1 rounded-lg hover:bg-red-500/20 text-muted-foreground hover:text-red-400 transition-colors flex-shrink-0">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Notes</label>
                   <textarea rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}

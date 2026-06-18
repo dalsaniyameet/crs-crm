@@ -88,6 +88,9 @@ export default function LeadsPage() {
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showQuickModal, setShowQuickModal] = useState(false);
+  const [quickForm, setQuickForm] = useState({ name: "", phone: "", category: "RESIDENTIAL" as "RESIDENTIAL"|"COMMERCIAL", transactionType: "BUY", assignedToId: "" });
+  const [submittingQuick, setSubmittingQuick] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selected, setSelected]       = useState<Set<string>>(new Set());
   const [bulkSending, setBulkSending]  = useState(false);
@@ -442,6 +445,35 @@ export default function LeadsPage() {
     finally { setSubmitting(false); }
   };
 
+  const handleQuickLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickForm.phone.trim() || !quickForm.name.trim()) return;
+    setSubmittingQuick(true);
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name:            quickForm.name.trim(),
+          phone:           quickForm.phone.trim(),
+          source:          "COLD_CALL",
+          category:        quickForm.category,
+          transactionType: quickForm.transactionType,
+          assignedToId:    quickForm.assignedToId || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 409) { toast.error("Duplicate! Yeh number pehle se hai."); }
+      else if (res.ok) {
+        toast.success(`Lead added${quickForm.assignedToId ? " & assigned! ✅" : "! ✅"}`);
+        setShowQuickModal(false);
+        setQuickForm({ name: "", phone: "", category: "RESIDENTIAL", transactionType: "BUY", assignedToId: "" });
+        fetchLeads();
+      } else { toast.error(data.error || "Failed"); }
+    } catch { toast.error("Network error"); }
+    setSubmittingQuick(false);
+  };
+
   const toggleSelect = (id: string) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   const selectAll  = () => setSelected(new Set(filtered.map(l => l.id)));
   const clearAll   = () => setSelected(new Set());
@@ -599,6 +631,12 @@ We have genuine properties matching your requirement. Let's connect! 🤝
           <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-1.5 text-sm">
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Lead</span><span className="sm:hidden">Add</span>
           </button>
+          {isAdmin && (
+            <button onClick={() => setShowQuickModal(true)}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30 transition-all font-medium">
+              <Phone className="w-4 h-4" /> <span className="hidden sm:inline">Quick Add</span><span className="sm:hidden">⚡</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -2144,6 +2182,116 @@ We have genuine properties matching your requirement. Let's connect! 🤝
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Quick Add Lead Modal */}
+      <AnimatePresence>
+        {showQuickModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-end md:items-center justify-center md:p-4"
+            onClick={e => e.target === e.currentTarget && setShowQuickModal(false)}>
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="glass-card w-full md:max-w-sm p-5 rounded-t-2xl md:rounded-xl">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-yellow-400" /> Quick Lead Add
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Call aaya — sirf naam + number dal ke assign karo</p>
+                </div>
+                <button onClick={() => setShowQuickModal(false)} className="text-muted-foreground hover:text-white"><X className="w-4 h-4" /></button>
+              </div>
+
+              <form onSubmit={handleQuickLead} className="space-y-3">
+                {/* Name + Phone */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Name *</label>
+                    <input required autoFocus value={quickForm.name}
+                      onChange={e => setQuickForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Rajesh Patel" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Mobile *</label>
+                    <input required value={quickForm.phone}
+                      onChange={e => setQuickForm(f => ({ ...f, phone: e.target.value.replace(/\D/g,"").slice(0,10) }))}
+                      placeholder="9876543210" inputMode="numeric" className={inputCls} />
+                  </div>
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Category *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["RESIDENTIAL","COMMERCIAL"] as const).map(cat => (
+                      <button key={cat} type="button"
+                        onClick={() => setQuickForm(f => ({ ...f, category: cat, transactionType: "BUY" }))}
+                        className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                          quickForm.category === cat
+                            ? cat === "RESIDENTIAL" ? "bg-blue-500/25 border-blue-500/50 text-blue-300" : "bg-orange-500/25 border-orange-500/50 text-orange-300"
+                            : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                        }`}>
+                        {cat === "RESIDENTIAL" ? "🏠 Residential" : "🏢 Commercial"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Transaction */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Transaction *</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {(quickForm.category === "RESIDENTIAL"
+                      ? [["BUY","🔑 Buy"],["RENT","🏠 Rent"],["SELL","💰 Sell"]]
+                      : [["BUY","🔑 Buy"],["RENT","🏢 Rent"],["LEASE","📋 Lease"],["SELL","💰 Sell"]]
+                    ).map(([val,label]) => (
+                      <button key={val} type="button"
+                        onClick={() => setQuickForm(f => ({ ...f, transactionType: val }))}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                          quickForm.transactionType === val
+                            ? "bg-estate-500/30 border-estate-500/50 text-estate-300"
+                            : "bg-white/5 border-white/10 text-muted-foreground hover:text-white"
+                        }`}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Assign Employee */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Assign To Employee</label>
+                  <select value={quickForm.assignedToId}
+                    onChange={e => setQuickForm(f => ({ ...f, assignedToId: e.target.value }))}
+                    className={inputCls}>
+                    <option value="">— Select Employee —</option>
+                    {brokers.map((b: any) => (
+                      <option key={b.id} value={b.id}>{b.name} ({b.role?.replace("_"," ")})</option>
+                    ))}
+                  </select>
+                  {quickForm.assignedToId && (
+                    <p className="text-xs text-emerald-400 mt-1">✅ Lead assign hogi aur employee ko notification jayegi</p>
+                  )}
+                </div>
+
+                <div className="p-3 rounded-lg bg-yellow-500/8 border border-yellow-500/20 text-xs text-yellow-400">
+                  📞 Employee is client ko call karke requirements, budget aur location poochega
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={() => setShowQuickModal(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-muted-foreground hover:text-white transition-all">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={submittingQuick}
+                    className="flex-1 py-2.5 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 text-sm font-semibold hover:bg-yellow-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    {submittingQuick ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Phone className="w-4 h-4" /> Add & Assign</>}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Property Detail Modal */}
       <AnimatePresence>
         {propModal !== null && (
