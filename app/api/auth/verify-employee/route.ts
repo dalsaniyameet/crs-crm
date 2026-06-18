@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// GET — punch page pe sirf email se verify (no login needed)
+export async function GET(req: NextRequest) {
+  const email = req.nextUrl.searchParams.get("email");
+  if (!email) return NextResponse.json({ found: false }, { status: 400 });
+
+  try {
+    const employee = await prisma.employeeProfile.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      select: { name: true, email: true, isActive: true },
+    });
+    if (!employee || !employee.isActive)
+      return NextResponse.json({ found: false, error: "Employee not found. Admin se contact karo." }, { status: 404 });
+    return NextResponse.json({ found: true, name: employee.name, email: employee.email });
+  } catch {
+    return NextResponse.json({ found: false, error: "Server error" }, { status: 500 });
+  }
+}
+
+// POST — CRM login flow (email + DOB)
 export async function POST(req: NextRequest) {
   const { email, dob } = await req.json();
   if (!email || !dob) return NextResponse.json({ error: "Email and date of birth required" }, { status: 400 });

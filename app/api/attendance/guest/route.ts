@@ -134,51 +134,37 @@ export async function POST(req: Request) {
       const istNow    = getISTDate();
       const istMinute = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
 
-      // ── OVERTIME CHECK: after 7:30 PM needs admin approval ──
+      // ── OVERTIME CHECK: after 7:30 PM — auto save but notify admin ──
       if (istMinute >= OT_START_MIN && !bypass) {
+        // Auto approve — sirf admin ko notification
+        const breakSecs = typeof breakSeconds === "number" && breakSeconds > 0 ? breakSeconds : 0;
+        const calc      = calcWork(existing.punchIn, punchOut, breakSecs);
+
         let faceImageOutUrl: string | undefined;
         if (faceImage) {
           try { const { uploadBase64ToCloudinary } = await import("@/lib/cloudinary"); faceImageOutUrl = await uploadBase64ToCloudinary(faceImage, "face-punch"); } catch {}
         }
 
-        const pending = await prisma.guestAttendance.update({
+        const updated = await prisma.guestAttendance.update({
           where:   { id: existing.id },
-          data:    { otPunchOutAt: punchOut, otStatus: "PENDING", ...(faceImageOutUrl ? { faceImageOut: faceImageOutUrl } : {}) },
+          data:    {
+            punchOut, workHours: calc.workHours, lateMinutes: calc.lateMinutes,
+            overtimeHours: calc.overtimeHours, isHalfDay: calc.isHalfDay,
+            otStatus: "APPROVED", otApprovedBy: "Auto", otApprovedAt: new Date(),
+            otPunchOutAt: punchOut,
+            ...(faceImageOutUrl ? { faceImageOut: faceImageOutUrl } : {}),
+          },
           include: { location: true },
         });
 
-        // Notify admins with approve/deny info
-        const timeStr   = istNow.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-        const APP_URL   = process.env.NEXT_PUBLIC_APP_URL || "https://cityrealspacecrm.com";
-        const approveUrl = `${APP_URL}/api/attendance/overtime-punch?id=${existing.id}&action=APPROVE`;
-        const denyUrl    = `${APP_URL}/api/attendance/overtime-punch?id=${existing.id}&action=DENY`;
-        const punchInStr = new Date(existing.punchIn.getTime() + 5.5 * 60 * 60 * 1000)
-          .toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-
+        // Sirf notify — no approval needed
+        const timeStr = istNow.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
         await notifyAdmins(
-          `⏰ Overtime Punch Out: ${name.trim()}`,
-          `${name.trim()} wants to punch out at ${timeStr} (after 7:30 PM). CRM Attendance page se approve karo.`
+          `⏰ Overtime: ${name.trim()} — ${timeStr}`,
+          `${name.trim()} ne ${timeStr} pe punch out kiya (after 7:30 PM). ${calc.workHours.toFixed(1)}h worked. Auto approved.`
         );
-        sendAdminEmail(
-          `⏰ Overtime Punch Out: ${name.trim()} — ${timeStr}`,
-          `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;background:#f4f6fb;padding:20px;border-radius:10px">
-            <div style="background:#0f172a;padding:16px 24px;border-radius:8px 8px 0 0">
-              <div style="color:#f59e0b;font-size:16px;font-weight:bold">⏰ Overtime Punch Out Request</div>
-              <div style="color:#94a3b8;font-size:13px">City Real Space CRM</div>
-            </div>
-            <div style="background:#fff;padding:20px;border-radius:0 0 8px 8px;border:1px solid #e2e8f0">
-              <p style="color:#1e293b"><strong>${name.trim()}</strong> wants to punch out at <strong style="color:#f59e0b">${timeStr}</strong> (after 7:30 PM).</p>
-              <p style="color:#64748b;font-size:13px">Punch In: ${punchInStr} &nbsp;|&nbsp; Location: ${pending.location.name}</p>
-              <div style="margin-top:20px;display:flex;gap:12px">
-                <a href="${approveUrl}" style="padding:10px 24px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">✅ Approve</a>
-                <a href="${denyUrl}" style="padding:10px 24px;background:#dc2626;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">❌ Deny</a>
-              </div>
-              <p style="color:#94a3b8;font-size:12px;margin-top:12px">Ya CRM → Attendance page par jaake approve karo.</p>
-            </div>
-          </div>`
-        ).catch(() => {});
 
-        return NextResponse.json({ type: "PENDING_OT", record: pending });
+        return NextResponse.json({ type: "OUT", record: updated, breakDeducted: BREAK_MINUTES });
       }
 
       // Normal punch out
