@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { X, CheckCircle, AlertCircle, Loader2, ScanFace, Camera } from "lucide-react";
+import { X, CheckCircle, AlertCircle, Loader2, ScanFace } from "lucide-react";
 
 type Props = {
   employeeName: string;
@@ -10,14 +10,13 @@ type Props = {
   onClose: () => void;
 };
 
-type Status = "loading" | "scanning" | "detected" | "success" | "error" | "fallback";
+type Status = "loading" | "scanning" | "detected" | "success" | "error";
 
 export default function FacePunch({ employeeName, action, onSuccess, onClose }: Props) {
   const videoRef    = useRef<HTMLVideoElement>(null);
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const streamRef   = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [status, setStatus]             = useState<Status>("loading");
   const [message, setMessage]           = useState("Camera shuru ho rahi hai...");
@@ -36,9 +35,12 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
     async function init() {
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: 640, height: 480 },
-        });
+        // Try with front camera first, fallback to any camera
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
       } catch (camErr: any) {
         if (!cancelled) {
           setErrorName(camErr?.name || "UnknownError");
@@ -140,19 +142,6 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
   function stopCamera() {
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-  }
-
-  // Fallback: file input se photo lo
-  function handleFallbackPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setStatus("success");
-      setMessage(`Punch ${action === "IN" ? "In" : "Out"} successful!`);
-      setTimeout(() => onSuccess(reader.result as string), 1200);
-    };
-    reader.readAsDataURL(file);
   }
 
   const isBlocked   = errorName === "NotAllowedError" || errorName === "PermissionDeniedError";
@@ -267,16 +256,6 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                     className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
                     Close
                   </button>
-                </div>
-
-                {/* Fallback — camera nahi khula toh selfie se punch karo */}
-                <div className="mt-1 pt-2 border-t border-white/10 w-full text-center">
-                  <p className="text-[10px] text-white/40 mb-1.5">Camera nahi chal raha? Selfie se punch karo:</p>
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors cursor-pointer">
-                    <Camera className="w-3.5 h-3.5" /> Photo Kheencho
-                    <input ref={fileInputRef} type="file" accept="image/*" capture="user" className="hidden"
-                      onChange={handleFallbackPhoto} />
-                  </label>
                 </div>
               </div>
             )}
