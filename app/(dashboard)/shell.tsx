@@ -317,8 +317,11 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const BREAK_LIMIT = 3600;
   const isEmployee = isLoaded && role !== "ADMIN";
 
-  // Detect mobile
-  const isMobile = typeof window !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  // Detect mobile — useState se taaki SSR safe rahe
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMobile(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
+  }, []);
 
   useEffect(() => {
     if (!isEmployee || !userEmail) return;
