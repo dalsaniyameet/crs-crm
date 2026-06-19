@@ -43,11 +43,19 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
       } catch (camErr: any) {
         if (!cancelled) {
           setStatus("error");
-          if (camErr?.name === "NotAllowedError" || camErr?.name === "PermissionDeniedError") {
+          const name = camErr?.name || "";
+          if (name === "NotReadableError" || name === "TrackStartError" || name === "AbortError") {
+            setCameraBlocked(false);
+            setMessage("camera_busy");
+          } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+            setCameraBlocked(false);
+            setMessage("camera_notfound");
+          } else if (name === "NotAllowedError" || name === "PermissionDeniedError") {
             setCameraBlocked(true);
-            setMessage("Camera permission denied.");
+            setMessage("camera_blocked");
           } else {
-            setMessage("Camera not found. Please check your camera is connected.");
+            setCameraBlocked(false);
+            setMessage(camErr?.message || "Camera error. Try Again.");
           }
         }
         return;
@@ -249,26 +257,36 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                       <p>3️⃣ Neeche <span className="text-yellow-400 font-semibold">Try Again</span> dabao</p>
                       <p className="text-white/40 text-[10px] pt-1">Ya Chrome settings: chrome://settings/content/camera</p>
                     </div>
-                    <div className="flex gap-2 mt-2">
-                      <button onClick={() => { stopCamera(); setRetryKey(k => k + 1); }}
-                        className="px-3 py-1.5 rounded-lg bg-yellow-500 text-black text-xs font-semibold hover:bg-yellow-400 transition-colors">
-                        🔄 Try Again
-                      </button>
-                      <button onClick={() => { stopCamera(); onClose(); }}
-                        className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
-                        Close
-                      </button>
+                  </>
+                ) : message === "camera_busy" ? (
+                  <>
+                    <p className="text-xs text-center text-white font-semibold">Camera Busy / In Use</p>
+                    <div className="text-xs text-center text-white/70 space-y-1.5 px-1">
+                      <p>Camera koi aur app use kar raha hai.</p>
+                      <p>1️⃣ <span className="text-white">Zoom, Teams, WhatsApp</span> ya koi bhi camera app band karo</p>
+                      <p>2️⃣ Phir <span className="text-yellow-400 font-semibold">Try Again</span> dabao</p>
+                    </div>
+                  </>
+                ) : message === "camera_notfound" ? (
+                  <>
+                    <p className="text-xs text-center text-white font-semibold">Camera Nahi Mila</p>
+                    <div className="text-xs text-center text-white/70 space-y-1 px-1">
+                      <p>Device mein camera nahi hai ya connected nahi hai.</p>
                     </div>
                   </>
                 ) : (
-                  <>
-                    <p className="text-xs text-center text-white px-2">{message}</p>
-                    <button onClick={() => { stopCamera(); onClose(); }}
-                      className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
-                      Close
-                    </button>
-                  </>
+                  <p className="text-xs text-center text-white px-2">{message}</p>
                 )}
+                <div className="flex gap-2 mt-1">
+                  <button onClick={() => { stopCamera(); setRetryKey(k => k + 1); }}
+                    className="px-3 py-1.5 rounded-lg bg-yellow-500 text-black text-xs font-semibold hover:bg-yellow-400 transition-colors">
+                    🔄 Try Again
+                  </button>
+                  <button onClick={() => { stopCamera(); onClose(); }}
+                    className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
+                    Close
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -282,7 +300,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
             {status === "detected" && `✅ Confirming in ${countdown}s...`}
             {status === "loading" && message}
             {status === "success" && message}
-            {status === "error" && message}
+            {status === "error" && (message === "camera_busy" ? "📵 Camera busy — doosra app band karo" : cameraBlocked ? "🔒 Camera blocked — Allow karo" : message === "camera_notfound" ? "📷 Camera nahi mila" : message)}
           </p>
 
           <div className="mt-3 flex justify-center">
