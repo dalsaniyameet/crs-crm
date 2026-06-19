@@ -22,6 +22,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
   const [message, setMessage]           = useState("Camera shuru ho rahi hai...");
   const [faceDetected, setFaceDetected] = useState(false);
   const [countdown, setCountdown]       = useState(0);
+  const [cameraBlocked, setCameraBlocked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,11 +37,12 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
       } catch (camErr: any) {
         if (!cancelled) {
           setStatus("error");
-          setMessage(
-            camErr?.name === "NotAllowedError"
-              ? "Camera blocked. Click the camera icon in the browser address bar and select Allow."
-              : "Camera not found. Please check your camera is connected."
-          );
+          if (camErr?.name === "NotAllowedError" || camErr?.name === "PermissionDeniedError") {
+            setCameraBlocked(true);
+            setMessage("Camera permission denied.");
+          } else {
+            setMessage("Camera not found. Please check your camera is connected.");
+          }
         }
         return;
       }
@@ -229,13 +231,35 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
             )}
 
             {status === "error" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: "rgba(0,0,0,0.85)" }}>
-                <AlertCircle className="w-12 h-12 text-red-400" />
-                <p className="text-xs text-center text-white px-6">{message}</p>
-                <button onClick={() => { stopCamera(); onClose(); }}
-                  className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
-                  Close
-                </button>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-5" style={{ background: "rgba(0,0,0,0.92)" }}>
+                <AlertCircle className="w-10 h-10 text-red-400 shrink-0" />
+                {cameraBlocked ? (
+                  <>
+                    <p className="text-xs text-center text-white font-semibold">Camera Blocked</p>
+                    <div className="text-xs text-center text-white/70 space-y-1">
+                      <p>🔒 Browser ne camera block kiya hai.</p>
+                      <p>Address bar mein 🎥 icon click karein → <span className="text-yellow-400 font-semibold">Allow</span> select karein → page reload karein.</p>
+                    </div>
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={() => window.location.reload()}
+                        className="px-3 py-1.5 rounded-lg bg-yellow-500 text-black text-xs font-semibold hover:bg-yellow-400 transition-colors">
+                        🔄 Reload Page
+                      </button>
+                      <button onClick={() => { stopCamera(); onClose(); }}
+                        className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
+                        Close
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-center text-white px-2">{message}</p>
+                    <button onClick={() => { stopCamera(); onClose(); }}
+                      className="px-4 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
+                      Close
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
