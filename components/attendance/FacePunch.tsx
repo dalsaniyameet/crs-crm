@@ -242,18 +242,21 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                 {cameraBlocked ? (
                   <>
                     <p className="text-xs text-center text-white font-semibold">Camera Blocked</p>
-                    <div className="text-xs text-center text-white/70 space-y-1 px-1">
-                      <p>Address bar mein 🎥 icon click karein</p>
-                      <p>→ <span className="text-yellow-400 font-semibold">Allow</span> select karein → neeche <span className="text-yellow-400 font-semibold">Try Again</span> dabao</p>
+                    <div className="text-xs text-center text-white/70 space-y-1.5 px-1">
+                      <p className="text-yellow-400 font-semibold">Yeh steps follow karo:</p>
+                      <p>1️⃣ Address bar mein 🔒 ya 🎥 icon click karo</p>
+                      <p>2️⃣ <span className="text-white">"Camera"</span> ke saamne <span className="text-yellow-400 font-semibold">Allow</span> select karo</p>
+                      <p>3️⃣ Neeche <span className="text-yellow-400 font-semibold">Try Again</span> dabao</p>
+                      <p className="text-white/40 text-[10px] pt-1">Ya Chrome settings: chrome://settings/content/camera</p>
                     </div>
-                    <div className="flex gap-2 mt-1">
-                      <button onClick={() => setRetryKey(k => k + 1)}
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={() => { stopCamera(); setRetryKey(k => k + 1); }}
                         className="px-3 py-1.5 rounded-lg bg-yellow-500 text-black text-xs font-semibold hover:bg-yellow-400 transition-colors">
                         🔄 Try Again
                       </button>
-                      <button onClick={() => window.location.reload()}
+                      <button onClick={() => { stopCamera(); onClose(); }}
                         className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
-                        Reload
+                        Close
                       </button>
                     </div>
                   </>
