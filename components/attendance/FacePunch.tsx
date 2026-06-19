@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { X, CheckCircle, AlertCircle, Loader2, ScanFace } from "lucide-react";
+import { X, CheckCircle, AlertCircle, Loader2, ScanFace, Camera } from "lucide-react";
 
 type Props = {
   employeeName: string;
@@ -10,31 +10,30 @@ type Props = {
   onClose: () => void;
 };
 
-type Status = "loading" | "scanning" | "detected" | "success" | "error";
+type Status = "loading" | "scanning" | "detected" | "success" | "error" | "fallback";
 
 export default function FacePunch({ employeeName, action, onSuccess, onClose }: Props) {
   const videoRef    = useRef<HTMLVideoElement>(null);
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const streamRef   = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [status, setStatus]             = useState<Status>("loading");
   const [message, setMessage]           = useState("Camera shuru ho rahi hai...");
   const [faceDetected, setFaceDetected] = useState(false);
   const [countdown, setCountdown]       = useState(0);
-  const [cameraBlocked, setCameraBlocked] = useState(false);
   const [retryKey, setRetryKey]         = useState(0);
+  const [errorName, setErrorName]       = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    // reset state on retry
     setStatus("loading");
     setMessage("Camera shuru ho rahi hai...");
     setFaceDetected(false);
-    setCameraBlocked(false);
+    setErrorName("");
 
     async function init() {
-      // ── Step 1: Camera pehle maango ──
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -42,21 +41,8 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
         });
       } catch (camErr: any) {
         if (!cancelled) {
+          setErrorName(camErr?.name || "UnknownError");
           setStatus("error");
-          const name = camErr?.name || "";
-          if (name === "NotReadableError" || name === "TrackStartError" || name === "AbortError") {
-            setCameraBlocked(false);
-            setMessage("camera_busy");
-          } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-            setCameraBlocked(false);
-            setMessage("camera_notfound");
-          } else if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-            setCameraBlocked(true);
-            setMessage("camera_blocked");
-          } else {
-            setCameraBlocked(false);
-            setMessage(camErr?.message || "Camera error. Try Again.");
-          }
         }
         return;
       }
@@ -72,7 +58,6 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
       setStatus("scanning");
       setMessage("Position your face in the frame");
 
-      // ── Step 2: Face detection models load karo ──
       try {
         const fapi = await import("face-api.js");
         const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
@@ -99,50 +84,39 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
           if (detection) {
             stableFrames++;
             setFaceDetected(true);
-
             const b = detection.detection.box;
-            ctx.strokeStyle = "#eab308";
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#eab308"; ctx.lineWidth = 2;
             ctx.strokeRect(b.x, b.y, b.width, b.height);
-
             const cs = 18;
-            ctx.strokeStyle = "#facc15";
-            ctx.lineWidth = 3;
-            [
-              [b.x, b.y, cs, 0, 0, cs],
-              [b.x + b.width, b.y, -cs, 0, 0, cs],
-              [b.x, b.y + b.height, cs, 0, 0, -cs],
-              [b.x + b.width, b.y + b.height, -cs, 0, 0, -cs],
-            ].forEach(([x, y, dx1, dy1, dx2, dy2]) => {
-              ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx1, y + dy1); ctx.stroke();
-              ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx2, y + dy2); ctx.stroke();
+            ctx.strokeStyle = "#facc15"; ctx.lineWidth = 3;
+            [[b.x, b.y, cs, 0, 0, cs],[b.x+b.width, b.y, -cs, 0, 0, cs],
+             [b.x, b.y+b.height, cs, 0, 0, -cs],[b.x+b.width, b.y+b.height, -cs, 0, 0, -cs],
+            ].forEach(([x,y,dx1,dy1,dx2,dy2]) => {
+              ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+dx1,y+dy1); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+dx2,y+dy2); ctx.stroke();
             });
 
             if (stableFrames >= 3) {
               clearInterval(intervalRef.current!);
               setStatus("detected");
-
               let capturedImage: string | undefined;
               try {
-                const snapCanvas = document.createElement("canvas");
-                snapCanvas.width  = videoRef.current!.videoWidth  || 640;
-                snapCanvas.height = videoRef.current!.videoHeight || 480;
-                const snapCtx = snapCanvas.getContext("2d");
-                if (snapCtx && videoRef.current) {
-                  snapCtx.scale(-1, 1);
-                  snapCtx.drawImage(videoRef.current, -snapCanvas.width, 0, snapCanvas.width, snapCanvas.height);
-                  capturedImage = snapCanvas.toDataURL("image/jpeg", 0.7);
+                const snap = document.createElement("canvas");
+                snap.width  = videoRef.current!.videoWidth  || 640;
+                snap.height = videoRef.current!.videoHeight || 480;
+                const sc = snap.getContext("2d");
+                if (sc && videoRef.current) {
+                  sc.scale(-1, 1);
+                  sc.drawImage(videoRef.current, -snap.width, 0, snap.width, snap.height);
+                  capturedImage = snap.toDataURL("image/jpeg", 0.7);
                 }
-              } catch { /* ignore */ }
+              } catch {}
 
-              let c = 3;
-              setCountdown(c);
+              let c = 3; setCountdown(c);
               const t = setInterval(() => {
-                c--;
-                setCountdown(c);
+                c--; setCountdown(c);
                 if (c <= 0) {
-                  clearInterval(t);
-                  stopCamera();
+                  clearInterval(t); stopCamera();
                   setStatus("success");
                   setMessage(`Punch ${action === "IN" ? "In" : "Out"} successful!`);
                   setTimeout(() => onSuccess(capturedImage), 1200);
@@ -150,17 +124,12 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
               }, 1000);
             }
           } else {
-            stableFrames = 0;
-            setFaceDetected(false);
+            stableFrames = 0; setFaceDetected(false);
             setMessage("No face detected — look at the camera");
           }
         }, 500);
-
       } catch {
-        if (!cancelled) {
-          setStatus("error");
-          setMessage("Face detection failed to load. Check your internet connection.");
-        }
+        if (!cancelled) { setStatus("error"); setErrorName("ModelLoadError"); }
       }
     }
 
@@ -173,11 +142,27 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
   }
 
+  // Fallback: file input se photo lo
+  function handleFallbackPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setStatus("success");
+      setMessage(`Punch ${action === "IN" ? "In" : "Out"} successful!`);
+      setTimeout(() => onSuccess(reader.result as string), 1200);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  const isBlocked   = errorName === "NotAllowedError" || errorName === "PermissionDeniedError";
+  const isBusy      = errorName === "NotReadableError" || errorName === "TrackStartError" || errorName === "AbortError";
+  const isNotFound  = errorName === "NotFoundError"    || errorName === "DevicesNotFoundError";
+
   const borderColor =
     status === "success" ? "border-emerald-500" :
     status === "error"   ? "border-red-500/60" :
-    faceDetected         ? "border-emerald-500/70" :
-                           "border-gold-500/40";
+    faceDetected         ? "border-emerald-500/70" : "border-yellow-500/40";
 
   return (
     <motion.div
@@ -190,6 +175,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
         className="w-full max-w-sm rounded-3xl overflow-hidden"
         style={{ background: "#0a0a0f", border: "1px solid rgba(234,179,8,0.2)" }}
       >
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "rgba(234,179,8,0.1)" }}>
           <div className="flex items-center gap-2">
             <ScanFace className="w-5 h-5 text-yellow-400" />
@@ -205,6 +191,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
         </div>
 
         <div className="p-4">
+          {/* Camera / Error view */}
           <div className={`relative rounded-2xl overflow-hidden border-2 transition-colors duration-300 ${borderColor}`}
             style={{ aspectRatio: "4/3", background: "#000" }}>
 
@@ -245,38 +232,32 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
             )}
 
             {status === "error" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-5" style={{ background: "rgba(0,0,0,0.92)" }}>
-                <AlertCircle className="w-10 h-10 text-red-400 shrink-0" />
-                {cameraBlocked ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4" style={{ background: "rgba(0,0,0,0.93)" }}>
+                <AlertCircle className="w-9 h-9 text-red-400 shrink-0" />
+
+                {isBlocked && (
                   <>
-                    <p className="text-xs text-center text-white font-semibold">Camera Blocked</p>
-                    <div className="text-xs text-center text-white/70 space-y-1.5 px-1">
-                      <p className="text-yellow-400 font-semibold">Yeh steps follow karo:</p>
-                      <p>1️⃣ Address bar mein 🔒 ya 🎥 icon click karo</p>
-                      <p>2️⃣ <span className="text-white">"Camera"</span> ke saamne <span className="text-yellow-400 font-semibold">Allow</span> select karo</p>
-                      <p>3️⃣ Neeche <span className="text-yellow-400 font-semibold">Try Again</span> dabao</p>
-                      <p className="text-white/40 text-[10px] pt-1">Ya Chrome settings: chrome://settings/content/camera</p>
+                    <p className="text-xs text-center text-white font-semibold">Camera Permission Denied</p>
+                    <div className="text-xs text-center text-white/70 space-y-1">
+                      <p>Android: <span className="text-white">Settings → Apps → Chrome → Permissions → Camera → Allow</span></p>
+                      <p>Ya address bar mein 🔒 → Camera → Allow</p>
                     </div>
                   </>
-                ) : message === "camera_busy" ? (
-                  <>
-                    <p className="text-xs text-center text-white font-semibold">Camera Busy / In Use</p>
-                    <div className="text-xs text-center text-white/70 space-y-1.5 px-1">
-                      <p>Camera koi aur app use kar raha hai.</p>
-                      <p>1️⃣ <span className="text-white">Zoom, Teams, WhatsApp</span> ya koi bhi camera app band karo</p>
-                      <p>2️⃣ Phir <span className="text-yellow-400 font-semibold">Try Again</span> dabao</p>
-                    </div>
-                  </>
-                ) : message === "camera_notfound" ? (
-                  <>
-                    <p className="text-xs text-center text-white font-semibold">Camera Nahi Mila</p>
-                    <div className="text-xs text-center text-white/70 space-y-1 px-1">
-                      <p>Device mein camera nahi hai ya connected nahi hai.</p>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-center text-white px-2">{message}</p>
                 )}
+                {isBusy && (
+                  <>
+                    <p className="text-xs text-center text-white font-semibold">Camera Busy</p>
+                    <p className="text-xs text-center text-white/70">Doosri app band karo (WhatsApp, Zoom, etc.) phir Try Again dabao</p>
+                  </>
+                )}
+                {isNotFound && (
+                  <p className="text-xs text-center text-white font-semibold">Camera nahi mila</p>
+                )}
+                {!isBlocked && !isBusy && !isNotFound && (
+                  <p className="text-xs text-center text-white/70">{errorName || "Camera error"}</p>
+                )}
+
+                {/* Action buttons */}
                 <div className="flex gap-2 mt-1">
                   <button onClick={() => { stopCamera(); setRetryKey(k => k + 1); }}
                     className="px-3 py-1.5 rounded-lg bg-yellow-500 text-black text-xs font-semibold hover:bg-yellow-400 transition-colors">
@@ -287,6 +268,16 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                     Close
                   </button>
                 </div>
+
+                {/* Fallback — camera nahi khula toh selfie se punch karo */}
+                <div className="mt-1 pt-2 border-t border-white/10 w-full text-center">
+                  <p className="text-[10px] text-white/40 mb-1.5">Camera nahi chal raha? Selfie se punch karo:</p>
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors cursor-pointer">
+                    <Camera className="w-3.5 h-3.5" /> Photo Kheencho
+                    <input ref={fileInputRef} type="file" accept="image/*" capture="user" className="hidden"
+                      onChange={handleFallbackPhoto} />
+                  </label>
+                </div>
               </div>
             )}
           </div>
@@ -296,11 +287,11 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
             status === "error"   ? "text-red-400" :
             faceDetected         ? "text-emerald-400" : "text-yellow-400"
           }`}>
-            {status === "scanning" && (faceDetected ? "✅ Face detected — hold still" : "👤 " + message)}
-            {status === "detected" && `✅ Confirming in ${countdown}s...`}
-            {status === "loading" && message}
-            {status === "success" && message}
-            {status === "error" && (message === "camera_busy" ? "📵 Camera busy — doosra app band karo" : cameraBlocked ? "🔒 Camera blocked — Allow karo" : message === "camera_notfound" ? "📷 Camera nahi mila" : message)}
+            {status === "scanning"  && (faceDetected ? "✅ Face detected — hold still" : "👤 " + message)}
+            {status === "detected"  && `✅ Confirming in ${countdown}s...`}
+            {status === "loading"   && message}
+            {status === "success"   && message}
+            {status === "error"     && (isBlocked ? "🔒 Permission denied" : isBusy ? "📵 Camera busy" : isNotFound ? "📷 Camera nahi mila" : "❌ " + errorName)}
           </p>
 
           <div className="mt-3 flex justify-center">
