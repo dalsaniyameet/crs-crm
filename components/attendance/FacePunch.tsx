@@ -23,9 +23,15 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
   const [faceDetected, setFaceDetected] = useState(false);
   const [countdown, setCountdown]       = useState(0);
   const [cameraBlocked, setCameraBlocked] = useState(false);
+  const [retryKey, setRetryKey]         = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    // reset state on retry
+    setStatus("loading");
+    setMessage("Camera shuru ho rahi hai...");
+    setFaceDetected(false);
+    setCameraBlocked(false);
 
     async function init() {
       // ── Step 1: Camera pehle maango ──
@@ -152,7 +158,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
 
     init();
     return () => { cancelled = true; stopCamera(); };
-  }, []);
+  }, [retryKey]);
 
   function stopCamera() {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -236,18 +242,18 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                 {cameraBlocked ? (
                   <>
                     <p className="text-xs text-center text-white font-semibold">Camera Blocked</p>
-                    <div className="text-xs text-center text-white/70 space-y-1">
-                      <p>🔒 Browser ne camera block kiya hai.</p>
-                      <p>Address bar mein 🎥 icon click karein → <span className="text-yellow-400 font-semibold">Allow</span> select karein → page reload karein.</p>
+                    <div className="text-xs text-center text-white/70 space-y-1 px-1">
+                      <p>Address bar mein 🎥 icon click karein</p>
+                      <p>→ <span className="text-yellow-400 font-semibold">Allow</span> select karein → neeche <span className="text-yellow-400 font-semibold">Try Again</span> dabao</p>
                     </div>
                     <div className="flex gap-2 mt-1">
-                      <button onClick={() => window.location.reload()}
+                      <button onClick={() => setRetryKey(k => k + 1)}
                         className="px-3 py-1.5 rounded-lg bg-yellow-500 text-black text-xs font-semibold hover:bg-yellow-400 transition-colors">
-                        🔄 Reload Page
+                        🔄 Try Again
                       </button>
-                      <button onClick={() => { stopCamera(); onClose(); }}
+                      <button onClick={() => window.location.reload()}
                         className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
-                        Close
+                        Reload
                       </button>
                     </div>
                   </>
