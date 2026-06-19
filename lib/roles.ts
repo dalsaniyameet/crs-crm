@@ -13,7 +13,7 @@ const ALL_NAV = [
   { href: "/employee/assigned-leads", label: "My Leads",   icon: ClipboardList,   roles: ["BROKER","SALES_MANAGER","MARKETING"], highlight: true },
   { href: "/employee/daily-report", label: "Daily Report",  icon: ClipboardList,   roles: ["BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/leads",           label: "Leads",             icon: Users,           roles: ["ADMIN","BROKER","SALES_MANAGER"], badge: "" },
-  { href: "/properties",      label: "Properties",        icon: Building2,       roles: ["ADMIN","SALES_MANAGER","MARKETING"] },
+  { href: "/properties",      label: "Properties",        icon: Building2,       roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
   { href: "/deals",           label: "Deal Pipeline",     icon: GitBranch,       roles: ["ADMIN","BROKER","SALES_MANAGER"] },
   { href: "/visits",          label: "Site Visits",       icon: Calendar,        roles: ["ADMIN","BROKER","SALES_MANAGER"] },
   { href: "/calendar",        label: "Calendar",          icon: CalendarDays,    roles: ["ADMIN","BROKER","SALES_MANAGER","MARKETING"] },
