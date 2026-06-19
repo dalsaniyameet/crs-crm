@@ -58,6 +58,35 @@ function PunchSection() {
       const locs = await fetch("/api/attendance/locations").then(r => r.json()).catch(() => []);
       const loc  = Array.isArray(locs) ? locs[0] : null;
       if (!loc) { setVerifyErr("No office location. Admin se contact karo."); setProcessing(false); return; }
+
+      // ── GPS location check ──
+      let lat: number, lng: number;
+      try {
+        const pos = await new Promise<GeolocationPosition>((res, rej) =>
+          navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 8000 })
+        );
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      } catch {
+        setVerifyErr("📍 Location access denied. Please allow location permission to punch.");
+        setProcessing(false);
+        return;
+      }
+
+      // Haversine distance
+      const R  = 6371e3;
+      const p1 = (lat  * Math.PI) / 180;
+      const p2 = (loc.latitude  * Math.PI) / 180;
+      const dp = ((loc.latitude  - lat) * Math.PI) / 180;
+      const dl = ((loc.longitude - lng) * Math.PI) / 180;
+      const a  = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      if (dist > loc.radius) {
+        setVerifyErr(`📍 Tum office se ${Math.round(dist)}m door ho. ${loc.radius}m ke andar hona zaroori hai.`);
+        setProcessing(false);
+        return;
+      }
+
       const res  = await fetch("/api/attendance/guest", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

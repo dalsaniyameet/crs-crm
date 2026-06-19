@@ -7,12 +7,11 @@ import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock, CalendarDays, CheckCircle2, XCircle, AlertCircle,
-  Plus, Loader2, TrendingUp, Users, X, LogIn, LogOut, Coffee,
+  Plus, Loader2, TrendingUp, Users, X, Coffee,
   Camera, Mail, Briefcase, Shield, User, LogOut as SignOutIcon,
-  FileText, Upload, Trash2, ExternalLink, ScanLine, MessageCircle, Send, ScanFace,
-  StickyNote, Pin, PinOff,
+  FileText, Upload, Trash2, ExternalLink, MessageCircle, Send,
+  StickyNote, Pin, PinOff, MapPin,
 } from "lucide-react";
-import FacePunch from "@/components/attendance/FacePunch";
 
 function LiveTimer({ since, breakSecs = 0, small = false }: { since: string; breakSecs: number; small?: boolean }) {
   const [secs, setSecs] = useState(0);
@@ -84,13 +83,9 @@ export default function EmployeePanelPage() {
   const [loading, setLoading]         = useState(true);
   const [showForm, setShowForm]       = useState(false);
   const [submitting, setSubmitting]   = useState(false);
-  const [punching, setPunching]       = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [form, setForm]               = useState({ type: "CASUAL", fromDate: "", toDate: "", reason: "" });
   const [todayRecord, setTodayRecord] = useState<any>(null);
-  const [breakState, setBreakState]   = useState<{ start: number; total: number }>({ start: 0, total: 0 });
-  const [showFacePunch, setShowFacePunch] = useState(false);
-  const [facePunchAction, setFacePunchAction] = useState<"IN" | "OUT">("IN");
   const [documents, setDocuments]     = useState<any[]>([]);
   const [docUploading, setDocUploading] = useState(false);
   const [docForm, setDocForm]         = useState({ name: "", type: "SALARY_SLIP", notes: "" });
@@ -286,59 +281,6 @@ export default function EmployeePanelPage() {
 
   const [logoutCountdown, setLogoutCountdown] = useState<number | null>(null);
 
-  const handlePunch = async (type: "IN" | "OUT", faceImage?: string) => {
-    if (!locations[0]) { toast.error("No office location configured"); return; }
-    setPunching(true);
-    const totalBreakSecs = breakState.total + (breakState.start > 0 ? Math.floor((Date.now() - breakState.start) / 1000) : 0);
-    const res = await fetch("/api/attendance/guest", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: userName, phone: email || userName, locationId: locations[0].id, bypass: true, faceImage,
-        ...(type === "OUT" ? { action: "OUT", breakSeconds: totalBreakSecs } : {}),
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast.error(data.error || "Failed");
-    } else if (type === "IN") {
-      toast.success("Punched in! 🎯");
-      setTodayRecord(data.record);
-      fetchData();
-    } else {
-      // Punch OUT — start 15s countdown then auto logout
-      const hrs = data.record?.workHours?.toFixed(1) || 0;
-      toast.success(`Punched out! ${hrs}h worked 💪`);
-      setTodayRecord(null);
-      setBreakState({ start: 0, total: 0 });
-      fetchData();
-      setLogoutCountdown(15);
-    }
-    setPunching(false);
-  };
-
-  // Auto logout countdown after punch out
-  useEffect(() => {
-    if (logoutCountdown === null) return;
-    if (logoutCountdown === 0) {
-      signOut().then(() => router.push("/sign-in")).catch(() => router.push("/sign-in"));
-      return;
-    }
-    const t = setTimeout(() => setLogoutCountdown(c => (c ?? 1) - 1), 1000);
-    return () => clearTimeout(t);
-  }, [logoutCountdown, signOut, router]);
-
-  const toggleBreak = () => {
-    setBreakState(prev => {
-      if (prev.start > 0) {
-        const elapsed = Math.floor((Date.now() - prev.start) / 1000);
-        toast.success(`Break ended — ${Math.floor(elapsed/60)}m ${elapsed%60}s ☕`);
-        return { start: 0, total: prev.total + elapsed };
-      }
-      toast("Break started ☕", { icon: "⏸️" });
-      return { ...prev, start: Date.now() };
-    });
-  };
-
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault(); setSubmitting(true);
     try {
@@ -489,13 +431,10 @@ export default function EmployeePanelPage() {
     }
   };
 
-  const totalDays      = attendance.length; // all records shown to employee
+  const totalDays      = attendance.length;
   const totalHours     = attendance.reduce((s: number, a: any) => s + (a.workHours || 0), 0);
-  const approvedDays   = attendance.filter((a: any) => a.approved).length; // for salary only
   const pendingLeaves  = leaves.filter(l => l.status === "PENDING").length;
   const approvedLeaves = leaves.filter(l => l.status === "APPROVED").length;
-  const onBreak        = breakState.start > 0;
-  const breakSecs      = breakState.total + (onBreak ? Math.floor((Date.now() - breakState.start) / 1000) : 0);
 
   if (!isLoaded) return <div className="p-6 flex items-center justify-center min-h-64"><Loader2 className="w-8 h-8 animate-spin text-estate-400" /></div>;
   if (isAdmin) return null;
@@ -504,125 +443,9 @@ export default function EmployeePanelPage() {
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-3xl mx-auto">
 
-      {/* Auto Logout Countdown Banner */}
-      <AnimatePresence>
-        {logoutCountdown !== null && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="glass-card p-8 text-center max-w-sm mx-4 border border-red-500/30">
-              <div className="text-5xl mb-4">🔴</div>
-              <h2 className="text-xl font-bold text-white mb-2">Punched Out Successfully</h2>
-              <p className="text-muted-foreground text-sm mb-6">You will be logged out automatically in</p>
-              <div className="text-6xl font-bold text-red-400 font-mono mb-6">{logoutCountdown}</div>
-              <div className="w-full bg-white/10 rounded-full h-2 mb-6">
-                <motion.div
-                  className="h-2 rounded-full bg-red-400"
-                  animate={{ width: `${(logoutCountdown / 15) * 100}%` }}
-                  transition={{ duration: 0.9 }}
-                />
-              </div>
-              <button
-                onClick={() => { setLogoutCountdown(null); signOut().then(() => router.push("/sign-in")); }}
-                className="w-full py-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-semibold hover:bg-red-500/30 transition-all">
-                Logout Now
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Auto Logout Countdown removed */}
 
-      {/* Face Punch Modal */}
-      <AnimatePresence>
-        {showFacePunch && (
-          <FacePunch
-            employeeName={userName}
-            action={facePunchAction}
-            onClose={() => setShowFacePunch(false)}
-            onSuccess={(faceImage) => {
-              setShowFacePunch(false);
-              handlePunch(facePunchAction, faceImage);
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ── Sticky Punch Status Banner ── */}
-      <AnimatePresence>
-        {todayRecord && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="sticky top-0 z-30 rounded-2xl overflow-hidden"
-            style={{ background: onBreak ? "rgba(234,179,8,0.12)" : "rgba(16,185,129,0.1)", border: `1px solid ${onBreak ? "rgba(234,179,8,0.3)" : "rgba(16,185,129,0.3)"}`, backdropFilter: "blur(12px)" }}
-          >
-            <div className="flex items-center gap-3 px-4 py-3">
-              {/* Status dot */}
-              <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${onBreak ? "bg-yellow-400" : "bg-emerald-400"} animate-pulse`} />
-
-              {/* Punch in time */}
-              <div className="flex-shrink-0">
-                <div className="text-xs text-muted-foreground">Punched In</div>
-                <div className="text-xs font-semibold text-white">
-                  {new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                </div>
-              </div>
-
-              <div className="text-muted-foreground text-xs">·</div>
-
-              {/* Live work timer */}
-              <div className="flex-shrink-0">
-                <div className="text-xs text-muted-foreground">Work Time</div>
-                <LiveTimer since={todayRecord.punchIn} breakSecs={breakSecs} small />
-              </div>
-
-              {/* Break time */}
-              {(onBreak || breakState.total > 0) && (
-                <>
-                  <div className="text-muted-foreground text-xs">·</div>
-                  <div className="flex-shrink-0">
-                    <div className="text-xs text-muted-foreground">Break</div>
-                    <div className="font-mono text-xs font-bold text-yellow-400">
-                      {onBreak
-                        ? <BreakTimer since={breakState.start} />
-                        : <span>{String(Math.floor(breakState.total/60)).padStart(2,"0")}:{String(breakState.total%60).padStart(2,"0")}</span>
-                      }
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Break button */}
-              <button onClick={toggleBreak}
-                className={`ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all flex-shrink-0 ${
-                  onBreak
-                    ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/30"
-                    : "bg-white/5 text-muted-foreground border-white/10 hover:text-yellow-400 hover:border-yellow-500/30"
-                }`}>
-                <Coffee className="w-3 h-3" />
-                {onBreak ? "End Break" : "Break"}
-              </button>
-
-              {/* Punch out */}
-              <button onClick={() => { setFacePunchAction("OUT"); setShowFacePunch(true); }} disabled={punching}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50 flex-shrink-0">
-                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <ScanFace className="w-3 h-3" />}
-                Out
-              </button>
-            </div>
-
-            {/* Break progress bar */}
-            {(onBreak || breakState.total > 0) && (
-              <div className="h-0.5 bg-white/5">
-                <motion.div
-                  className="h-full bg-yellow-400"
-                  animate={{ width: `${Math.min(100, ((breakState.total + (onBreak ? Math.floor((Date.now() - breakState.start)/1000) : 0)) / 3600) * 100)}%` }}
-                  transition={{ duration: 1 }}
-                />
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Punch banner removed — punch from sign-in page only */}
 
       {/* Profile Header — always visible */}
       <div className="glass-card p-5">
@@ -748,25 +571,23 @@ export default function EmployeePanelPage() {
               </div>
             ))}
           </div>
-          {/* Quick punch from profile */}
-          <div className="glass-card p-4 flex items-center gap-4">
-            <Clock className="w-5 h-5 text-estate-400 flex-shrink-0" />
+          {/* Today status — read only */}
+          <div className="glass-card p-4 flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${todayRecord && !todayRecord.punchOut ? "bg-emerald-400 animate-pulse" : todayRecord?.punchOut ? "bg-blue-400" : "bg-white/20"}`} />
             <div className="flex-1">
               <div className="text-sm font-medium text-white">Today's Attendance</div>
               <div className="text-xs text-muted-foreground">
-                {todayRecord ? `In office since ${new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}` : "Not punched in yet"}
+                {todayRecord
+                  ? todayRecord.punchOut
+                    ? `${new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })} → ${new Date(todayRecord.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })} · ${todayRecord.workHours?.toFixed(1)}h`
+                    : `In office since ${new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}`
+                  : "Not punched in — Login page → Employee tab → Punch In"}
               </div>
             </div>
-            {todayRecord ? (
-              <button onClick={() => { setFacePunchAction("OUT"); setShowFacePunch(true); }} disabled={punching}
-                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50">
-                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <ScanFace className="w-3 h-3" />} Face Punch Out
-              </button>
-            ) : (
-              <button onClick={() => { setFacePunchAction("IN"); setShowFacePunch(true); }} disabled={punching}
-                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
-                {punching ? <Loader2 className="w-3 h-3 animate-spin" /> : <ScanFace className="w-3 h-3" />} Face Punch In
-              </button>
+            {todayRecord?.faceImageIn && (
+              <a href={todayRecord.faceImageIn} target="_blank" rel="noreferrer">
+                <img src={todayRecord.faceImageIn} alt="in" className="w-9 h-9 rounded-full object-cover border-2 border-emerald-500/50" />
+              </a>
             )}
           </div>
         </div>
