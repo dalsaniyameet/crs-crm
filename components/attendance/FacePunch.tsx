@@ -24,6 +24,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
   const [countdown, setCountdown]       = useState(0);
   const [retryKey, setRetryKey]         = useState(0);
   const [errorName, setErrorName]       = useState("");
+  const [errorMsg, setErrorMsg]         = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +32,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
     setMessage("Camera shuru ho rahi hai...");
     setFaceDetected(false);
     setErrorName("");
+    setErrorMsg("");
 
     async function init() {
       let stream: MediaStream;
@@ -43,7 +45,9 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
         }
       } catch (camErr: any) {
         if (!cancelled) {
+          console.error("[FacePunch] Camera error:", camErr?.name, camErr?.message, camErr);
           setErrorName(camErr?.name || "UnknownError");
+          setErrorMsg(camErr?.message || "");
           setStatus("error");
         }
         return;
@@ -227,6 +231,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                 {isBlocked && (
                   <>
                     <p className="text-xs text-center text-white font-semibold">Camera Permission Denied</p>
+                    <p className="text-[10px] text-white/40 font-mono">{errorName}: {errorMsg}</p>
                     <div className="text-xs text-center text-white/70 space-y-1">
                       <p>Android: <span className="text-white">Settings → Apps → Chrome → Permissions → Camera → Allow</span></p>
                       <p>Ya address bar mein 🔒 → Camera → Allow</p>
@@ -243,7 +248,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                   <p className="text-xs text-center text-white font-semibold">Camera nahi mila</p>
                 )}
                 {!isBlocked && !isBusy && !isNotFound && (
-                  <p className="text-xs text-center text-white/70">{errorName || "Camera error"}</p>
+                  <p className="text-xs text-center text-white/70">{errorName}: {errorMsg || "Camera error"}</p>
                 )}
 
                 {/* Action buttons */}
