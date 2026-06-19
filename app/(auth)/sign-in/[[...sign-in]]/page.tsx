@@ -33,7 +33,7 @@ function PunchSection() {
     try {
       const res  = await fetch(`/api/auth/verify-employee?email=${encodeURIComponent(email.trim())}`);
       const data = await res.json();
-      if (!res.ok || !data.found) { setVerifyErr("Employee not found. Admin se contact karo."); }
+      if (!res.ok || !data.found) { setVerifyErr("Employee not found. Please contact your admin."); }
       else {
         setVerified({ name: data.name, email: data.email });
         localStorage.setItem("crs_punch_email", data.email);
@@ -46,7 +46,7 @@ function PunchSection() {
         setTodayRecord(mine || null);
         setAction(mine && !mine.punchOut ? "OUT" : "IN");
       }
-    } catch { setVerifyErr("Network error."); }
+    } catch { setVerifyErr("Network error. Please try again."); }
     setVerifying(false);
   };
 
@@ -57,7 +57,7 @@ function PunchSection() {
     try {
       const locs = await fetch("/api/attendance/locations").then(r => r.json()).catch(() => []);
       const loc  = Array.isArray(locs) ? locs[0] : null;
-      if (!loc) { setVerifyErr("No office location. Admin se contact karo."); setProcessing(false); return; }
+      if (!loc) { setVerifyErr("No office location configured. Contact admin."); setProcessing(false); return; }
 
       // ── GPS location check ──
       let lat: number, lng: number;
@@ -68,7 +68,7 @@ function PunchSection() {
         lat = pos.coords.latitude;
         lng = pos.coords.longitude;
       } catch {
-        setVerifyErr("📍 Location access denied. Please allow location permission to punch.");
+        setVerifyErr("📍 Location access denied. Please allow location permission to punch in/out.");
         setProcessing(false);
         return;
       }
@@ -82,7 +82,7 @@ function PunchSection() {
       const a  = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
       const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
       if (dist > loc.radius) {
-        setVerifyErr(`📍 Tum office se ${Math.round(dist)}m door ho. ${loc.radius}m ke andar hona zaroori hai.`);
+        setVerifyErr(`📍 You are ${Math.round(dist)}m away from office. Must be within ${loc.radius}m of ${loc.name}.`);
         setProcessing(false);
         return;
       }
@@ -98,7 +98,7 @@ function PunchSection() {
       const data = await res.json();
       if (!res.ok) { setVerifyErr(data.error || "Failed. Try again."); }
       else { setDone({ type: action, wh: data.record?.workHours }); }
-    } catch { setVerifyErr("Network error."); }
+    } catch { setVerifyErr("Network error. Please try again."); }
     setProcessing(false);
   };
 
@@ -133,7 +133,7 @@ function PunchSection() {
       {!verified ? (
         <form onSubmit={verify} className="space-y-2">
           <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-            placeholder="apna registered email daalo"
+            placeholder="Enter your registered email"
             className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-estate-500/50" />
           {verifyErr && <p className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3 h-3" /> {verifyErr}</p>}
           <button type="submit" disabled={verifying}
@@ -165,7 +165,7 @@ function PunchSection() {
             {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace className="w-4 h-4" />}
             {action === "IN" ? "👉 Face Punch In" : "👈 Face Punch Out"}
           </button>
-          <p className="text-xs text-center text-muted-foreground">🥳 Face scan compulsory hai</p>
+          <p className="text-xs text-center text-muted-foreground">Face scan is required</p>
         </motion.div>
       )}
 

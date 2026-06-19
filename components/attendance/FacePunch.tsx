@@ -38,8 +38,8 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
           setStatus("error");
           setMessage(
             camErr?.name === "NotAllowedError"
-              ? "Camera blocked hai. Browser mein address bar pe camera icon click karke Allow karo."
-              : "Camera nahi mila. Camera connected hai check karo."
+              ? "Camera blocked. Click the camera icon in the browser address bar and select Allow."
+              : "Camera not found. Please check your camera is connected."
           );
         }
         return;
@@ -54,7 +54,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
       }
 
       setStatus("scanning");
-      setMessage("Apna chehra frame mein rakho");
+      setMessage("Position your face in the frame");
 
       // ── Step 2: Face detection models load karo ──
       try {
@@ -136,14 +136,14 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
           } else {
             stableFrames = 0;
             setFaceDetected(false);
-            setMessage("Chehra nahi dikha — camera ki taraf dekho");
+            setMessage("No face detected — look at the camera");
           }
         }, 500);
 
       } catch {
         if (!cancelled) {
           setStatus("error");
-          setMessage("Face detection load nahi hui. Internet check karo.");
+          setMessage("Face detection failed to load. Check your internet connection.");
         }
       }
     }
@@ -245,8 +245,8 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
             status === "error"   ? "text-red-400" :
             faceDetected         ? "text-emerald-400" : "text-yellow-400"
           }`}>
-            {status === "scanning" && (faceDetected ? "✅ Chehra mila — hold still" : "👤 " + message)}
-            {status === "detected" && `✅ ${countdown}s mein confirm...`}
+            {status === "scanning" && (faceDetected ? "✅ Face detected — hold still" : "👤 " + message)}
+            {status === "detected" && `✅ Confirming in ${countdown}s...`}
             {status === "loading" && message}
             {status === "success" && message}
             {status === "error" && message}

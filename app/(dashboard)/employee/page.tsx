@@ -10,8 +10,10 @@ import {
   Plus, Loader2, TrendingUp, Users, X, Coffee,
   Camera, Mail, Briefcase, Shield, User, LogOut as SignOutIcon,
   FileText, Upload, Trash2, ExternalLink, MessageCircle, Send,
-  StickyNote, Pin, PinOff, MapPin,
+  StickyNote, Pin, PinOff, MapPin, ScanFace,
 } from "lucide-react";
+import dynamic from "next/dynamic";
+const FacePunch = dynamic(() => import("@/components/attendance/FacePunch"), { ssr: false });
 
 function LiveTimer({ since, breakSecs = 0, small = false }: { since: string; breakSecs: number; small?: boolean }) {
   const [secs, setSecs] = useState(0);
@@ -86,6 +88,10 @@ export default function EmployeePanelPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [form, setForm]               = useState({ type: "CASUAL", fromDate: "", toDate: "", reason: "" });
   const [todayRecord, setTodayRecord] = useState<any>(null);
+  const [punching, setPunching]       = useState(false);
+  const [showFacePunch, setShowFacePunch] = useState(false);
+  const [facePunchAction, setFacePunchAction] = useState<"IN"|"OUT">("IN");
+  const [punchErr, setPunchErr]       = useState("");
   const [documents, setDocuments]     = useState<any[]>([]);
   const [docUploading, setDocUploading] = useState(false);
   const [docForm, setDocForm]         = useState({ name: "", type: "SALARY_SLIP", notes: "" });
@@ -281,6 +287,49 @@ export default function EmployeePanelPage() {
 
   const [logoutCountdown, setLogoutCountdown] = useState<number | null>(null);
 
+  // ── Face Punch with GPS check ──
+  const handlePunch = async (type: "IN" | "OUT", faceImage?: string) => {
+    if (!locations[0]) { toast.error("No office location configured"); return; }
+    setPunching(true); setPunchErr("");
+    try {
+      // GPS check
+      let lat: number, lng: number;
+      try {
+        const pos = await new Promise<GeolocationPosition>((res, rej) =>
+          navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 8000 })
+        );
+        lat = pos.coords.latitude; lng = pos.coords.longitude;
+      } catch {
+        toast.error("Location access denied. Please allow location to punch.");
+        setPunching(false); return;
+      }
+      const loc = locations[0];
+      const R = 6371e3;
+      const p1 = (lat * Math.PI) / 180, p2 = (loc.latitude * Math.PI) / 180;
+      const dp = ((loc.latitude - lat) * Math.PI) / 180, dl = ((loc.longitude - lng) * Math.PI) / 180;
+      const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      if (dist > loc.radius) {
+        toast.error(`You are ${Math.round(dist)}m from office. Must be within ${loc.radius}m.`);
+        setPunching(false); return;
+      }
+      const res = await fetch("/api/attendance/guest", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: userName, phone: email, locationId: loc.id, bypass: true, faceImage,
+          ...(type === "OUT" ? { action: "OUT" } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Failed"); }
+      else {
+        toast.success(type === "IN" ? "Punched In ✅" : `Punched Out 👋 · ${data.record?.workHours?.toFixed(1)}h`);
+        fetchData();
+      }
+    } catch { toast.error("Network error"); }
+    setPunching(false);
+  };
+
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault(); setSubmitting(true);
     try {
@@ -443,9 +492,29 @@ export default function EmployeePanelPage() {
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-3xl mx-auto">
 
-      {/* Auto Logout Countdown removed */}
+      {/* Face Punch Modal */}
+      <AnimatePresence>
+        {showFacePunch && (
+          <FacePunch
+            employeeName={userName}
+            action={facePunchAction}
+            onClose={() => setShowFacePunch(false)}
+            onSuccess={(img) => { setShowFacePunch(false); handlePunch(facePunchAction, img); }}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Punch banner removed — punch from sign-in page only */}
+      {/* Face Punch Modal */}
+      <AnimatePresence>
+        {showFacePunch && (
+          <FacePunch
+            employeeName={userName}
+            action={facePunchAction}
+            onClose={() => setShowFacePunch(false)}
+            onSuccess={(img) => { setShowFacePunch(false); handlePunch(facePunchAction, img); }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Profile Header — always visible */}
       <div className="glass-card p-5">
