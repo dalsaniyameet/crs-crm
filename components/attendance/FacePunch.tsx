@@ -44,18 +44,30 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
     setErrorName("");
     setErrorMsg("");
 
-    // Request camera first
+    // Request camera first — try with constraints, fallback to bare true
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
       });
-    } catch (err: any) {
-      setStatus("error");
-      setErrorName(err?.name || "UnknownError");
-      setErrorMsg(err?.message || "");
-      setMessage(err?.name || "Camera error");
-      return;
+    } catch {
+      try {
+        // Fallback 1: drop facingMode constraint
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 } },
+        });
+      } catch {
+        try {
+          // Fallback 2: bare minimum
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        } catch (err: any) {
+          setStatus("error");
+          setErrorName(err?.name || "UnknownError");
+          setErrorMsg(err?.message || "");
+          setMessage(err?.name || "Camera error");
+          return;
+        }
+      }
     }
 
     streamRef.current = stream;
