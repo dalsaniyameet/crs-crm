@@ -62,6 +62,25 @@ function PunchForm() {
   const [faceAction, setFaceAction] = useState<"IN" | "OUT">("IN");
   const [processing, setProcessing] = useState(false);
   const [result, setResult]   = useState<any>(null);
+  const [autoLocId, setAutoLocId] = useState("");
+  const [autoLocName, setAutoLocName] = useState("");
+
+  // Auto-fetch location if not in URL params
+  useEffect(() => {
+    if (!locationId) {
+      fetch("/api/attendance/locations")
+        .then(r => r.json())
+        .then(locs => {
+          if (Array.isArray(locs) && locs[0]) {
+            setAutoLocId(locs[0].id);
+            setAutoLocName(locs[0].name);
+          }
+        }).catch(() => {});
+    }
+  }, [locationId]);
+
+  const effectiveLocId   = locationId || autoLocId;
+  const effectiveLocName = locName !== "Office" ? locName : (autoLocName || "Office");
 
   // Remember last employee email
   useEffect(() => {
@@ -105,7 +124,10 @@ function PunchForm() {
   // Face scan complete → punch in/out
   const handleFaceSuccess = async (faceImage?: string) => {
     setShowFace(false);
-    if (!employee || !locationId) return;
+    if (!employee || !effectiveLocId) {
+      setVerifyError("No office location found. Contact admin.");
+      return;
+    }
     setProcessing(true);
     try {
       const res  = await fetch("/api/attendance/guest", {
@@ -114,7 +136,7 @@ function PunchForm() {
         body: JSON.stringify({
           name:       employee.name,
           phone:      employee.email,
-          locationId,
+          locationId: effectiveLocId,
           bypass:     true,
           action:     faceAction === "OUT" ? "OUT" : undefined,
           faceImage,
@@ -128,11 +150,9 @@ function PunchForm() {
         if (faceAction === "IN") {
           setTodayRecord(data.record);
           setStep("punched_in");
-          // Redirect to employee dashboard after 4 seconds
           setTimeout(() => { window.location.href = "/employee"; }, 4000);
         } else {
           setStep("done");
-          // Redirect to employee dashboard after 3 seconds
           setTimeout(() => { window.location.href = "/employee"; }, 3000);
         }
       }
@@ -153,7 +173,7 @@ function PunchForm() {
         <div>
           <h2 className="text-3xl font-bold text-blue-400">Punched Out ✓</h2>
           <p className="text-white text-lg font-medium mt-1">{employee?.name}</p>
-          <p className="text-muted-foreground text-sm">{locName}</p>
+          <p className="text-emerald-300 text-sm">📍 {result.record?.location?.name || effectiveLocName}</p>
         </div>
         <div className="bg-white/5 rounded-xl p-4 space-y-3 text-sm">
           <div className="flex justify-between">
@@ -188,9 +208,12 @@ function PunchForm() {
           <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-3">
             <CheckCircle className="w-8 h-8 text-emerald-400" />
           </div>
-          <h2 className="text-xl font-bold text-emerald-400">In Office ✓</h2>
+          <h2 className="text-xl font-bold text-emerald-400">Punched In ✓</h2>
           <p className="text-white font-medium mt-1">{employee.name}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-emerald-300 mt-0.5">
+            📍 {todayRecord.location?.name || effectiveLocName}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
             Punch In: {new Date(todayRecord.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
           </p>
         </div>
@@ -224,8 +247,8 @@ function PunchForm() {
       {!employee ? (
         <form onSubmit={verifyEmployee} className="space-y-4">
           <div className="text-center">
-            <p className="text-sm text-white font-medium">Apna registered email daalo</p>
-            <p className="text-xs text-muted-foreground mt-1">Sirf CRM mein registered employees punch kar sakte hain</p>
+            <p className="text-sm text-white font-medium">Enter your registered email</p>
+            <p className="text-xs text-muted-foreground mt-1">Only CRM registered employees can punch in/out</p>
           </div>
           <input
             type="email" value={empEmail}
@@ -272,7 +295,7 @@ function PunchForm() {
             {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
             {processing ? "Processing..." : "Face Punch In"}
           </button>
-          <p className="text-xs text-center text-muted-foreground">🤳 Face scan compulsory hai</p>
+          <p className="text-xs text-center text-muted-foreground">🤳 Face scan required</p>
         </motion.div>
       )}
 
