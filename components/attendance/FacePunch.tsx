@@ -219,8 +219,12 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                 <AlertCircle className="w-9 h-9 text-red-400 shrink-0" />
 
                 {isBlocked && (
-                  <div className="space-y-2 text-center">
+                  <div className="space-y-2 text-center w-full">
                     <p className="text-xs text-white font-semibold">Camera Permission Denied</p>
+                    {/* Show exact error for debugging */}
+                    <p className="text-[10px] text-red-300/70 bg-red-500/10 rounded px-2 py-1">
+                      Error: <span className="font-mono">{errorName}</span>{errorMsg ? ` — ${errorMsg}` : ""}
+                    </p>
                     <div className="text-[11px] text-white/80 space-y-1 text-left bg-white/5 rounded-lg p-3">
                       <p className="font-semibold text-yellow-400 mb-1">📋 How to allow camera:</p>
                       <p>📱 <span className="font-medium">Android Chrome:</span></p>
