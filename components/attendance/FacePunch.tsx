@@ -28,6 +28,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
   const [errorName, setErrorName] = useState("");
   const [errorMsg,  setErrorMsg]  = useState("");
   const isBlocked  = status === "error" && (errorName === "NotAllowedError" || errorName === "PermissionDeniedError");
+  const isSiteBlocked = isBlocked && errorMsg === "SITE_BLOCKED";
   const isBusy     = status === "error" && (errorName === "NotReadableError" || errorName === "TrackStartError");
   const isNotFound = status === "error" && (errorName === "NotFoundError" || errorName === "DevicesNotFoundError");
 
@@ -59,7 +60,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
       if (perm.state === "denied") {
         setStatus("error");
         setErrorName("NotAllowedError");
-        setErrorMsg(`Permissions API says: DENIED. Browser has blocked camera for this site. Reset from address bar 🔒 → Camera → Allow, then reload page.`);
+        setErrorMsg("SITE_BLOCKED");
         setMessage("Camera blocked by browser");
         return;
       }
@@ -239,22 +240,50 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
 
                 {isBlocked && (
                   <div className="space-y-2 text-center w-full">
-                    <p className="text-xs text-white font-semibold">Camera Permission Denied</p>
-                    {/* Show exact error for debugging */}
-                    <p className="text-[10px] text-red-300/70 bg-red-500/10 rounded px-2 py-1">
-                      Error: <span className="font-mono">{errorName}</span>{errorMsg ? ` — ${errorMsg}` : ""}
-                    </p>
-                    <div className="text-[11px] text-white/80 space-y-1 text-left bg-white/5 rounded-lg p-3">
-                      <p className="font-semibold text-yellow-400 mb-1">📋 How to allow camera:</p>
-                      <p>📱 <span className="font-medium">Android Chrome:</span></p>
-                      <p className="ml-3">Settings → Apps → Chrome → Permissions → Camera → Allow</p>
-                      <p className="ml-3 text-white/60">Or: Tap 🔒 in address bar → Camera → Allow</p>
-                      <p>🍎 <span className="font-medium">iPhone Safari:</span></p>
-                      <p className="ml-3">Settings → Safari → Camera → Allow</p>
-                      <p>💻 <span className="font-medium">Desktop:</span></p>
-                      <p className="ml-3">Click 🔒 in address bar → Camera → Allow</p>
-                    </div>
-                    <p className="text-[10px] text-white/40">After allowing, tap Try Again</p>
+                    {isSiteBlocked ? (
+                      <>
+                        <p className="text-sm text-white font-bold">Camera Blocked 🚫</p>
+                        <p className="text-xs text-yellow-300">Chrome ne is site ka camera block kar rakha hai. Niche steps follow karo:</p>
+                        <div className="text-left bg-white/5 rounded-xl p-3 space-y-2.5 text-xs text-white/90">
+                          <div className="flex items-start gap-2">
+                            <span className="text-yellow-400 font-bold shrink-0">1.</span>
+                            <span>Yeh popup <span className="text-yellow-400 font-semibold">band karo</span> (Close button)</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-yellow-400 font-bold shrink-0">2.</span>
+                            <span>Address bar mein <span className="text-yellow-400 font-semibold">🔒 lock icon</span> tap karo</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-yellow-400 font-bold shrink-0">3.</span>
+                            <span><span className="text-yellow-400 font-semibold">Permissions</span> tap karo</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-yellow-400 font-bold shrink-0">4.</span>
+                            <span><span className="text-yellow-400 font-semibold">Camera → Allow</span> select karo</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-yellow-400 font-bold shrink-0">5.</span>
+                            <span>Page <span className="text-yellow-400 font-semibold">reload</span> karo phir dobara try karo</span>
+                          </div>
+                        </div>
+                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2 text-[11px] text-blue-300">
+                          ⚠️ Agar Camera option nahi dikh raha: <strong>Reset permissions</strong> karo — Site Settings → Clear & Reset
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-white font-semibold">Camera Permission Denied</p>
+                        <div className="text-[11px] text-white/80 space-y-1 text-left bg-white/5 rounded-lg p-3">
+                          <p className="font-semibold text-yellow-400 mb-1">📋 How to allow camera:</p>
+                          <p>📱 <span className="font-medium">Android Chrome:</span></p>
+                          <p className="ml-3">Settings → Apps → Chrome → Permissions → Camera → Allow</p>
+                          <p>🍎 <span className="font-medium">iPhone Safari:</span></p>
+                          <p className="ml-3">Settings → Safari → Camera → Allow</p>
+                          <p>💻 <span className="font-medium">Desktop:</span></p>
+                          <p className="ml-3">Click 🔒 in address bar → Camera → Allow</p>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
