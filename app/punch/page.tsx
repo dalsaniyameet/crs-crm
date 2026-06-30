@@ -115,7 +115,7 @@ function PunchForm() {
           name:       employee.name,
           phone:      employee.email,
           locationId,
-          bypass:     true, // no time restriction
+          bypass:     true,
           action:     faceAction === "OUT" ? "OUT" : undefined,
           faceImage,
         }),
@@ -128,8 +128,12 @@ function PunchForm() {
         if (faceAction === "IN") {
           setTodayRecord(data.record);
           setStep("punched_in");
+          // Redirect to employee dashboard after 4 seconds
+          setTimeout(() => { window.location.href = "/employee"; }, 4000);
         } else {
           setStep("done");
+          // Redirect to employee dashboard after 3 seconds
+          setTimeout(() => { window.location.href = "/employee"; }, 3000);
         }
       }
     } catch { setVerifyError("Network error."); }
@@ -171,10 +175,7 @@ function PunchForm() {
             </span>
           </div>
         </div>
-        <button onClick={() => { setStep("verify"); setEmployee(null); setTodayRecord(null); setResult(null); setEmpEmail(""); localStorage.removeItem("crs_punch_email"); }}
-          className="w-full py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-all">
-          Done
-        </button>
+        <p className="text-xs text-muted-foreground animate-pulse">Redirecting to dashboard in 3s...</p>
       </motion.div>
     );
   }
@@ -212,7 +213,7 @@ function PunchForm() {
           {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut className="w-5 h-5" />}
           {processing ? "Processing..." : "Face Punch Out"}
         </button>
-        <p className="text-xs text-center text-muted-foreground">🤳 Face scan required for punch out</p>
+        <p className="text-xs text-center text-muted-foreground animate-pulse">🔄 Redirecting to dashboard in 4s...</p>
       </motion.div>
     );
   }

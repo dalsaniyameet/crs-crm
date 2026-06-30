@@ -2,8 +2,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogIn, LogOut, Coffee, Clock, Calendar, ChevronDown, ChevronUp, Loader2, AlertTriangle, X, CheckCircle } from "lucide-react";
+import { LogOut, Coffee, Clock, Calendar, ChevronDown, ChevronUp, Loader2, AlertTriangle, X, CheckCircle, ScanFace } from "lucide-react";
 import toast from "react-hot-toast";
+import dynamic from "next/dynamic";
+
+const FacePunch = dynamic(() => import("@/components/attendance/FacePunch"), { ssr: false });
 
 const MAX_BREAKS = 4;
 const EXPECTED_HOURS = { weekday: 9, sunday: 2 };
@@ -54,6 +57,7 @@ export default function MyAttendancePage() {
   const [fixing, setFixing]         = useState(false);
 
   const [breakState, setBreakState] = useState<{ breaks: { start: number; end?: number }[]; onBreak: boolean }>({ breaks: [], onBreak: false });
+  const [showFacePunch, setShowFacePunch] = useState<"IN" | "OUT" | null>(null);
 
   const breakSecs = breakState.breaks.reduce((acc, b) => {
     const end = b.end ?? (breakState.onBreak ? Date.now() : Date.now());
@@ -82,7 +86,7 @@ export default function MyAttendancePage() {
     fetchData(email).finally(() => setLoading(false));
   }, [isLoaded, user, fetchData]);
 
-  const handlePunch = async (type: "IN" | "OUT") => {
+  const handlePunch = async (type: "IN" | "OUT", faceImage?: string) => {
     if (!locations[0]) { toast.error("No office location configured"); return; }
     if (type === "OUT" && breakState.onBreak) { toast.error("End your break before punching out"); return; }
     setPunching(true);
@@ -94,6 +98,7 @@ export default function MyAttendancePage() {
           name: emp.name, phone: emp.email,
           locationId: locations[0].id,
           bypass: true,
+          faceImage,
           action: type === "OUT" ? "OUT" : undefined,
         }),
       });
@@ -279,9 +284,9 @@ export default function MyAttendancePage() {
 
         <div className="flex gap-3 justify-center pt-2">
           {!isPunchedIn && !todayRecord?.punchOut && !todayRecord?.otStatus && (
-            <button onClick={() => handlePunch("IN")} disabled={punching}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors font-medium disabled:opacity-50">
-              <LogIn className="w-4 h-4" /> Punch In
+            <button onClick={() => setShowFacePunch("IN")}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors font-medium">
+              <ScanFace className="w-4 h-4" /> Face Punch In
             </button>
           )}
           {isPunchedIn && (
@@ -295,9 +300,9 @@ export default function MyAttendancePage() {
                 <Coffee className="w-4 h-4" />
                 {breakState.onBreak ? "End Break" : `Break (${MAX_BREAKS - breaksUsed} left)`}
               </button>
-              <button onClick={() => handlePunch("OUT")} disabled={punching || breakState.onBreak}
+              <button onClick={() => setShowFacePunch("OUT")} disabled={breakState.onBreak}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors font-medium disabled:opacity-50">
-                <LogOut className="w-4 h-4" /> Punch Out
+                <ScanFace className="w-4 h-4" /> Face Punch Out
               </button>
             </>
           )}
@@ -364,6 +369,22 @@ export default function MyAttendancePage() {
           </div>
         )}
       </div>
+
+      {/* Face Punch Modal */}
+      <AnimatePresence>
+        {showFacePunch && emp && (
+          <FacePunch
+            employeeName={emp.name}
+            action={showFacePunch}
+            onSuccess={async (faceImage) => {
+              const type = showFacePunch;
+              setShowFacePunch(null);
+              await handlePunch(type, faceImage);
+            }}
+            onClose={() => setShowFacePunch(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ── Fix Punch Out Modal ── */}
       <AnimatePresence>
