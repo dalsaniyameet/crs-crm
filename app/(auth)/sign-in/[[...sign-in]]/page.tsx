@@ -122,7 +122,7 @@ function PunchSection() {
             <button onClick={() => { setVerified(null); setVerifyErr(""); }} className="text-muted-foreground hover:text-white text-xs">×</button>
           </div>
           {verifyErr && <p className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3 h-3" />{verifyErr}</p>}
-          <button onClick={() => { setVerifyErr(""); setShowFace(true); }} disabled={processing}
+          <button onClick={() => { window.location.href = "/punch"; }} disabled={processing}
             className={`w-full py-3 rounded-xl text-sm font-semibold border transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
               action === "IN"
                 ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30"
