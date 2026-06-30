@@ -231,9 +231,13 @@ export default function SignInPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("reason") === "outside-hours") {
+    const reason = params.get("reason");
+    if (reason === "outside-hours") {
       setTab("employee");
       setError("Access denied: CRM is only available Mon–Sat 9:58 AM – 7:02 PM (IST).");
+    } else if (reason === "inactivity") {
+      setTab("employee");
+      // No error — just silently land on employee tab so they can punch or re-login
     }
   }, []);
 

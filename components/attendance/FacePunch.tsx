@@ -250,11 +250,22 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
                   <p className="text-xs text-center text-white/70">{errorName}: {errorMsg || "Camera error"}</p>
                 )}
 
-                <div className="flex gap-2 mt-1">
+                <div className="flex gap-2 mt-1 flex-wrap justify-center">
                   <button onClick={() => setRetryKey(k => k + 1)}
                     className="px-3 py-1.5 rounded-lg bg-yellow-500 text-black text-xs font-semibold hover:bg-yellow-400 transition-colors">
                     🔄 Try Again
                   </button>
+                  {isBlocked && (
+                    <a
+                      href="javascript:void(0)"
+                      onClick={() => {
+                        // Works on Chrome desktop — opens site settings
+                        window.open(`chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs font-semibold hover:bg-blue-500/30 transition-colors">
+                      ⚙️ Open Settings
+                    </a>
+                  )}
                   <button onClick={() => { stopCamera(); onClose(); }}
                     className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs hover:bg-white/20 transition-colors">
                     Close
