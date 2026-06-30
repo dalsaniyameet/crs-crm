@@ -53,18 +53,17 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
       return;
     }
 
-    // Enumerate cameras first to verify device exists
+    // Check Permissions API state first
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const hasCamera = devices.some(d => d.kind === "videoinput");
-      if (!hasCamera) {
+      const perm = await navigator.permissions.query({ name: "camera" as PermissionName });
+      if (perm.state === "denied") {
         setStatus("error");
-        setErrorName("NotFoundError");
-        setErrorMsg("No camera device found on this device");
-        setMessage("No camera found");
+        setErrorName("NotAllowedError");
+        setErrorMsg(`Permissions API says: DENIED. Browser has blocked camera for this site. Reset from address bar 🔒 → Camera → Allow, then reload page.`);
+        setMessage("Camera blocked by browser");
         return;
       }
-    } catch { /* ignore enumerate errors */ }
+    } catch { /* some browsers don't support permissions API */ }
 
     // Request camera — bare { video: true } for max compatibility
     let stream: MediaStream;
@@ -73,7 +72,7 @@ export default function FacePunch({ employeeName, action, onSuccess, onClose }: 
     } catch (err: any) {
       setStatus("error");
       setErrorName(err?.name || "UnknownError");
-      setErrorMsg(err?.message || "");
+      setErrorMsg(`${err?.message || ""} | UA: ${navigator.userAgent.slice(0,80)}`);
       setMessage(err?.name || "Camera error");
       return;
     }
