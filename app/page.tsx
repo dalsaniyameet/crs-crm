@@ -507,9 +507,11 @@ export default function HomePage() {
           <span>Ahmedabad, Gujarat, India</span>
         </div>
         <p style={{ fontSize: 11, color: "#1e293b", marginTop: 16, maxWidth: 700, margin: "16px auto 0", lineHeight: 1.8 }}>
-          Real Estate CRM Ahmedabad · Property Broker Software Gujarat · AI Lead Management ·
+          Real Estate CRM Software · Property Broker CRM Ahmedabad · AI Lead Management Real Estate ·
           WhatsApp Automation Real Estate · Deal Pipeline Software · Commission Tracker Broker ·
-          Best CRM for Real Estate Agents India · Commercial Property Software Ahmedabad
+          CRM for Property Dealers Gujarat · Commercial Property Management Software ·
+          Residential Property CRM · Real Estate Lead Scoring · Site Visit Management ·
+          Property Broker Software India · Real Estate Sales Tracking · Broker Management System
         </p>
         <p style={{ fontSize: 11, color: "#334155", marginTop: 10 }}>© 2026 City Real Space. All rights reserved.</p>
       </footer>

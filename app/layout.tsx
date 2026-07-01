@@ -8,27 +8,59 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://cityrealspacecrm.com"),
 
   title: {
-    default: "City Real Space CRM | #1 Real Estate CRM Ahmedabad",
+    default: "City Real Space CRM | Real Estate CRM Software Ahmedabad",
     template: "%s | City Real Space CRM",
   },
   description:
-    "Best real estate CRM software in Ahmedabad. AI lead scoring, WhatsApp automation, deal pipeline & commission tracker for property brokers. Free 14-day trial.",
+    "City Real Space CRM — AI-powered real estate CRM software for property brokers in Ahmedabad, Gujarat. Manage leads, properties, deals, site visits & commissions. WhatsApp automation, smart lead scoring & broker performance reports.",
   keywords: [
+    // ── Core product keywords
+    "real estate CRM software",
+    "property broker CRM",
+    "real estate management software",
+    "CRM for real estate agents",
+    "property dealer software",
+    "real estate lead management software",
+    "broker management software",
+    // ── Location-specific (high intent)
     "real estate CRM Ahmedabad",
     "property broker software Ahmedabad",
     "real estate software Gujarat",
-    "CRM for real estate agents India",
+    "property management software Ahmedabad",
+    "real estate agent software Ahmedabad",
+    "property dealer CRM Gujarat",
+    "real estate CRM India",
+    "broker software India",
+    // ── Feature keywords
     "AI real estate CRM",
-    "WhatsApp CRM real estate",
-    "lead management real estate",
-    "property management software",
-    "broker CRM India",
+    "WhatsApp automation real estate",
+    "real estate lead scoring",
+    "property lead management",
+    "real estate deal pipeline",
+    "commission tracker real estate",
+    "site visit management software",
+    "real estate follow up software",
+    "property owner management",
+    "real estate WhatsApp CRM",
+    // ── Property type keywords
+    "commercial property management software",
+    "residential property CRM",
+    "commercial real estate software India",
+    "office space management software",
+    "property listing management",
+    // ── Long-tail buyer intent
+    "how to manage real estate leads",
+    "best CRM for property brokers India",
+    "real estate broker software free trial",
+    "property broker app Ahmedabad",
+    "real estate automation software India",
+    "CRM for property dealers Gujarat",
+    "real estate sales tracking software",
+    "property brokerage management system",
+    // ── Brand
     "City Real Space",
-    "real estate automation Ahmedabad",
-    "commercial property CRM",
-    "residential property software",
-    "deal pipeline real estate",
-    "commission tracker broker",
+    "City Real Space CRM",
+    "cityrealspacecrm",
   ],
   authors: [{ name: "City Real Space", url: "https://cityrealspace.com" }],
   creator: "City Real Space",
@@ -52,9 +84,9 @@ export const metadata: Metadata = {
     locale: "en_IN",
     url: "https://cityrealspacecrm.com",
     siteName: "City Real Space CRM",
-    title: "City Real Space CRM | #1 Real Estate CRM Ahmedabad",
+    title: "City Real Space CRM | Real Estate CRM Software Ahmedabad",
     description:
-      "AI-powered real estate CRM for Ahmedabad brokers. Manage leads, properties, deals & commissions — all in one place. Free 14-day trial.",
+      "AI-powered real estate CRM for Ahmedabad property brokers. Manage leads, properties, deals, site visits & commissions — all in one place. WhatsApp automation & smart lead scoring.",
     images: [
       {
         url: "https://cityrealspacecrm.com/logo.jpeg",
@@ -66,8 +98,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "City Real Space CRM | Real Estate Software Ahmedabad",
-    description: "AI lead scoring, WhatsApp automation & deal pipeline for Ahmedabad real estate brokers.",
+    title: "City Real Space CRM | Real Estate CRM Software Ahmedabad",
+    description: "AI-powered real estate CRM for Ahmedabad brokers. Lead management, WhatsApp automation, deal pipeline & commission tracking.",
     images: ["https://cityrealspacecrm.com/logo.jpeg"],
   },
   verification: {
@@ -95,7 +127,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 "name": "City Real Space CRM",
                 "applicationCategory": "BusinessApplication",
                 "operatingSystem": "Web",
-                "description": "AI-powered real estate CRM for Ahmedabad brokers. Lead management, WhatsApp automation, deal pipeline, commission tracker.",
+                "description": "AI-powered real estate CRM software for property brokers in Ahmedabad, Gujarat. Lead management, WhatsApp automation, deal pipeline, site visit tracking and commission calculator.",
                 "url": "https://cityrealspacecrm.com",
                 "screenshot": "https://cityrealspacecrm.com/logo.jpeg",
                 "offers": {
