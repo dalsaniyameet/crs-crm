@@ -2309,10 +2309,23 @@ export default function OwnersPage() {
             <span className="text-xs text-purple-400">{selectedIds.size} selected</span>
           </div>
           {selectedIds.size > 0 && (
-            <button onClick={() => setShowBlast(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium hover:bg-green-500/30 transition-all">
-              <Send className="w-4 h-4" /> Send WA to {selectedIds.size}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowBlast(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium hover:bg-green-500/30 transition-all">
+                <Send className="w-4 h-4" /> Send WA to {selectedIds.size}
+              </button>
+              <button onClick={async () => {
+                if (!confirm(`Delete ${selectedIds.size} owner(s)? This cannot be undone.`)) return;
+                await Promise.all([...selectedIds].map(id => fetch(`/api/owners/${id}`, { method: "DELETE" })));
+                setOwners(prev => prev.filter(o => !selectedIds.has(o.id)));
+                setSelectedIds(new Set());
+                setSelectMode(false);
+                toast.success(`${selectedIds.size} owner(s) deleted`);
+              }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/30 transition-all">
+                <Trash2 className="w-4 h-4" /> Delete {selectedIds.size}
+              </button>
+            </div>
           )}
         </div>
       )}
