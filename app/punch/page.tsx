@@ -237,6 +237,17 @@ function PunchForm() {
           {processing ? "Processing..." : "Face Punch Out"}
         </button>
         <p className="text-xs text-center text-muted-foreground animate-pulse">🔄 Redirecting to dashboard in 4s...</p>
+
+        <AnimatePresence>
+          {showFace && employee && (
+            <FacePunch
+              employeeName={employee.name}
+              action={faceAction}
+              onSuccess={handleFaceSuccess}
+              onClose={() => setShowFace(false)}
+            />
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   }
