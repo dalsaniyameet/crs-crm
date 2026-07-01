@@ -683,7 +683,8 @@ export default function EmployeePanelPage() {
                   <button onClick={toggleBreak} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border transition-all ${onBreak ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-white/5 text-muted-foreground border-white/10 hover:text-yellow-400"}`}>
                     <Coffee className="w-4 h-4" /> {onBreak ? "End Break" : "Start Break"}
                   </button>
-                  <button onClick={() => { setFacePunchAction("OUT"); setShowFacePunch(true); }} disabled={punching} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50">
+                  <button onClick={() => window.location.href = "/punch"}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all">
                     <ScanFace className="w-4 h-4" /> Face Punch Out
                   </button>
                 </div>
@@ -691,8 +692,8 @@ export default function EmployeePanelPage() {
             ) : (
               <div className="text-center py-6 space-y-3">
                 <div className="text-muted-foreground text-sm">Not punched in today</div>
-                <button onClick={() => { setFacePunchAction("IN"); setShowFacePunch(true); }} disabled={punching}
-                  className="flex items-center justify-center gap-2 mx-auto px-8 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-sm font-medium transition-all disabled:opacity-50">
+                <button onClick={() => window.location.href = "/punch"}
+                  className="flex items-center justify-center gap-2 mx-auto px-8 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 text-sm font-medium transition-all">
                   <ScanFace className="w-5 h-5" /> Face Punch In
                 </button>
                 <div className="text-xs text-muted-foreground">Mon–Sat 10:00 AM – 7:00 PM · Sunday 11:00 AM – 4:00 PM</div>

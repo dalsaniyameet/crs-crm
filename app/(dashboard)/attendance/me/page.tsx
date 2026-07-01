@@ -284,7 +284,7 @@ export default function MyAttendancePage() {
 
         <div className="flex gap-3 justify-center pt-2">
           {!isPunchedIn && !todayRecord?.punchOut && !todayRecord?.otStatus && (
-            <button onClick={() => setShowFacePunch("IN")}
+            <button onClick={() => window.location.href = "/punch"}
               className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors font-medium">
               <ScanFace className="w-4 h-4" /> Face Punch In
             </button>
@@ -300,7 +300,7 @@ export default function MyAttendancePage() {
                 <Coffee className="w-4 h-4" />
                 {breakState.onBreak ? "End Break" : `Break (${MAX_BREAKS - breaksUsed} left)`}
               </button>
-              <button onClick={() => setShowFacePunch("OUT")} disabled={breakState.onBreak}
+              <button onClick={() => window.location.href = "/punch"} disabled={breakState.onBreak}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors font-medium disabled:opacity-50">
                 <ScanFace className="w-4 h-4" /> Face Punch Out
               </button>

@@ -54,7 +54,6 @@ function PunchForm() {
 
   const [step, setStep]         = useState<"verify" | "punched_in" | "done">("verify");
   const [empEmail, setEmpEmail] = useState("");
-  const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState("");
   const [employee, setEmployee] = useState<{ name: string; email: string } | null>(null);
   const [todayRecord, setTodayRecord] = useState<any>(null);
@@ -64,6 +63,7 @@ function PunchForm() {
   const [result, setResult]   = useState<any>(null);
   const [autoLocId, setAutoLocId] = useState("");
   const [autoLocName, setAutoLocName] = useState("");
+  const [autoLoading, setAutoLoading] = useState(true);
 
   // Auto-fetch location if not in URL params
   useEffect(() => {
@@ -82,30 +82,42 @@ function PunchForm() {
   const effectiveLocId   = locationId || autoLocId;
   const effectiveLocName = locName !== "Office" ? locName : (autoLocName || "Office");
 
-  // Remember last employee email
+  // Auto-load employee from localStorage and open face scan immediately
   useEffect(() => {
     const saved = localStorage.getItem("crs_punch_email");
-    if (saved) setEmpEmail(saved);
+    if (!saved) { setAutoLoading(false); return; }
+    setEmpEmail(saved);
+    fetch(`/api/auth/verify-employee?email=${encodeURIComponent(saved)}`)
+      .then(r => r.json())
+      .then(async data => {
+        if (data.found) {
+          setEmployee({ name: data.name, email: data.email });
+          await checkTodayRecord(data.email);
+          // Auto-open face scan — action set after checkTodayRecord updates step
+          setShowFace(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAutoLoading(false));
   }, []);
 
-  // Verify employee is registered in CRM
+  // Manual verify (fallback if no saved email)
   const verifyEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empEmail.trim()) return;
-    setVerifying(true); setVerifyError("");
+    setVerifyError("");
     try {
       const res  = await fetch(`/api/auth/verify-employee?email=${encodeURIComponent(empEmail.trim())}`);
       const data = await res.json();
       if (!res.ok || !data.found) {
-        setVerifyError("Employee not found. Admin se contact karo.");
+        setVerifyError("Employee not found. Contact admin.");
       } else {
         setEmployee({ name: data.name, email: data.email });
         localStorage.setItem("crs_punch_email", data.email);
-        // Check today's record
         await checkTodayRecord(data.email);
+        setShowFace(true);
       }
     } catch { setVerifyError("Network error. Try again."); }
-    setVerifying(false);
   };
 
   const checkTodayRecord = async (email: string) => {
@@ -117,7 +129,12 @@ function PunchForm() {
         (r: any) => r.phone === email || r.phone === email.toLowerCase()
       );
       setTodayRecord(myRec || null);
-      if (myRec && !myRec.punchOut) setStep("punched_in");
+      if (myRec && !myRec.punchOut) {
+        setStep("punched_in");
+        setFaceAction("OUT");
+      } else {
+        setFaceAction("IN");
+      }
     } catch {}
   };
 
@@ -253,6 +270,15 @@ function PunchForm() {
   }
 
   // ── VERIFY + PUNCH IN screen ──
+  if (autoLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-estate-400" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       {!employee ? (
@@ -272,9 +298,9 @@ function PunchForm() {
               <XCircle className="w-4 h-4 flex-shrink-0" /> {verifyError}
             </div>
           )}
-          <button type="submit" disabled={verifying}
-            className="w-full py-3 rounded-xl bg-estate-500 hover:bg-estate-600 text-white font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-            {verifying ? <Loader2 className="w-5 h-5 animate-spin" /> : "Verify & Continue →"}
+          <button type="submit"
+            className="w-full py-3 rounded-xl bg-estate-500 hover:bg-estate-600 text-white font-semibold transition-all flex items-center justify-center gap-2">
+            Verify & Continue →
           </button>
         </form>
       ) : (
@@ -287,7 +313,7 @@ function PunchForm() {
               <div className="text-white font-semibold">{employee.name}</div>
               <div className="text-xs text-emerald-400">✓ Verified Employee</div>
             </div>
-            <button onClick={() => { setEmployee(null); setVerifyError(""); }}
+            <button onClick={() => { setEmployee(null); setVerifyError(""); localStorage.removeItem("crs_punch_email"); }}
               className="ml-auto text-muted-foreground hover:text-white">
               <XCircle className="w-4 h-4" />
             </button>
