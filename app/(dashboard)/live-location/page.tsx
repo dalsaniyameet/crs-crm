@@ -11,10 +11,11 @@ function timeAgo(d: string) {
 }
 
 // 🟢 Online <2min | 🟡 Away 2-30min | 🔴 Offline >30min
-function getStatus(d: string) {
+function getStatus(d: string | null) {
+  if (!d) return { dot: "bg-slate-600", text: "text-slate-500", label: "⚫", badge: "Never" };
   const secs = (Date.now() - new Date(d).getTime()) / 1000;
   if (secs < 120)  return { dot: "bg-emerald-400 animate-pulse", text: "text-emerald-400", label: "🟢", badge: "Online" };
-  if (secs < 1800) return { dot: "bg-yellow-400",               text: "text-yellow-400",  label: "🟡", badge: "Away" };
+  if (secs < 1800) return { dot: "bg-yellow-400",               text: "text-yellow-400",  label: "🟡", badge: "Away"   };
   return              { dot: "bg-red-400",                    text: "text-red-400",     label: "🔴", badge: "Offline" };
 }
 
@@ -25,14 +26,14 @@ const ROLE_COLOR: Record<string, string> = {
   ADMIN:         "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
-function buildMapUrl(users: any[]) {
-  if (users.length === 0) return null;
-  if (users.length === 1) {
-    const u = users[0];
+function buildMapUrl(located: any[]) {
+  if (located.length === 0) return null;
+  if (located.length === 1) {
+    const u = located[0];
     return `https://www.openstreetmap.org/export/embed.html?bbox=${u.liveLongitude - 0.006},${u.liveLatitude - 0.006},${u.liveLongitude + 0.006},${u.liveLatitude + 0.006}&layer=mapnik&marker=${u.liveLatitude},${u.liveLongitude}`;
   }
-  const lats = users.map(u => u.liveLatitude);
-  const lngs = users.map(u => u.liveLongitude);
+  const lats = located.map((u: any) => u.liveLatitude);
+  const lngs = located.map((u: any) => u.liveLongitude);
   const pad  = 0.008;
   const bbox = `${Math.min(...lngs) - pad},${Math.min(...lats) - pad},${Math.max(...lngs) + pad},${Math.max(...lats) + pad}`;
   return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik`;
@@ -61,11 +62,17 @@ export default function LiveLocationPage() {
     return () => clearInterval(id);
   }, []);
 
-  const displayUsers = selected ? users.filter(u => u.id === selected) : users;
-  const mapUrl       = buildMapUrl(displayUsers);
+  // Split: located vs never shared
+  const locatedUsers = users.filter(u => u.liveLatitude && u.liveLongitude);
+  const neverUsers   = users.filter(u => !u.liveLatitude);
 
-  const onlineCount = users.filter(u => (Date.now() - new Date(u.liveUpdatedAt).getTime()) / 1000 < 120).length;
-  const awayCount   = users.filter(u => { const s = (Date.now() - new Date(u.liveUpdatedAt).getTime()) / 1000; return s >= 120 && s < 1800; }).length;
+  const onlineCount  = locatedUsers.filter(u => (Date.now() - new Date(u.liveUpdatedAt).getTime()) / 1000 < 120).length;
+  const awayCount    = locatedUsers.filter(u => { const s = (Date.now() - new Date(u.liveUpdatedAt).getTime()) / 1000; return s >= 120 && s < 1800; }).length;
+
+  const mapDisplayUsers = selected ? locatedUsers.filter(u => u.id === selected) : locatedUsers;
+  const mapUrl          = buildMapUrl(mapDisplayUsers);
+
+  const selectedUser = locatedUsers.find(u => u.id === selected);
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
@@ -77,7 +84,7 @@ export default function LiveLocationPage() {
             <Navigation className="w-6 h-6 text-emerald-400" /> Live Location
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Employees real-time location · tracked for 8h
+            All employees · last known location always visible
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -105,12 +112,18 @@ export default function LiveLocationPage() {
         )}
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
           <Users className="w-3.5 h-3.5 text-blue-400" />
-          <span className="text-xs text-white font-medium">{users.length} tracked today</span>
+          <span className="text-xs text-white font-medium">{users.length} total employees</span>
         </div>
+        {neverUsers.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-500/8 border border-slate-500/20">
+            <span className="w-2 h-2 rounded-full bg-slate-500" />
+            <span className="text-xs text-slate-400 font-medium">{neverUsers.length} location not shared</span>
+          </div>
+        )}
         {selected && (
           <button onClick={() => setSelected(null)}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/25 transition-colors">
-            ✕ Show all employees
+            ✕ Show all
           </button>
         )}
       </div>
@@ -119,19 +132,14 @@ export default function LiveLocationPage() {
         <div className="flex items-center justify-center py-24">
           <Loader2 className="w-7 h-7 animate-spin text-estate-400" />
         </div>
-      ) : users.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground">
-          <Navigation className="w-14 h-14 mx-auto mb-4 opacity-20" />
-          <p className="text-base font-medium text-white">No employees tracked today</p>
-          <p className="text-xs mt-1 opacity-60">Employees appear here when they open the CRM and allow location</p>
-          <p className="text-xs mt-4 opacity-40">Auto-refresh: 1 min · Location updates every 30 sec when CRM is open</p>
-        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* ── LEFT: Employee list ── */}
+          {/* ── LEFT: All employees ── */}
           <div className="lg:col-span-1 space-y-2 max-h-[600px] overflow-y-auto pr-1">
-            {users.map((u, i) => {
+
+            {/* Located employees */}
+            {locatedUsers.map((u, i) => {
               const st         = getStatus(u.liveUpdatedAt);
               const isSelected = selected === u.id;
               const mapsUrl    = `https://www.google.com/maps?q=${u.liveLatitude},${u.liveLongitude}`;
@@ -186,6 +194,39 @@ export default function LiveLocationPage() {
                 </motion.div>
               );
             })}
+
+            {/* Never-shared employees */}
+            {neverUsers.map((u, i) => (
+              <motion.div key={u.id}
+                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: (locatedUsers.length + i) * 0.04 }}
+                className="glass-card p-3 border border-white/5 opacity-50">
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-sm font-bold text-white/40">
+                      {u.name?.[0]?.toUpperCase() || "?"}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#04080f] bg-slate-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-white/50 text-sm truncate">{u.name}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full border flex-shrink-0 opacity-50 ${ROLE_COLOR[u.role] || "bg-white/10 text-white border-white/20"}`}>
+                        {u.role?.replace("_", " ")}
+                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5 text-slate-500">⚫ Location not shared yet</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+
+            {users.length === 0 && (
+              <div className="text-center py-10 text-muted-foreground">
+                <Navigation className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                <p className="text-sm">No employees found</p>
+              </div>
+            )}
           </div>
 
           {/* ── RIGHT: Map ── */}
@@ -195,15 +236,12 @@ export default function LiveLocationPage() {
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-estate-400" />
                   <span className="text-sm font-medium text-white">
-                    {selected
-                      ? `${users.find(u => u.id === selected)?.name} — Location`
-                      : `All Employees (${users.length})`
-                    }
+                    {selected ? `${selectedUser?.name} — Location` : `Located Employees (${locatedUsers.length})`}
                   </span>
                 </div>
-                {selected && (
+                {selected && selectedUser && (
                   <a
-                    href={`https://www.google.com/maps?q=${users.find(u => u.id === selected)?.liveLatitude},${users.find(u => u.id === selected)?.liveLongitude}`}
+                    href={`https://www.google.com/maps?q=${selectedUser.liveLatitude},${selectedUser.liveLongitude}`}
                     target="_blank" rel="noreferrer"
                     className="text-xs px-3 py-1 rounded-lg bg-blue-500/15 border border-blue-500/25 text-blue-400 hover:bg-blue-500/25 transition-colors">
                     Open Google Maps ↗
@@ -211,9 +249,9 @@ export default function LiveLocationPage() {
                 )}
               </div>
 
-              {/* Legend */}
-              <div className="px-4 py-2 border-b border-white/5 flex flex-wrap gap-3">
-                {users.map(u => {
+              {/* Legend — only located users */}
+              <div className="px-4 py-2 border-b border-white/5 flex flex-wrap gap-2">
+                {locatedUsers.map(u => {
                   const st = getStatus(u.liveUpdatedAt);
                   return (
                     <button key={u.id} onClick={() => setSelected(selected === u.id ? null : u.id)}
@@ -227,6 +265,9 @@ export default function LiveLocationPage() {
                     </button>
                   );
                 })}
+                {locatedUsers.length === 0 && (
+                  <span className="text-xs text-slate-500">No employees have shared location yet</span>
+                )}
               </div>
 
               {mapUrl ? (
@@ -238,10 +279,10 @@ export default function LiveLocationPage() {
                     className="w-full h-full border-0"
                     title="Employee Live Locations"
                   />
-                  {!selected && users.length > 1 && (
+                  {!selected && locatedUsers.length > 1 && (
                     <div className="absolute inset-0 pointer-events-none">
                       <div className="absolute bottom-3 left-3 flex flex-col gap-1">
-                        {users.map(u => {
+                        {locatedUsers.map(u => {
                           const st = getStatus(u.liveUpdatedAt);
                           return (
                             <div key={u.id} className="flex items-center gap-1.5 bg-black/80 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm">
@@ -257,9 +298,9 @@ export default function LiveLocationPage() {
                   )}
                   <div className="absolute bottom-3 right-3 pointer-events-auto">
                     <a
-                      href={selected
-                        ? `https://www.google.com/maps?q=${users.find(u=>u.id===selected)?.liveLatitude},${users.find(u=>u.id===selected)?.liveLongitude}`
-                        : `https://www.google.com/maps/search/${users.map(u=>`${u.liveLatitude},${u.liveLongitude}`).join("/")}`
+                      href={selected && selectedUser
+                        ? `https://www.google.com/maps?q=${selectedUser.liveLatitude},${selectedUser.liveLongitude}`
+                        : `https://www.google.com/maps/search/${locatedUsers.map(u => `${u.liveLatitude},${u.liveLongitude}`).join("/")}`
                       }
                       target="_blank" rel="noreferrer"
                       className="flex items-center gap-1.5 text-xs bg-black/80 text-white px-3 py-1.5 rounded-lg backdrop-blur-sm hover:bg-black/90 transition-colors">
@@ -268,8 +309,10 @@ export default function LiveLocationPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <p className="text-sm">No location data</p>
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+                  <Navigation className="w-12 h-12 opacity-10" />
+                  <p className="text-sm">No location data yet</p>
+                  <p className="text-xs opacity-50">Employees need to open CRM and allow location access</p>
                 </div>
               )}
             </div>
@@ -278,7 +321,7 @@ export default function LiveLocationPage() {
       )}
 
       <p className="text-xs text-muted-foreground text-center">
-        Auto-refresh: 1 min · 🟢 Online &lt;2min · 🟡 Away &lt;30min · 🔴 Offline · Tracked for 8h
+        Auto-refresh: 1 min · 🟢 Online &lt;2min · 🟡 Away &lt;30min · 🔴 Offline · ⚫ Never shared
       </p>
     </div>
   );

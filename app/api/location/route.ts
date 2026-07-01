@@ -36,21 +36,16 @@ export async function GET(req: NextRequest) {
     const me = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
     if (!me || me.role !== "ADMIN") return NextResponse.json({ error: "Admin only" }, { status: 403 });
 
-    // Show all employees who have EVER shared location (last 8 hours)
-    const since = new Date(Date.now() - 8 * 60 * 60 * 1000);
+    // Fetch ALL active employees — with or without location
     const users = await prisma.user.findMany({
-      where: {
-        isActive: true,
-        liveLatitude:  { not: null },
-        liveLongitude: { not: null },
-        liveUpdatedAt: { gte: since },
-      },
+      where: { isActive: true },
       select: {
         id: true, name: true, role: true, avatar: true,
         liveLatitude: true, liveLongitude: true,
         liveAddress: true, liveUpdatedAt: true,
         currentPage: true,
       },
+      orderBy: { liveUpdatedAt: { sort: "desc", nulls: "last" } },
     });
 
     return NextResponse.json(users);

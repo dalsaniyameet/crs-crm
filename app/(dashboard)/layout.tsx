@@ -157,7 +157,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     function getLocation() {
       navigator.geolocation.getCurrentPosition(
         p => sendLocation(p.coords.latitude, p.coords.longitude),
-        () => {}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+        (err) => {
+          if (err.code === 1) {
+            // Permission denied — show toast once
+            toast("📍 Please allow location access for live tracking", { id: "loc-denied", duration: 8000, icon: "⚠️" });
+          }
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
       );
     }
 
