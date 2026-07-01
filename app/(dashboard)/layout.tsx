@@ -168,6 +168,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // ── Live Location: GPS update — active tab=30s, background tab=2min ──
   useEffect(() => {
     if (!isLoaded || !user) return;
+    if (role === "ADMIN") return; // admin ka location track nahi karna
     if (!navigator.geolocation) return;
 
     let lastAddress = "";
@@ -195,8 +196,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       navigator.geolocation.getCurrentPosition(
         p => sendLocation(p.coords.latitude, p.coords.longitude),
         (err) => {
-          if (err.code === 1) {
-            // Permission denied — show toast once
+          if (err.code === 1 && role !== "ADMIN") {
             toast("📍 Please allow location access for live tracking", { id: "loc-denied", duration: 8000, icon: "⚠️" });
           }
         },
