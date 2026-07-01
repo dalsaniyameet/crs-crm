@@ -83,6 +83,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <link rel="icon" href="/logo.jpeg" type="image/jpeg" />
           <link rel="apple-touch-icon" href="/logo.jpeg" />
+          <link rel="manifest" href="/manifest.json" />
+          <meta name="theme-color" content="#eab308" />
           {/* JSON-LD Structured Data — Google Rich Results */}
           <script
             type="application/ld+json"

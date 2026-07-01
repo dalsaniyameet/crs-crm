@@ -128,7 +128,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems  = getNavWithOverride(isLoaded ? role : "BROKER", role === "ADMIN" ? null : allowedPages);
 
-  // ── Live Location: GPS update — active tab=30s, background=2min ──
+  // ── Service Worker: register + handle GET_LOCATION message ──
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    if (typeof window === "undefined" || !navigator.serviceWorker) return;
+
+    navigator.serviceWorker.register("/sw.js").then((reg) => {
+      const activate = (sw: ServiceWorker) => {
+        sw.postMessage({ type: "START_LOCATION", baseUrl: window.location.origin });
+      };
+      if (reg.active) activate(reg.active);
+      reg.addEventListener("updatefound", () => {
+        reg.installing?.addEventListener("statechange", () => { if (reg.active) activate(reg.active!); });
+      });
+    }).catch(() => {});
+
+    // SW asks this tab for fresh GPS coords
+    const onMsg = (event: MessageEvent) => {
+      if (event.data?.type !== "GET_LOCATION") return;
+      navigator.geolocation.getCurrentPosition(async (p) => {
+        let address = "";
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${p.coords.latitude}&lon=${p.coords.longitude}&format=json`, { headers: { "Accept-Language": "en" } });
+          const d = await r.json();
+          address = d.display_name?.split(",").slice(0, 3).join(",") || "";
+        } catch {}
+        navigator.serviceWorker.controller?.postMessage({
+          type: "LOCATION_DATA",
+          latitude: p.coords.latitude,
+          longitude: p.coords.longitude,
+          address,
+        });
+      }, () => {}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    };
+    navigator.serviceWorker.addEventListener("message", onMsg);
+    return () => navigator.serviceWorker.removeEventListener("message", onMsg);
+  }, [isLoaded, user]);
+
+  // ── Live Location: GPS update — active tab=30s, background tab=2min ──
   useEffect(() => {
     if (!isLoaded || !user) return;
     if (!navigator.geolocation) return;
