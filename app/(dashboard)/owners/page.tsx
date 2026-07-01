@@ -202,9 +202,13 @@ export default function OwnersPage() {
   const [editStoreItem, setEditStoreItem] = useState<StoreItem | null>(null);
   const [savingStore, setSavingStore]     = useState(false);
   const [storeSearch, setStoreSearch]     = useState("");
+  const [storeCategory, setStoreCategory] = useState<"COMMERCIAL" | "RESIDENTIAL">("COMMERCIAL");
   const [storeFilterType, setStoreFilterType]   = useState("ALL");
   const [storeFilterTxn, setStoreFilterTxn]     = useState("ALL");
   const [storeFilterStatus, setStoreFilterStatus] = useState("ALL");
+
+  const COMMERCIAL_TYPES = ["OFFICE","SHOP","SHOWROOM","WAREHOUSE","COMMERCIAL_LAND","INDUSTRIAL"];
+  const RESIDENTIAL_TYPES = ["APARTMENT","VILLA","PLOT","PENTHOUSE","STUDIO"];
   const storeImgRef = useRef<HTMLInputElement>(null);
   const [uploadingStoreImg, setUploadingStoreImg] = useState(false);
   const STORE_EMPTY = { ownerId: "", title: "", propertyType: "", transactionType: "",
@@ -283,6 +287,10 @@ export default function OwnersPage() {
       s.owner.name.toLowerCase().includes(q) ||
       s.owner.phone.includes(q);
     if (!textMatch) return false;
+    // Category filter
+    const catTypes = storeCategory === "COMMERCIAL" ? COMMERCIAL_TYPES : RESIDENTIAL_TYPES;
+    if (s.propertyType && !catTypes.includes(s.propertyType)) return false;
+    if (!s.propertyType && storeCategory === "RESIDENTIAL") return false; // no type = show in commercial by default
     if (storeFilterType !== "ALL" && s.propertyType !== storeFilterType) return false;
     if (storeFilterTxn  !== "ALL" && s.transactionType !== storeFilterTxn) return false;
     if (storeFilterStatus !== "ALL" && s.status !== storeFilterStatus) return false;
@@ -1831,6 +1839,32 @@ export default function OwnersPage() {
             </button>
           </div>
 
+          {/* Commercial / Residential sub-tabs */}
+          <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
+            <button onClick={() => { setStoreCategory("COMMERCIAL"); setStoreFilterType("ALL"); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                storeCategory === "COMMERCIAL"
+                  ? "bg-orange-600/40 border border-orange-500/50 text-orange-300"
+                  : "text-muted-foreground hover:text-white"
+              }`}>
+              🏢 Commercial
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/10">
+                {storeItems.filter(s => !s.propertyType || COMMERCIAL_TYPES.includes(s.propertyType)).length}
+              </span>
+            </button>
+            <button onClick={() => { setStoreCategory("RESIDENTIAL"); setStoreFilterType("ALL"); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                storeCategory === "RESIDENTIAL"
+                  ? "bg-blue-600/40 border border-blue-500/50 text-blue-300"
+                  : "text-muted-foreground hover:text-white"
+              }`}>
+              🏠 Residential
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/10">
+                {storeItems.filter(s => s.propertyType && RESIDENTIAL_TYPES.includes(s.propertyType)).length}
+              </span>
+            </button>
+          </div>
+
           {/* Filters */}
           <div className="flex gap-2 flex-wrap items-center">
             <div className="relative">
@@ -1849,7 +1883,7 @@ export default function OwnersPage() {
             <select value={storeFilterType} onChange={e => setStoreFilterType(e.target.value)}
               className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground focus:outline-none">
               <option value="ALL">All Property Types</option>
-              {["OFFICE","SHOP","SHOWROOM","WAREHOUSE","APARTMENT","VILLA","PLOT","PENTHOUSE","STUDIO","COMMERCIAL_LAND","INDUSTRIAL"].map(t => (
+              {(storeCategory === "COMMERCIAL" ? COMMERCIAL_TYPES : RESIDENTIAL_TYPES).map(t => (
                 <option key={t} value={t}>{TYPE_ICON[t]} {t.replace(/_/g," ")}</option>
               ))}
             </select>
@@ -2045,9 +2079,12 @@ export default function OwnersPage() {
                         <select value={storeForm.propertyType} onChange={e => setStoreForm(f => ({ ...f, propertyType: e.target.value }))}
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50">
                           <option value="">Select</option>
-                          {["OFFICE","SHOP","SHOWROOM","WAREHOUSE","APARTMENT","VILLA","PLOT","PENTHOUSE","STUDIO","COMMERCIAL_LAND","INDUSTRIAL"].map(t => (
-                            <option key={t} value={t} className="bg-[#0f1f35]">{t.replace(/_/g," ")}</option>
-                          ))}
+                          <optgroup label="🏢 Commercial">
+                            {COMMERCIAL_TYPES.map(t => <option key={t} value={t} className="bg-[#0f1f35]">{t.replace(/_/g," ")}</option>)}
+                          </optgroup>
+                          <optgroup label="🏠 Residential">
+                            {RESIDENTIAL_TYPES.map(t => <option key={t} value={t} className="bg-[#0f1f35]">{t.replace(/_/g," ")}</option>)}
+                          </optgroup>
                         </select>
                       </div>
                       <div>
