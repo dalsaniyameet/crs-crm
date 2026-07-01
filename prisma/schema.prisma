@@ -151,6 +151,7 @@ model User {
   liveUpdatedAt DateTime?
   loginCount    Int      @default(0)
   loginHistory  Json?    // [{at, ip, page}]
+  locationHistory LocationHistory[]
 
   @@map("users")
 }
@@ -817,7 +818,22 @@ model CallLog {
   @@map("call_logs")
 }
 
-// ─── WP INBOX ───────────────────────────────────────────────────────────────
+// ─── LOCATION HISTORY ──────────────────────────────────────────────────────
+
+model LocationHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  latitude  Float
+  longitude Float
+  address   String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("location_history")
+}
+
 
 model WpNumber {
   id        String   @id @default(cuid())
