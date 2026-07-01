@@ -30,7 +30,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 
     const { _addPhotos: _, ...rest } = data;
-    const owner = await prisma.propertyOwner.update({ where: { id: params.id }, data: rest });
+    const owner = await prisma.propertyOwner.update({
+      where: { id: params.id },
+      data: rest,
+      include: { assignedTo: { select: { id: true, name: true } } },
+    });
     return NextResponse.json(owner);
   } catch (err: unknown) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
