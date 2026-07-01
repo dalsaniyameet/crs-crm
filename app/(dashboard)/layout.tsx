@@ -128,34 +128,62 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems  = getNavWithOverride(isLoaded ? role : "BROKER", role === "ADMIN" ? null : allowedPages);
 
-  // ── Live Location: har 30s GPS update → Live Location panel ──
+  // ── Live Location: GPS update — active tab=30s, background=2min ──
   useEffect(() => {
     if (!isLoaded || !user) return;
     if (!navigator.geolocation) return;
+
+    let lastAddress = "";
+    let lastLat = 0, lastLng = 0;
+
     async function sendLocation(lat: number, lng: number) {
-      let address = "";
-      try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, { headers: { "Accept-Language": "en" } });
-        const d = await r.json();
-        address = d.display_name?.split(",").slice(0, 3).join(",") || "";
-      } catch {}
+      // Only re-fetch address if moved >50m
+      const moved = Math.abs(lat - lastLat) > 0.0005 || Math.abs(lng - lastLng) > 0.0005;
+      if (moved || !lastAddress) {
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, { headers: { "Accept-Language": "en" } });
+          const d = await r.json();
+          lastAddress = d.display_name?.split(",").slice(0, 3).join(",") || "";
+        } catch {}
+        lastLat = lat; lastLng = lng;
+      }
       fetch("/api/location", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ latitude: lat, longitude: lng, address }),
+        body: JSON.stringify({ latitude: lat, longitude: lng, address: lastAddress }),
       }).catch(() => {});
     }
-    navigator.geolocation.getCurrentPosition(
-      p => sendLocation(p.coords.latitude, p.coords.longitude),
-      () => {}, { enableHighAccuracy: true }
-    );
-    const geoId = setInterval(() => {
+
+    function getLocation() {
       navigator.geolocation.getCurrentPosition(
         p => sendLocation(p.coords.latitude, p.coords.longitude),
-        () => {}, { enableHighAccuracy: true, timeout: 10000 }
+        () => {}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
       );
-    }, 30_000);
-    return () => clearInterval(geoId);
+    }
+
+    // Immediate ping on load
+    getLocation();
+
+    // Active interval: 30s when tab visible, 2min when hidden
+    let activeId: ReturnType<typeof setInterval>;
+    function startInterval() {
+      clearInterval(activeId);
+      const ms = document.hidden ? 2 * 60_000 : 30_000;
+      activeId = setInterval(getLocation, ms);
+    }
+    startInterval();
+
+    // Re-ping immediately when tab becomes visible again
+    const onVisibility = () => { if (!document.hidden) getLocation(); startInterval(); };
+    const onFocus = () => { getLocation(); startInterval(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      clearInterval(activeId);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [isLoaded, user]);
 
   const handleSignOut = async () => {

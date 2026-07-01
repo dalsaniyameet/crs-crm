@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
     const me = await prisma.user.findUnique({ where: { clerkId: userId }, select: { role: true } });
     if (!me || me.role !== "ADMIN") return NextResponse.json({ error: "Admin only" }, { status: 403 });
 
-    // Last 10 min to 2 hours updated locations
-    const since = new Date(Date.now() - 5 * 60 * 1000);
+    // Show all employees who have EVER shared location (last 8 hours)
+    const since = new Date(Date.now() - 8 * 60 * 60 * 1000);
     const users = await prisma.user.findMany({
       where: {
         isActive: true,
