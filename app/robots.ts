@@ -5,8 +5,17 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/demo", "/free-trial"],
-        disallow: ["/dashboard", "/api/", "/sign-in", "/sign-up", "/admin-panel", "/_next/"],
+        allow: ["/", "/free-trial"],
+        disallow: [
+          "/dashboard",
+          "/api/",
+          "/sign-in",
+          "/sign-up",
+          "/admin-panel",
+          "/_next/",
+          "/demo",
+          "/blog",
+        ],
       },
     ],
     sitemap: "https://cityrealspacecrm.com/sitemap.xml",
